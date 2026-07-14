@@ -21,10 +21,23 @@ mkdir -p docs/data
 
 bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
   --use_legacy_sql=false --format=json \
-  "SELECT * FROM (
+  "SELECT
+     event_date,
+     SUM(sessions) AS sessions,
+     SUM(users) AS users,
+     SUM(pdp_views) AS pdp_views,
+     SUM(add_to_carts) AS add_to_carts,
+     SUM(checkouts) AS checkouts,
+     SUM(purchases) AS purchases,
+     ROUND(SUM(revenue), 2) AS revenue,
+     SUM(units_sold) AS units_sold,
+     ROUND(SAFE_DIVIDE(SUM(purchases), SUM(users)) * 100, 3) AS cvr_user_pct,
+     ROUND(SAFE_DIVIDE(SUM(revenue), SUM(purchases)), 2) AS aov,
+     ROUND(SAFE_DIVIDE(SUM(checkouts) - SUM(purchases), SUM(checkouts)) * 100, 1) AS cart_abandonment_pct
+   FROM (
      SELECT * FROM \`${PROJECT_ID}.marts.mart_daily_ecommerce_kpi\`
-     ORDER BY event_date DESC LIMIT 90
-   ) ORDER BY event_date ASC" \
+     WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+   )
+   GROUP BY event_date
+   ORDER BY event_date ASC" \
   > docs/data/mart1_daily_kpi.json
-
-echo "=== Dashboard data export done: $(date) ==="
