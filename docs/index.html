@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D2C Analytics 대시보드</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: #0f1115; color: #e8e8ea; padding: 40px 20px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  p.sub { color: #9a9aa5; margin-top: 0; margin-bottom: 32px; }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  a.card {
+    display: block; background: #1a1d24; border: 1px solid #2a2d36;
+    border-radius: 14px; padding: 20px; text-decoration: none; color: #e8e8ea;
+    transition: transform .15s, border-color .15s;
+  }
+  a.card:hover { transform: translateY(-3px); border-color: #4f8cff; }
+  a.card .tag { font-size: 12px; color: #4f8cff; font-weight: 600; }
+  a.card h3 { margin: 8px 0 6px; font-size: 17px; }
+  a.card .desc { font-size: 13px; color: #9a9aa5; line-height: 1.4; }
+  a.card.disabled { opacity: .4; pointer-events: none; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>📊 D2C Analytics 대시보드</h1>
+    <p class="sub">매일 오전 자동 갱신됩니다 (BigQuery → GitHub Actions → 이 사이트)</p>
+    <div class="grid">
+      <a class="card" href="mart1.html">
+        <div class="tag">MART 1</div>
+        <h3>일별 이커머스 핵심 KPI</h3>
+        <div class="desc">매출, 세션, 전환율, AOV 등 일자별 추이</div>
+      </a>
+      <a class="card disabled" href="#">
+        <div class="tag">MART 2</div>
+        <h3>퍼널 이탈 분석</h3>
+        <div class="desc">준비 중</div>
+      </a>
+      <a class="card disabled" href="#">
+        <div class="tag">MART 3</div>
+        <h3>코호트 리텐션</h3>
+        <div class="desc">준비 중</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>
