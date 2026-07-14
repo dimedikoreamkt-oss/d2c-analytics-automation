@@ -3,6 +3,10 @@ on:
   schedule:
     - cron: '0 10 * * *'
   workflow_dispatch: {}
+
+permissions:
+  contents: write
+
 jobs:
   run-marts:
     runs-on: ubuntu-latest
@@ -15,7 +19,12 @@ jobs:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-      - name: Run 5 mart SQL scripts
+      - name: Run 5 mart SQL scripts + export dashboard data
         run: |
           chmod +x run_marts.sh
           ./run_marts.sh
+      - name: Commit dashboard data
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update dashboard data [skip ci]"
+          file_pattern: "docs/data/*.json"
