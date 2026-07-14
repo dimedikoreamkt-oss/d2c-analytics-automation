@@ -1,49 +1,61 @@
-CREATE OR REPLACE TABLE `d2c-analytics-502304.marts.mart_dark_social_ai_referral`
-PARTITION BY event_date
-CLUSTER BY referral_category AS
-WITH base_events AS (
+DROP TABLE IF EXISTS `d2c-analytics-502304.marts.mart_dark_social_ai_referral`;
+
+CREATE TABLE `d2c-analytics-502304.marts.mart_dark_social_ai_referral`
+PARTITION BY event_date AS
+
+WITH raw_events AS (
   SELECT
-    DATE(TIMESTAMP_MICROS(event_timestamp), 'Asia/Seoul') AS event_date,
+    PARSE_DATE('%Y%m%d', event_date) AS event_date,
     user_pseudo_id,
     (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS session_id,
-    COALESCE(traffic_source.source, '(direct)') AS source,
-    COALESCE(traffic_source.medium, '(none)') AS medium,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'source') AS session_source,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'medium') AS session_medium,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_referrer') AS page_referrer,
     event_name,
-    ecommerce.purchase_revenue_in_usd AS revenue_usd
+    event_timestamp
   FROM `d2c-analytics-502304.analytics_537721411.events_*`
-  WHERE _TABLE_SUFFIX NOT LIKE 'intraday%'
+  WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY))
+                          AND FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY))
 ),
-categorized AS (
-  SELECT *,
+
+classified AS (
+  SELECT
+    event_date,
+    user_pseudo_id,
+    session_id,
+    event_name,
     CASE
-      WHEN REGEXP_CONTAINS(LOWER(source), r'chatgpt\.com|openai\.com|perplexity\.ai|claude\.ai|gemini\.google\.com|copilot\.microsoft\.com|bing\.com/chat')
-        THEN 'ai_search_referral'
-      WHEN medium = 'referral' AND REGEXP_CONTAINS(LOWER(source), r'facebook\.com|instagram\.com|kakaotalk|band\.us|t\.co|threads\.net')
-        THEN 'dark_social_referral'
-      WHEN medium = 'referral'
-        THEN 'other_referral'
-      WHEN source = '(direct)' AND medium = '(none)'
-        THEN 'direct'
-      WHEN medium IN ('cpc','paid','ppc')
-        THEN 'paid_media'
-      WHEN medium = 'organic'
-        THEN 'organic_search'
-      ELSE 'other'
-    END AS referral_category
-  FROM base_events
+      WHEN REGEXP_CONTAINS(LOWER(IFNULL(page_referrer,'')), r'chatgpt\.com|openai\.com') THEN 'ai_chatgpt'
+      WHEN REGEXP_CONTAINS(LOWER(IFNULL(page_referrer,'')), r'perplexity\.ai') THEN 'ai_perplexity'
+      WHEN REGEXP_CONTAINS(LOWER(IFNULL(page_referrer,'')), r'gemini\.google\.com|bard\.google') THEN 'ai_gemini'
+      WHEN REGEXP_CONTAINS(LOWER(IFNULL(page_referrer,'')), r'copilot\.microsoft') THEN 'ai_copilot'
+      WHEN session_medium = '(none)' AND page_referrer IS NULL THEN 'direct_or_dark_social'
+      WHEN REGEXP_CONTAINS(LOWER(IFNULL(page_referrer,'')), r'kakao|band\.us|t\.me|slack|discord') THEN 'dark_social_messenger'
+      WHEN session_source IS NOT NULL THEN CONCAT(session_source, ' / ', IFNULL(session_medium,'(none)'))
+      ELSE 'unclassified'
+    END AS traffic_channel
+  FROM raw_events
+),
+
+session_agg AS (
+  SELECT
+    event_date,
+    traffic_channel,
+    user_pseudo_id,
+    session_id,
+    MAX(CASE WHEN event_name = 'purchase' THEN 1 ELSE 0 END) AS is_purchase_session,
+    MAX(CASE WHEN event_name = 'add_to_cart' THEN 1 ELSE 0 END) AS is_cart_session
+  FROM classified
+  GROUP BY event_date, traffic_channel, user_pseudo_id, session_id
 )
+
 SELECT
   event_date,
-  referral_category,
-  source,
+  traffic_channel,
   COUNT(DISTINCT user_pseudo_id) AS users,
-  COUNT(DISTINCT CONCAT(user_pseudo_id, CAST(session_id AS STRING))) AS sessions,
-  COUNTIF(event_name = 'view_item') AS pdp_views,
-  COUNTIF(event_name = 'add_to_cart') AS add_to_carts,
-  COUNTIF(event_name = 'purchase') AS purchases,
-  ROUND(SUM(IF(event_name = 'purchase', revenue_usd, 0)), 2) AS revenue,
-  ROUND(SAFE_DIVIDE(
-    COUNTIF(event_name = 'purchase'),
-    COUNT(DISTINCT user_pseudo_id)) * 100, 3) AS cvr_user_pct
-FROM categorized
-GROUP BY event_date, referral_category, source;
+  COUNT(DISTINCT session_id) AS sessions,
+  SUM(is_cart_session) AS add_to_cart_sessions,
+  SUM(is_purchase_session) AS purchase_sessions,
+  ROUND(SAFE_DIVIDE(SUM(is_purchase_session), COUNT(DISTINCT session_id)) * 100, 2) AS session_conversion_rate_pct
+FROM session_agg
+GROUP BY event_date, traffic_channel;
