@@ -7,6 +7,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <link rel="stylesheet" href="mart_common.css">
+<style>
+  .demo-hero { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 900px) { .demo-hero { grid-template-columns: 1fr; } }
+  .demo-panel { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow-sm); }
+  .demo-panel h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .demo-panel .h3-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+  .demo-panel canvas { max-height: 240px; }
+  .cross-tab { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .cross-tab th, .cross-tab td { padding: 10px 14px; text-align: center; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .cross-tab th { background: var(--bg); font-weight: 700; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; }
+  .cross-tab td.heat { font-weight: 700; border-radius: 4px; }
+  .region-table { width: 100%; border-collapse: collapse; }
+  .region-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .region-table .rank { color: var(--text-muted); font-weight: 600; width: 28px; }
+  .region-table .name { font-weight: 600; }
+  .region-table .val { text-align: right; color: var(--primary); font-weight: 700; }
+</style>
 </head>
 <body>
 <header class="topbar">
@@ -19,13 +36,213 @@
     <div class="page-head">
       <div class="crumb">Dashboard / Growth Analytics</div>
       <h1>Mart 13 · 인구통계 분석</h1>
-      <div class="desc">연령대 × 성별 × 국가/지역/디바이스 조합별로 CVR·AOV·매출을 봅니다. 어느 세그먼트가 가장 수익성 높은지, 광고 타겟팅을 어디에 집중할지 판단하는 핵심 마트입니다. (Google 신호 활성 필요)</div>
+      <div class="desc">연령대 · 성별 · 지역별로 어느 세그먼트가 가장 수익성 높은지 한눈에 파악합니다. 광고 타겟팅 최적화에 직접 활용하세요.</div>
       <div class="meta-row"><span id="status">데이터 불러오는 중...</span></div>
     </div>
     <div id="root"></div>
   </main>
 </div>
-<script>const DATA_FILE = 'data/mart13_demographics.json';</script>
 <script src="mart_common.js"></script>
-</body>
-</html>
+<script>
+// 공용 render 결과 제거하고 커스텀 render 실행
+window.addEventListener('load', () => setTimeout(() => {
+  const root = document.getElementById('root');
+  if (root) root.innerHTML = '';
+  customRender();
+}, 200));
+
+async function customRender() {
+  const statusEl = document.getElementById('status');
+  const root = document.getElementById('root');
+  try {
+    const res = await fetch('data/mart13_demographics.json?t=' + Date.now());
+    if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음');
+    const rows = await res.json();
+    if (!rows || !rows.length) { statusEl.textContent = '아직 데이터가 없습니다.'; return; }
+    statusEl.textContent = '총 ' + rows.length.toLocaleString() + '행 로드됨';
+
+    const allDates = [...new Set(rows.map(r => r.event_date))].sort();
+    let range = buildDateFilter(root, allDates, v => { range = v; draw(); });
+
+    // 지표 선택 (핵심 지표만)
+    const metrics = ['users', 'sessions', 'purchases', 'revenue', 'cvr_user_pct', 'aov'];
+    let selectedMetric = 'users';
+    const metricBar = document.createElement('div');
+    metricBar.className = 'chip-bar';
+    metricBar.innerHTML = '<div class="chip-label">' + ICONS.bar + ' 분석 기준 지표</div>' +
+      metrics.map(k => '<span class="chip ' + (k === selectedMetric ? 'active' : '') + '" data-key="' + k + '">' +
+        ko(k) + ' <span class="chip-en">' + k + '</span></span>').join('');
+    root.appendChild(metricBar);
+    metricBar.querySelectorAll('.chip').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedMetric = el.dataset.key;
+        metricBar.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        draw();
+      });
+    });
+
+    const content = document.createElement('div');
+    root.appendChild(content);
+
+    function draw() {
+      content.innerHTML = '';
+      const filtered = filterByRange(rows, 'event_date', range.primaryStart, range.primaryEnd);
+      if (!filtered.length) { content.innerHTML = '<p class="status">선택 기간에 데이터가 없습니다.</p>'; return; }
+
+      const isPct = /pct|rate/i.test(selectedMetric);
+      const isRevenue = /revenue|aov/i.test(selectedMetric);
+      const aggr = isPct ? avgBy : sumBy;
+
+      // 인사이트 배너
+      const totalVal = aggr(filtered, selectedMetric);
+      const totalUsers = sumBy(filtered, 'users');
+      const totalRev = sumBy(filtered, 'revenue');
+      const totalPurchases = sumBy(filtered, 'purchases');
+      const overallCvr = totalUsers > 0 ? (totalPurchases/totalUsers*100) : 0;
+
+      const insightHtml = document.createElement('div');
+      insightHtml.className = 'insight-box';
+      insightHtml.innerHTML = '<div class="i-title">' + ICONS.insight + ' 기간 전체 요약 (' + range.primaryStart + ' ~ ' + range.primaryEnd + ')</div>' +
+        '<div class="insight-item good"><span class="i-ico">' + ICONS.check + '</span><span class="i-txt">전체 <b>' + fmt(totalUsers) + '명</b>이 방문했고, <b>' + fmt(totalPurchases) + '건</b>이 구매로 이어졌습니다 (전환율 <b>' + overallCvr.toFixed(2) + '%</b>, 매출 <b>' + fmt(totalRev) + '</b>원)</span></div>';
+      content.appendChild(insightHtml);
+
+      // ===== 상단 3열: 연령대 막대 / 성별 도넛 / 지역 Top 10 =====
+      const hero = document.createElement('div');
+      hero.className = 'demo-hero';
+
+      // 연령대 막대차트
+      const ageAgg = {};
+      filtered.forEach(r => {
+        const a = r.age_bracket || 'unknown';
+        const v = parseFloat(r[selectedMetric]) || 0;
+        ageAgg[a] = (ageAgg[a] || 0) + v;
+      });
+      const AGE_ORDER = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+', 'unknown'];
+      const ageKeys = AGE_ORDER.filter(a => ageAgg[a] !== undefined);
+      const agePanel = document.createElement('div');
+      agePanel.className = 'demo-panel';
+      agePanel.innerHTML = '<h3>연령대별 ' + ko(selectedMetric) + '</h3><div class="h3-sub">각 연령대의 ' + koDesc(selectedMetric) + '</div><canvas></canvas>';
+      hero.appendChild(agePanel);
+      new Chart(agePanel.querySelector('canvas').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: ageKeys,
+          datasets: [{
+            label: ko(selectedMetric),
+            data: ageKeys.map(k => isPct ? (ageAgg[k]/filtered.filter(r=>r.age_bracket===k).length) : ageAgg[k]),
+            backgroundColor: ['#0066FF','#4d94ff','#7ab3ff','#a3caff','#c9ddff','#e3ecff','#EEF2F7'],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#5A6478', font: { size: 12, weight: '600' } }, grid: { display: false } },
+            y: { ticks: { color: '#8892A6', font: { size: 11 } }, grid: { color: '#F0F3F7' }, beginAtZero: true }
+          }
+        }
+      });
+
+      // 성별 도넛
+      const genderAgg = {};
+      filtered.forEach(r => {
+        const g = r.gender || 'unknown';
+        const v = parseFloat(r[selectedMetric]) || 0;
+        genderAgg[g] = (genderAgg[g] || 0) + v;
+      });
+      const GENDER_KO = { male: '남성', female: '여성', unknown: '미상' };
+      const GENDER_COLORS = { male: '#0066FF', female: '#EC4899', unknown: '#8892A6' };
+      const genderKeys = Object.keys(genderAgg);
+      const genderPanel = document.createElement('div');
+      genderPanel.className = 'demo-panel';
+      genderPanel.innerHTML = '<h3>성별 분포</h3><div class="h3-sub">' + ko(selectedMetric) + ' 기준</div><canvas></canvas>';
+      hero.appendChild(genderPanel);
+      new Chart(genderPanel.querySelector('canvas').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: genderKeys.map(g => GENDER_KO[g] || g),
+          datasets: [{
+            data: genderKeys.map(g => isPct ? (genderAgg[g]/filtered.filter(r=>r.gender===g).length) : genderAgg[g]),
+            backgroundColor: genderKeys.map(g => GENDER_COLORS[g] || '#8892A6'),
+            borderWidth: 2, borderColor: 'white'
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '65%',
+          plugins: { legend: { position: 'bottom', labels: { color: '#5A6478', font: { size: 12 }, padding: 12 } } }
+        }
+      });
+
+      // 지역 Top 10
+      const regionAgg = {};
+      filtered.forEach(r => {
+        const key = (r.country || 'unknown') + ' / ' + (r.region || 'unknown');
+        const v = parseFloat(r[selectedMetric]) || 0;
+        regionAgg[key] = (regionAgg[key] || 0) + v;
+      });
+      const topRegions = Object.entries(regionAgg).sort((a,b) => b[1]-a[1]).slice(0, 10);
+      const regionPanel = document.createElement('div');
+      regionPanel.className = 'demo-panel';
+      let regTbl = '<h3>지역 Top 10</h3><div class="h3-sub">' + ko(selectedMetric) + ' 기준</div><table class="region-table"><tbody>';
+      topRegions.forEach(([k, v], i) => {
+        regTbl += '<tr><td class="rank">' + (i+1) + '</td><td class="name">' + k + '</td><td class="val">' + fmt(isPct ? v/topRegions.length : v) + '</td></tr>';
+      });
+      regTbl += '</tbody></table>';
+      regionPanel.innerHTML = regTbl;
+      hero.appendChild(regionPanel);
+      content.appendChild(hero);
+
+      // ===== 크로스탭: 연령 × 성별 히트맵 =====
+      const crossAgg = {};
+      filtered.forEach(r => {
+        const a = r.age_bracket || 'unknown';
+        const g = r.gender || 'unknown';
+        const key = a + '|' + g;
+        const v = parseFloat(r[selectedMetric]) || 0;
+        crossAgg[key] = (crossAgg[key] || 0) + v;
+      });
+      const crossVals = Object.values(crossAgg).filter(v => v > 0);
+      const maxCross = Math.max(...crossVals, 1);
+      const genderList = genderKeys.length ? genderKeys : ['male', 'female', 'unknown'];
+
+      const crossBox = document.createElement('div');
+      crossBox.className = 'chart-box';
+      let ct = '<h3>연령 × 성별 크로스탭</h3><div class="h3-sub">' + ko(selectedMetric) + ' · 색이 짙을수록 값이 큼</div>' +
+        '<table class="cross-tab"><thead><tr><th>연령대</th>';
+      genderList.forEach(g => ct += '<th>' + (GENDER_KO[g] || g) + '</th>');
+      ct += '<th>합계</th></tr></thead><tbody>';
+      ageKeys.forEach(a => {
+        ct += '<tr><td style="text-align:left;font-weight:700">' + a + '</td>';
+        let rowSum = 0;
+        genderList.forEach(g => {
+          const v = crossAgg[a + '|' + g] || 0;
+          rowSum += v;
+          const intensity = maxCross > 0 ? v/maxCross : 0;
+          const bg = 'rgba(0,102,255,' + (0.05 + intensity*0.75) + ')';
+          const color = intensity > 0.5 ? 'white' : '#0A1628';
+          ct += '<td class="heat" style="background:' + bg + ';color:' + color + '">' + (v > 0 ? fmt(v) : '-') + '</td>';
+        });
+        ct += '<td style="font-weight:700;color:var(--primary)">' + fmt(rowSum) + '</td></tr>';
+      });
+      ct += '</tbody></table>';
+      crossBox.innerHTML = ct;
+      content.appendChild(crossBox);
+
+      // 원본 테이블
+      const tblBox = document.createElement('div');
+      tblBox.className = 'chart-box';
+      tblBox.innerHTML = '<h3>원본 데이터</h3><div class="h3-sub">최대 500행</div><div style="overflow-x:auto"><table></table></div>';
+      content.appendChild(tblBox);
+      const keys = Object.keys(rows[0]);
+      const table = tblBox.querySelector('table');
+      const thead = '<thead><tr>' + keys.map(k => '<th><div class="th-ko">' + ko(k) + '</div><div class="th-en">' + k + '</div></th>').join('') + '</tr></thead>';
+      const tbody = '<tbody>' + filtered.slice(0, 500).map(r => '<tr>' + keys.map(k => '<td>' + (r[k] != null ? r[k] : '') + '</td>').join('') + '</tr>').join('') + '</tbody>';
+      table.innerHTML = thead + tbody;
+    }
+    draw();
+  } catch(e) { statusEl.textContent = '⚠️ ' + e.message; }
+}
+</script>
+</body></html>
