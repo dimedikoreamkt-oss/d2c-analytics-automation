@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mart 7 · 요일×시간대 히트맵 | D2C Analytics</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="mart_common.css">
 <style>
   .heatmap-wrap { overflow-x: auto; }
@@ -21,10 +21,7 @@
     transition: transform .1s;
   }
   .hcell:hover { transform: scale(1.08); z-index: 10; box-shadow: var(--shadow-md); cursor: default; }
-  .hlabel {
-    background: transparent; color: var(--text-muted);
-    font-weight: 700; font-size: 11px;
-  }
+  .hlabel { background: transparent; color: var(--text-muted); font-weight: 700; font-size: 11px; }
   .hlabel-day { color: var(--text); font-weight: 700; }
   .metric-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .metric-tabs button {
@@ -33,22 +30,22 @@
     padding: 8px 16px; cursor: pointer;
     font-size: 12px; font-weight: 600; font-family: inherit;
     transition: all .15s;
+    display: inline-flex; align-items: center; gap: 6px;
   }
   .metric-tabs button:hover { border-color: var(--primary); color: var(--primary); }
   .metric-tabs button.active { background: var(--primary); border-color: var(--primary); color: white; }
+  .metric-tabs button .en { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.65; font-weight: 400; }
+  .metric-tabs button.active .en { opacity: 0.85; color: rgba(255,255,255,0.9); }
   .legend {
     display: flex; align-items: center; gap: 10px;
     font-size: 12px; color: var(--text-muted);
     margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);
   }
-  .legend-bar {
-    display: flex; width: 200px; height: 12px; border-radius: 6px;
-    background: linear-gradient(90deg, #EEF4FF, #0066FF);
-  }
+  .legend-bar { display: flex; width: 200px; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #EEF4FF, #0066FF); }
   .peak-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .peak-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
-  .peak-card .label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-  .peak-card .value { font-size: 22px; font-weight: 700; margin: 6px 0 2px; }
+  .peak-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .peak-card .label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+  .peak-card .value { font-size: 22px; font-weight: 700; margin: 8px 0 4px; }
   .peak-card .sub { font-size: 12px; color: var(--text-secondary); }
 </style>
 </head>
@@ -63,17 +60,18 @@
     <div class="page-head">
       <div class="crumb">Dashboard / Marketing Analytics</div>
       <h1>Mart 7 · 요일×시간대 히트맵</h1>
-      <div class="desc">7일 × 24시간 그리드로 언제 트래픽·전환이 몰리는지 시각적으로 파악합니다. 광고 집행 시간대 최적화에 활용하세요.</div>
+      <div class="desc">일주일(월~일) × 하루 24시간 그리드로 언제 트래픽·전환이 몰리는지 시각적으로 파악합니다. 광고 집행 시간대 최적화·CS 인력 배치·프로모션 타이밍 결정에 활용하세요.</div>
       <div class="meta-row"><span id="status">데이터 불러오는 중...</span></div>
     </div>
 
     <div class="metric-tabs" id="tabs"></div>
 
+    <div id="insightArea"></div>
     <div id="peakCards" class="peak-cards"></div>
 
     <div class="chart-box wide">
       <h3 id="heatTitle">히트맵</h3>
-      <div class="h3-sub" id="heatSub">색이 짙을수록 값이 높습니다. 셀에 마우스를 올리면 상세 정보 확인.</div>
+      <div class="h3-sub" id="heatSub">색이 짙을수록 값이 높은 시간대입니다. 셀에 마우스를 올리면 상세 정보가 나타납니다.</div>
       <div class="heatmap-wrap">
         <div class="heatmap" id="heatmap"></div>
       </div>
@@ -85,14 +83,34 @@
     </div>
   </main>
 </div>
+
 <script>
-const DAY_NAMES = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
-const KO = {
-  sessions: '세션 수', users: '사용자 수', add_to_carts: '장바구니 담기',
-  purchases: '구매 완료', revenue: '매출', session_conversion_rate_pct: '세션 전환율 (%)',
-  cvr_session_pct: '세션 전환율 (%)'
+const ICONS = {
+  fire: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg>',
+  bar: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
+  target: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+  insight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/><circle cx="12" cy="12" r="5"/></svg>',
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
 };
-const ko = k => KO[k] || k;
+
+const DAY_NAMES = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+const DAY_SHORT = ['일','월','화','수','목','금','토'];
+const KO_METRIC = {
+  sessions: '세션 수', users: '사용자 수', add_to_carts: '장바구니 담기',
+  purchases: '구매 완료', revenue: '매출액',
+  session_conversion_rate_pct: '세션 전환율 (%)', cvr_session_pct: '세션 전환율 (%)'
+};
+const METRIC_DESC = {
+  sessions: '방문 세션 수',
+  users: '순 사용자 수',
+  add_to_carts: '장바구니 담기가 일어난 세션',
+  purchases: '실제 구매가 발생한 세션',
+  revenue: '실제 발생한 매출액',
+  session_conversion_rate_pct: '세션 100건 중 구매 세션 비율',
+  cvr_session_pct: '세션 100건 중 구매 세션 비율'
+};
+const ko = k => KO_METRIC[k] || k;
+const koDesc = k => METRIC_DESC[k] || '';
 
 let ROWS = [];
 let currentMetric = null;
@@ -104,7 +122,7 @@ async function load() {
     if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음');
     ROWS = await res.json();
     if (!ROWS.length) { s.textContent = '데이터 없음'; return; }
-    s.textContent = `총 ${ROWS.length}개 셀 (요일 × 시간대)`;
+    s.textContent = `총 ${ROWS.length}개 셀 (요일 7 × 시간대 24)`;
     initTabs();
     draw();
   } catch (e) { s.textContent = '⚠️ ' + e.message; }
@@ -119,7 +137,7 @@ function initTabs() {
   const tabs = document.getElementById('tabs');
   numericKeys.forEach(k => {
     const b = document.createElement('button');
-    b.innerHTML = `${k} <span style="opacity:.7">· ${ko(k)}</span>`;
+    b.innerHTML = `${ko(k)} <span class="en">${k}</span>`;
     if (k === currentMetric) b.classList.add('active');
     b.addEventListener('click', () => {
       currentMetric = k;
@@ -132,50 +150,112 @@ function initTabs() {
 }
 
 function draw() {
-  document.getElementById('heatTitle').textContent = `${currentMetric} · ${ko(currentMetric)}`;
+  document.getElementById('heatTitle').innerHTML = `${ko(currentMetric)} <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);font-weight:400;margin-left:6px">${currentMetric}</span>`;
+  document.getElementById('heatSub').textContent = koDesc(currentMetric) + ' · 색이 짙을수록 그 시간대의 값이 크다는 의미입니다.';
 
-  // 피크 카드
-  const peakDiv = document.getElementById('peakCards');
-  peakDiv.innerHTML = '';
   const valid = ROWS.filter(r => isFinite(parseFloat(r[currentMetric])));
+
+  // 피크 카드 + 인사이트
+  const peakDiv = document.getElementById('peakCards');
+  const insArea = document.getElementById('insightArea');
+  peakDiv.innerHTML = '';
+  insArea.innerHTML = '';
+
   if (valid.length) {
     const sorted = [...valid].sort((a, b) => parseFloat(b[currentMetric]) - parseFloat(a[currentMetric]));
     const peak = sorted[0];
+    const bottom = sorted[sorted.length - 1];
     const total = valid.reduce((s, r) => s + parseFloat(r[currentMetric]), 0);
     const avg = total / valid.length;
     const peakVal = parseFloat(peak[currentMetric]);
+    const peakDay = DAY_NAMES[parseInt(peak.day_of_week_num)];
+    const peakHour = parseInt(peak.hour_of_day);
+    const peakMult = avg > 0 ? peakVal/avg : 0;
+
     peakDiv.innerHTML = `
       <div class="peak-card">
-        <div class="label">🔥 Peak · 최고 시간대</div>
+        <div class="label">${ICONS.fire} 최고 시간대 · Peak</div>
         <div class="value">${peakVal.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
-        <div class="sub">${DAY_NAMES[parseInt(peak.day_of_week_num)]} ${peak.hour_of_day}시</div>
+        <div class="sub">${peakDay} ${peakHour}시 — ${ko(currentMetric)} 최대</div>
       </div>
       <div class="peak-card">
-        <div class="label">📊 Average · 평균</div>
+        <div class="label">${ICONS.bar} 평균 · Average</div>
         <div class="value">${avg.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
-        <div class="sub">전체 168개 셀 평균</div>
+        <div class="sub">168개(7×24) 셀 전체 평균</div>
       </div>
       <div class="peak-card">
-        <div class="label">🎯 Peak vs Avg</div>
-        <div class="value">${avg > 0 ? (peakVal/avg).toFixed(1) : '-'}x</div>
-        <div class="sub">피크가 평균의 몇 배</div>
+        <div class="label">${ICONS.target} 피크 강도 · Peak vs Avg</div>
+        <div class="value">${peakMult.toFixed(1)}x</div>
+        <div class="sub">최고 시간대가 평균의 ${peakMult.toFixed(1)}배</div>
       </div>`;
+
+    // 인사이트 문구
+    const items = [];
+    // Top 3
+    const top3 = sorted.slice(0, 3).map(r => `${DAY_SHORT[parseInt(r.day_of_week_num)]} ${parseInt(r.hour_of_day)}시`);
+    items.push({
+      tone: 'good', icon: ICONS.fire,
+      text: `<b>${ko(currentMetric)}</b>이(가) 가장 높은 시간대 3곳: <b>${top3.join(', ')}</b> — 이 시간대에 광고비를 집중하면 효율이 가장 좋습니다.`
+    });
+
+    // 요일별 집계
+    const byDay = {};
+    valid.forEach(r => {
+      const d = parseInt(r.day_of_week_num);
+      byDay[d] = (byDay[d] || 0) + parseFloat(r[currentMetric]);
+    });
+    const dayEntries = Object.entries(byDay).sort((a,b) => b[1] - a[1]);
+    if (dayEntries.length) {
+      const bestDay = DAY_NAMES[parseInt(dayEntries[0][0])];
+      const worstDay = DAY_NAMES[parseInt(dayEntries[dayEntries.length-1][0])];
+      items.push({
+        tone: 'good', icon: ICONS.check,
+        text: `요일 기준으로는 <b>${bestDay}</b>에 ${ko(currentMetric)}이(가) 가장 많고, <b>${worstDay}</b>이(가) 가장 적습니다.`
+      });
+    }
+
+    // 시간대별 집계
+    const byHour = {};
+    valid.forEach(r => {
+      const h = parseInt(r.hour_of_day);
+      byHour[h] = (byHour[h] || 0) + parseFloat(r[currentMetric]);
+    });
+    const hourEntries = Object.entries(byHour).sort((a,b) => b[1] - a[1]).slice(0, 3);
+    if (hourEntries.length) {
+      const topHours = hourEntries.map(([h]) => `${h}시`).join(', ');
+      items.push({
+        tone: 'good', icon: ICONS.target,
+        text: `시간대 기준 상위 3개: <b>${topHours}</b> — 요일 상관없이 이 시간대는 항상 활성입니다.`
+      });
+    }
+
+    // 피크 강도 코멘트
+    if (peakMult >= 5) {
+      items.push({
+        tone: 'warn', icon: ICONS.fire,
+        text: `피크가 평균의 <b>${peakMult.toFixed(1)}배</b>로 편차가 매우 큽니다 — 특정 시간대 집중도가 극단적이라 이 구간의 서버 부하·CS 응대 준비가 특히 중요합니다.`
+      });
+    }
+
+    const box = document.createElement('div');
+    box.className = 'insight-box';
+    box.innerHTML = `<div class="i-title">${ICONS.insight} 오늘의 요약</div>` +
+      items.map(i => `<div class="insight-item ${i.tone}"><span class="i-ico">${i.icon}</span><span class="i-txt">${i.text}</span></div>`).join('');
+    insArea.appendChild(box);
   }
 
-  // 히트맵
+  // 히트맵 렌더
   const heat = document.getElementById('heatmap');
   heat.innerHTML = '';
   const vals = ROWS.map(r => parseFloat(r[currentMetric]) || 0);
   const maxV = Math.max(...vals, 1);
 
-  // 헤더행
   heat.appendChild(cell('', 'hlabel'));
   for (let h = 0; h < 24; h++) heat.appendChild(cell(String(h), 'hlabel'));
 
-  // 요일 순서: 월화수목금토일 (마케팅 실무에서는 월요일 시작이 더 익숙)
-  const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+  const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일
   dayOrder.forEach(d => {
-    heat.appendChild(cell(DAY_NAMES[d].substring(0,1), 'hlabel hlabel-day'));
+    heat.appendChild(cell(DAY_SHORT[d], 'hlabel hlabel-day'));
     for (let h = 0; h < 24; h++) {
       const r = ROWS.find(x => parseInt(x.day_of_week_num) === d && parseInt(x.hour_of_day) === h);
       const v = r ? parseFloat(r[currentMetric]) || 0 : 0;
