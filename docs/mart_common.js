@@ -58,6 +58,28 @@ const KOREAN_LABELS = {
   user_pseudo_id: { ko: '사용자 ID', desc: 'GA4 익명 식별자' },
   cluster_id: { ko: '군집 번호', desc: 'K-means 자동 분류 그룹' },
   purchase_probability: { ko: '구매 확률', desc: 'ML 모델이 예측한 구매 가능성' }
+    // Mart 13/14/16 신규 컬럼
+  age_bracket: { ko: '연령대', desc: '18-24, 25-34, 35-44, 45-54, 55-64, 65+' },
+  gender: { ko: '성별', desc: 'male / female / unknown' },
+  country: { ko: '국가', desc: '방문자의 국가' },
+  region: { ko: '지역 (시도)', desc: '한국이면 서울/경기/부산 등' },
+  city: { ko: '도시', desc: '방문자의 도시' },
+  device_category: { ko: '디바이스', desc: 'mobile / desktop / tablet' },
+  interest_type: { ko: '관심사 유형', desc: 'affinity(친밀도) / in_market(구매의향) / life_event(생애이벤트)' },
+  interest_value: { ko: '관심사 카테고리', desc: 'GA4가 분류한 관심 카테고리명' },
+  source: { ko: '유입 소스', desc: '어디에서 들어왔는가 (예: google, facebook, naver)' },
+  medium: { ko: '유입 매체', desc: '어떤 방식으로 들어왔는가 (예: cpc, organic, email)' },
+  campaign: { ko: '캠페인명', desc: '마케팅 캠페인 식별자 (UTM campaign)' },
+  ad_content: { ko: '광고 소재', desc: '동일 캠페인 내 크리에이티브 구분 (UTM content)' },
+  ad_term: { ko: '광고 키워드', desc: '검색 광고의 키워드 (UTM term)' },
+  page_views: { ko: '페이지뷰', desc: '총 페이지 조회 수' },
+  acquired_users: { ko: '신규 획득 사용자', desc: '이 채널을 통해 처음 방문한 사용자 수' },
+  session_cvr_pct: { ko: '세션 전환율', desc: '세션 100건 중 구매 세션 비율 (%)' },
+  user_cvr_pct: { ko: '사용자 전환율', desc: '사용자 100명 중 구매자 비율 (%)' },
+  revenue_per_user: { ko: '유저당 매출', desc: '사용자 1명당 평균 매출' },
+  revenue_per_acquired_user: { ko: '획득당 매출', desc: '신규 획득 유저 1명당 매출 (LTV 근사)' },
+  atc_rate_pct: { ko: '장바구니 담기율', desc: '세션 100건 중 장바구니 담기 발생 비율' },
+
 };
 const ko = (k) => (KOREAN_LABELS[k]?.ko) || k;
 const koDesc = (k) => (KOREAN_LABELS[k]?.desc) || '';
