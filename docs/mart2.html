@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mart 2 · 퍼널 이탈 분석</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: #0f1115; color: #e8e8ea; padding: 32px 20px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  a.back { color: #4f8cff; text-decoration: none; font-size: 14px; }
+  h1 { margin: 8px 0 4px; font-size: 24px; }
+  p.sub { color: #9a9aa5; margin-top: 0; }
+
+  .funnel-wrap { margin: 32px 0; }
+  .funnel-row {
+    display: flex; align-items: center; margin-bottom: 10px;
+  }
+  .funnel-label {
+    width: 130px; font-size: 13px; color: #cfd2da;
+  }
+  .funnel-bar-outer {
+    flex: 1; height: 34px; background: #1a1d24; border-radius: 8px;
+    border: 1px solid #2a2d36; overflow: hidden; position: relative;
+  }
+  .funnel-bar-inner {
+    height: 100%; background: linear-gradient(90deg, #4f8cff, #7bb0ff);
+    display: flex; align-items: center; padding: 0 12px;
+    color: #fff; font-weight: 600; font-size: 13px;
+  }
+  .funnel-drop {
+    width: 110px; text-align: right; font-size: 13px; color: #ff7a7a;
+    padding-left: 12px;
+  }
+
+  .stage-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px; margin: 24px 0;
+  }
+  .stage-card {
+    background: #1a1d24; border: 1px solid #2a2d36; border-radius: 12px; padding: 14px;
+  }
+  .stage-card .label { font-size: 11px; color: #9a9aa5; text-transform: uppercase; letter-spacing: .5px; }
+  .stage-card .value { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .stage-card .pct { font-size: 12px; color: #7bb0ff; margin-top: 2px; }
+
+  .chart-box {
+    background: #1a1d24; border: 1px solid #2a2d36; border-radius: 14px;
+    padding: 20px; margin-bottom: 24px;
+  }
+  .chart-box h3 { margin-top: 0; font-size: 15px; color: #cfd2da; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #2a2d36; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  #status { color: #9a9aa5; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← 대시보드 목록</a>
+  <h1>Mart 2 · 퍼널 이탈 분석</h1>
+  <p class="sub" id="status">데이터 불러오는 중...</p>
+
+  <h3 style="color:#cfd2da; margin-top:24px;">🔻 최근일 기준 퍼널</h3>
+  <div class="stage-grid" id="stageGrid"></div>
+  <div class="funnel-wrap" id="funnelWrap"></div>
+
+  <div class="chart-box">
+    <h3>단계별 전환율 추이 (%)</h3>
+    <canvas id="conversionChart"></canvas>
+  </div>
+
+  <div class="chart-box">
+    <h3>단계별 절대 수치 추이</h3>
+    <canvas id="volumeChart"></canvas>
+  </div>
+
+  <div class="chart-box">
+    <h3>일자별 상세 데이터</h3>
+    <div style="overflow-x:auto">
+      <table id="dataTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+const STAGES = [
+  { key: 'sessions', label: 'Sessions' },
+  { key: 'pdp_views', label: 'PDP Views' },
+  { key: 'add_to_carts', label: 'Add to Cart' },
+  { key: 'checkouts', label: 'Checkouts' },
+  { key: 'purchases', label: 'Purchases' }
+];
+
+async function loadData() {
+  const statusEl = document.getElementById('status');
+  try {
+    const res = await fetch('data/mart2_funnel.json?t=' + Date.now());
+    if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음');
+    const rows = await res.json();
+    if (!rows || rows.length === 0) {
+      statusEl.textContent = '아직 데이터가 없습니다. GitHub Actions가 최소 1회 실행된 후 표시됩니다.';
+      return;
+    }
+    render(rows);
+    statusEl.textContent = `총 ${rows.length}일치 데이터 · 마지막 업데이트: ${rows[rows.length-1].event_date || '-'}`;
+  } catch (e) {
+    statusEl.textContent = '⚠️ 데이터 로드 실패: ' + e.message;
+  }
+}
+
+function shortDate(s) {
+  const p = String(s).split('-');
+  return p.length === 3 ? `${p[1]}/${p[2]}` : s;
+}
+
+function render(rows) {
+  const latest = rows[rows.length - 1];
+
+  // 1. 단계별 카드
+  const stageGrid = document.getElementById('stageGrid');
+  const topVal = parseFloat(latest[STAGES[0].key]) || 0;
+  STAGES.forEach((s, i) => {
+    const val = parseFloat(latest[s.key]) || 0;
+    const pctOfTop = topVal > 0 ? (val / topVal * 100).toFixed(1) : '0.0';
+    const div = document.createElement('div');
+    div.className = 'stage-card';
+    div.innerHTML = `
+      <div class="label">${s.label}</div>
+      <div class="value">${val.toLocaleString()}</div>
+      <div class="pct">${pctOfTop}% of top</div>`;
+    stageGrid.appendChild(div);
+  });
+
+  // 2. 가로 퍼널 바 (최근일 기준)
+  const funnelWrap = document.getElementById('funnelWrap');
+  STAGES.forEach((s, i) => {
+    const val = parseFloat(latest[s.key]) || 0;
+    const width = topVal > 0 ? (val / topVal * 100) : 0;
+    const prevVal = i === 0 ? val : (parseFloat(latest[STAGES[i-1].key]) || 0);
+    const dropPct = (prevVal > 0 && i > 0) ? (100 - val / prevVal * 100).toFixed(1) : null;
+
+    const row = document.createElement('div');
+    row.className = 'funnel-row';
+    row.innerHTML = `
+      <div class="funnel-label">${s.label}</div>
+      <div class="funnel-bar-outer">
+        <div class="funnel-bar-inner" style="width:${Math.max(width, 2)}%">${val.toLocaleString()}</div>
+      </div>
+      <div class="funnel-drop">${dropPct !== null ? `↓ ${dropPct}% 이탈` : ''}</div>`;
+    funnelWrap.appendChild(row);
+  });
+
+  // 3. 단계별 전환율 라인차트
+  const labels = rows.map(r => shortDate(r.event_date));
+  const conversionKeys = [
+    { key: 'session_to_pdp_pct', label: 'Session → PDP', color: '#4f8cff' },
+    { key: 'pdp_to_atc_pct', label: 'PDP → ATC', color: '#7bb0ff' },
+    { key: 'atc_to_checkout_pct', label: 'ATC → Checkout', color: '#ffb84f' },
+    { key: 'checkout_to_purchase_pct', label: 'Checkout → Purchase', color: '#7affc0' },
+    { key: 'session_to_purchase_pct', label: 'Session → Purchase (총 CVR)', color: '#ff7a7a' }
+  ];
+  new Chart(document.getElementById('conversionChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: conversionKeys.map(c => ({
+        label: c.label,
+        data: rows.map(r => parseFloat(r[c.key]) || 0),
+        borderColor: c.color,
+        backgroundColor: c.color + '22',
+        tension: 0.3,
+        pointRadius: 2,
+        fill: false
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#cfd2da' } } },
+      scales: {
+        x: { ticks: { color: '#9a9aa5', maxRotation: 60, minRotation: 45, autoSkip: true }, grid: { color: '#242830' } },
+        y: { ticks: { color: '#9a9aa5' }, grid: { color: '#242830' } }
+      }
+    }
+  });
+
+  // 4. 절대 수치 라인차트
+  new Chart(document.getElementById('volumeChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: STAGES.map((s, i) => ({
+        label: s.label,
+        data: rows.map(r => parseFloat(r[s.key]) || 0),
+        borderColor: ['#4f8cff','#7bb0ff','#ffb84f','#7affc0','#ff7a7a'][i],
+        backgroundColor: ['#4f8cff','#7bb0ff','#ffb84f','#7affc0','#ff7a7a'][i] + '22',
+        tension: 0.3,
+        pointRadius: 2,
+        fill: false
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#cfd2da' } } },
+      scales: {
+        x: { ticks: { color: '#9a9aa5', maxRotation: 60, minRotation: 45, autoSkip: true }, grid: { color: '#242830' } },
+        y: { ticks: { color: '#9a9aa5' }, grid: { color: '#242830' } }
+      }
+    }
+  });
+
+  // 5. 원본 테이블
+  const table = document.getElementById('dataTable');
+  const keys = Object.keys(rows[0]);
+  const thead = '<thead><tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr></thead>';
+  const tbody = '<tbody>' + rows.slice().reverse().map(r =>
+    '<tr>' + keys.map(k => `<td>${r[k] ?? ''}</td>`).join('') + '</tr>'
+  ).join('') + '</tbody>';
+  table.innerHTML = thead + tbody;
+}
+
+loadData();
+</script>
+</body>
+</html>
