@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mart 13 · 인구통계 분석 | D2C Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="mart_common.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta">매일 KST 19:00 자동 갱신</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard / Growth Analytics</div>
+      <h1>Mart 13 · 인구통계 분석</h1>
+      <div class="desc">연령대 × 성별 × 국가/지역/디바이스 조합별로 CVR·AOV·매출을 봅니다. 어느 세그먼트가 가장 수익성 높은지, 광고 타겟팅을 어디에 집중할지 판단하는 핵심 마트입니다. (Google 신호 활성 필요)</div>
+      <div class="meta-row"><span id="status">데이터 불러오는 중...</span></div>
+    </div>
+    <div id="root"></div>
+  </main>
+</div>
+<script>const DATA_FILE = 'data/mart13_demographics.json';</script>
+<script src="mart_common.js"></script>
+</body>
+</html>
