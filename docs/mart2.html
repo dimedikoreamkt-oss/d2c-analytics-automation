@@ -5,28 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mart 2 · 퍼널 이탈 분석</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="mart_common.css">
 <style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; font-family: -apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif;
-    background: #0f1115; color: #e8e8ea; padding: 32px 20px;
-  }
-  .wrap { max-width: 1100px; margin: 0 auto; }
-  a.back { color: #4f8cff; text-decoration: none; font-size: 14px; }
-  h1 { margin: 8px 0 4px; font-size: 24px; }
-  p.sub { color: #9a9aa5; margin-top: 0; }
-
-  .controls {
-    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
-    background: #1a1d24; border: 1px solid #2a2d36; border-radius: 12px;
-    padding: 14px 16px; margin: 24px 0;
-  }
-  .controls label { font-size: 12px; color: #9a9aa5; margin-right: 6px; }
-  .controls select {
-    background: #0f1115; color: #e8e8ea; border: 1px solid #2a2d36;
-    border-radius: 8px; padding: 6px 10px; font-size: 13px;
-  }
-
   .funnel-wrap { margin: 24px 0; }
   .funnel-row { display: flex; align-items: center; margin-bottom: 10px; }
   .funnel-label { width: 160px; font-size: 13px; color: #cfd2da; }
@@ -39,55 +19,36 @@
     display: flex; align-items: center; padding: 0 12px;
     color: #fff; font-weight: 600; font-size: 13px;
   }
-  .funnel-drop {
-    width: 140px; text-align: right; font-size: 13px; color: #ff7a7a;
-    padding-left: 12px;
-  }
-
-  .chart-box {
-    background: #1a1d24; border: 1px solid #2a2d36; border-radius: 14px;
-    padding: 20px; margin-bottom: 24px;
-  }
-  .chart-box h3 { margin-top: 0; font-size: 15px; color: #cfd2da; }
-
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
-  th, td { padding: 8px 10px; border-bottom: 1px solid #2a2d36; text-align: right; }
-  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2),
-  th:nth-child(3), td:nth-child(3), th:nth-child(5), td:nth-child(5) { text-align: left; }
-  #status { color: #9a9aa5; font-size: 13px; }
+  .funnel-drop { width: 140px; text-align: right; font-size: 13px; color: #ff7a7a; padding-left: 12px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="index.html">← 대시보드 목록</a>
-  <h1>Mart 2 · 퍼널 이탈 분석</h1>
-  <p class="sub" id="status">데이터 불러오는 중...</p>
+<a class="back" href="index.html">← 대시보드 목록</a>
+<h1>Mart 2 · 퍼널 이탈 분석</h1>
+<p class="sub" id="status">데이터 불러오는 중...</p>
 
-  <div class="controls">
-    <div><label>Funnel Type</label><select id="selFunnel"></select></div>
-    <div><label>Segment</label><select id="selSegment"></select></div>
-    <div><label>Date</label><select id="selDate"></select></div>
-  </div>
+<div class="controls">
+  <div><label>Funnel Type</label><select id="selFunnel"></select></div>
+  <div><label>Segment</label><select id="selSegment"></select></div>
+  <div><label>Date</label><select id="selDate"></select></div>
+</div>
 
-  <div class="chart-box">
-    <h3>🔻 선택한 조건의 퍼널 (스텝별 세션)</h3>
-    <div class="funnel-wrap" id="funnelWrap"></div>
-  </div>
+<div id="heroArea"></div>
+<div id="insightArea"></div>
 
-  <div class="chart-box">
-    <h3>스텝별 세션 수 추이 (선택 조건 기준)</h3>
-    <canvas id="stepTrendChart"></canvas>
-  </div>
+<div class="chart-box">
+  <h3>🔻 선택 조건의 퍼널 (스텝별 세션)</h3>
+  <div class="funnel-wrap" id="funnelWrap"></div>
+</div>
 
-  <div class="chart-box">
-    <h3>스텝간 이탈률 추이 (%)</h3>
-    <canvas id="dropoffChart"></canvas>
-  </div>
+<div class="chart-box"><h3>스텝별 세션 수 추이</h3><canvas id="stepTrendChart"></canvas></div>
+<div class="chart-box"><h3>스텝간 이탈률 추이 (%)</h3><canvas id="dropoffChart"></canvas></div>
 
-  <div class="chart-box">
-    <h3>원본 데이터 (선택한 funnel_type / segment)</h3>
-    <div style="overflow-x:auto"><table id="dataTable"></table></div>
-  </div>
+<div class="chart-box">
+  <h3>원본 데이터 (선택 조건)</h3>
+  <div style="overflow-x:auto"><table id="dataTable"></table></div>
+</div>
 </div>
 
 <script>
@@ -95,107 +56,165 @@ let ALL = [];
 let charts = {};
 
 async function loadData() {
-  const statusEl = document.getElementById('status');
+  const s = document.getElementById('status');
   try {
     const res = await fetch('data/mart2_funnel.json?t=' + Date.now());
     if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음');
     ALL = await res.json();
-    if (!ALL.length) {
-      statusEl.textContent = '아직 데이터가 없습니다.';
-      return;
-    }
-    statusEl.textContent = `총 ${ALL.length}행 · 마지막 날짜: ${ALL[ALL.length-1].event_date}`;
+    if (!ALL.length) { s.textContent = '데이터 없음'; return; }
+    s.textContent = `총 ${ALL.length}행 · 마지막 날짜: ${ALL[ALL.length-1].event_date}`;
     initControls();
     render();
-  } catch (e) {
-    statusEl.textContent = '⚠️ 데이터 로드 실패: ' + e.message;
-  }
+  } catch(e) { s.textContent = '⚠️ ' + e.message; }
 }
-
-function uniqSorted(arr) { return [...new Set(arr)].sort(); }
+function uniqSorted(a) { return [...new Set(a)].sort(); }
+function shortDate(s) { const p = String(s).split('-'); return p.length===3 ? `${p[1]}/${p[2]}` : s; }
+function fmt(v) { return isFinite(v) ? v.toLocaleString(undefined, {maximumFractionDigits: 1}) : '-'; }
+function deltaHtml(cur, prev) {
+  if (!isFinite(cur) || !isFinite(prev) || prev === 0) return '<span class="delta-flat">— 비교불가</span>';
+  const d = ((cur - prev)/Math.abs(prev))*100;
+  const arrow = d > 0.5 ? '↑' : (d < -0.5 ? '↓' : '→');
+  const cls = d > 0.5 ? 'delta-up' : (d < -0.5 ? 'delta-down' : 'delta-flat');
+  return `<span class="${cls}">${arrow} ${d >= 0 ? '+' : ''}${d.toFixed(1)}%</span>`;
+}
 
 function initControls() {
-  const selFunnel = document.getElementById('selFunnel');
-  const selSegment = document.getElementById('selSegment');
-  const selDate = document.getElementById('selDate');
-
-  uniqSorted(ALL.map(r => r.funnel_type)).forEach(v => {
-    const o = document.createElement('option'); o.value = v; o.textContent = v; selFunnel.appendChild(o);
+  const selF = document.getElementById('selFunnel');
+  const selS = document.getElementById('selSegment');
+  const selD = document.getElementById('selDate');
+  uniqSorted(ALL.map(r=>r.funnel_type)).forEach(v => {
+    const o = document.createElement('option'); o.value=v; o.textContent=v; selF.appendChild(o);
   });
-
-  function refreshSegment() {
-    selSegment.innerHTML = '';
-    const ft = selFunnel.value;
-    uniqSorted(ALL.filter(r => r.funnel_type === ft).map(r => r.segment)).forEach(v => {
-      const o = document.createElement('option'); o.value = v; o.textContent = v; selSegment.appendChild(o);
+  function refSeg() {
+    selS.innerHTML='';
+    uniqSorted(ALL.filter(r=>r.funnel_type===selF.value).map(r=>r.segment)).forEach(v => {
+      const o = document.createElement('option'); o.value=v; o.textContent=v; selS.appendChild(o);
     });
   }
-  function refreshDate() {
-    selDate.innerHTML = '';
-    const ft = selFunnel.value, sg = selSegment.value;
-    const dates = uniqSorted(ALL.filter(r => r.funnel_type === ft && r.segment === sg).map(r => r.event_date));
-    dates.forEach(v => {
-      const o = document.createElement('option'); o.value = v; o.textContent = v; selDate.appendChild(o);
-    });
-    selDate.value = dates[dates.length - 1]; // 최신 날짜 기본
+  function refDate() {
+    selD.innerHTML='';
+    const ds = uniqSorted(ALL.filter(r=>r.funnel_type===selF.value && r.segment===selS.value).map(r=>r.event_date));
+    ds.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; selD.appendChild(o); });
+    selD.value = ds[ds.length-1];
   }
-
-  refreshSegment();
-  refreshDate();
-
-  selFunnel.addEventListener('change', () => { refreshSegment(); refreshDate(); render(); });
-  selSegment.addEventListener('change', () => { refreshDate(); render(); });
-  selDate.addEventListener('change', render);
-}
-
-function shortDate(s) {
-  const p = String(s).split('-');
-  return p.length === 3 ? `${p[1]}/${p[2]}` : s;
+  refSeg(); refDate();
+  selF.addEventListener('change', () => { refSeg(); refDate(); render(); });
+  selS.addEventListener('change', () => { refDate(); render(); });
+  selD.addEventListener('change', render);
 }
 
 function render() {
   const ft = document.getElementById('selFunnel').value;
   const sg = document.getElementById('selSegment').value;
   const dt = document.getElementById('selDate').value;
-  const filtered = ALL.filter(r => r.funnel_type === ft && r.segment === sg);
-  const latestDay = filtered.filter(r => r.event_date === dt)
-    .sort((a,b) => a.step_number - b.step_number);
+  const filtered = ALL.filter(r => r.funnel_type===ft && r.segment===sg);
+  const latestDay = filtered.filter(r=>r.event_date===dt).sort((a,b)=>a.step_number-b.step_number);
+  const dates = uniqSorted(filtered.map(r=>r.event_date));
+  const prevDt = dates[dates.indexOf(dt)-1];
+  const prevDay = prevDt ? filtered.filter(r=>r.event_date===prevDt).sort((a,b)=>a.step_number-b.step_number) : [];
 
-  // 1) 퍼널 바
-  const funnelWrap = document.getElementById('funnelWrap');
-  funnelWrap.innerHTML = '';
+  // 상단 배너 3개: 첫 스텝, 마지막 스텝, 총 전환율
+  const heroArea = document.getElementById('heroArea');
+  heroArea.innerHTML = '';
+  if (latestDay.length) {
+    const first = latestDay[0], last = latestDay[latestDay.length-1];
+    const firstPrev = prevDay[0], lastPrev = prevDay[prevDay.length-1];
+    const totalCvr = first.sessions > 0 ? (last.sessions/first.sessions*100) : 0;
+    const totalCvrPrev = (firstPrev && firstPrev.sessions > 0) ? (lastPrev.sessions/firstPrev.sessions*100) : NaN;
+
+    const hero = document.createElement('div');
+    hero.className = 'hero-grid';
+    hero.innerHTML = `
+      <div class="hero-card">
+        <div class="h-label">${first.step_name} (유입)</div>
+        <div class="h-value">${fmt(first.sessions)}</div>
+        <div class="h-delta">전일 ${firstPrev ? deltaHtml(first.sessions, firstPrev.sessions) : '<span class="delta-flat">비교불가</span>'}</div>
+      </div>
+      <div class="hero-card">
+        <div class="h-label">${last.step_name} (최종)</div>
+        <div class="h-value">${fmt(last.sessions)}</div>
+        <div class="h-delta">전일 ${lastPrev ? deltaHtml(last.sessions, lastPrev.sessions) : '<span class="delta-flat">비교불가</span>'}</div>
+      </div>
+      <div class="hero-card">
+        <div class="h-label">총 전환율 (${first.step_name}→${last.step_name})</div>
+        <div class="h-value">${totalCvr.toFixed(2)}%</div>
+        <div class="h-delta">전일 ${isFinite(totalCvrPrev) ? deltaHtml(totalCvr, totalCvrPrev) : '<span class="delta-flat">비교불가</span>'}</div>
+      </div>`;
+    heroArea.appendChild(hero);
+  }
+
+  // 인사이트: 이탈률 가장 큰 스텝 자동 감지
+  const insArea = document.getElementById('insightArea');
+  insArea.innerHTML = '';
+  if (latestDay.length > 1) {
+    const insights = [];
+    let worst = null;
+    latestDay.forEach(r => {
+      const dp = parseFloat(r.dropoff_from_prev_pct);
+      if (isFinite(dp) && (!worst || dp > parseFloat(worst.dropoff_from_prev_pct))) worst = r;
+    });
+    if (worst) {
+      const dp = parseFloat(worst.dropoff_from_prev_pct);
+      const cls = dp >= 80 ? 'bad' : (dp >= 60 ? 'warn' : 'good');
+      const emoji = dp >= 80 ? '🚨' : (dp >= 60 ? '⚠️' : '✅');
+      insights.push(`${emoji} 가장 큰 이탈: <b>${worst.step_name}</b> 단계에서 <b>${dp.toFixed(1)}%</b> 이탈`);
+    }
+    // 전일 대비 이탈률 변화
+    if (prevDay.length) {
+      latestDay.forEach((r, i) => {
+        const p = prevDay.find(x => x.step_number === r.step_number);
+        if (!p) return;
+        const cur = parseFloat(r.dropoff_from_prev_pct);
+        const prv = parseFloat(p.dropoff_from_prev_pct);
+        if (!isFinite(cur) || !isFinite(prv)) return;
+        const diff = cur - prv;
+        if (Math.abs(diff) < 5) return;
+        const good = diff < 0; // 이탈률이 낮아진 게 좋음
+        const emo = good ? '✅' : '⚠️';
+        const cls = good ? 'good' : 'bad';
+        insights.push({cls, text: `${emo} <b>${r.step_name}</b> 이탈률이 전일 대비 ${Math.abs(diff).toFixed(1)}p ${good ? '개선' : '악화'} (${prv.toFixed(1)}% → ${cur.toFixed(1)}%)`});
+      });
+    }
+    if (insights.length) {
+      const box = document.createElement('div');
+      box.className = 'insight-box';
+      const list = insights.map(i => typeof i === 'string' ? `<div class="insight-item bad">${i}</div>` : `<div class="insight-item ${i.cls}">${i.text}</div>`);
+      box.innerHTML = `<div class="i-title">💡 오늘의 하이라이트 (${dt})</div>` + list.join('');
+      insArea.appendChild(box);
+    }
+  }
+
+  // 퍼널 바
+  const fw = document.getElementById('funnelWrap');
+  fw.innerHTML = '';
   if (!latestDay.length) {
-    funnelWrap.innerHTML = '<div style="color:#9a9aa5">선택한 조건에 해당하는 데이터가 없습니다.</div>';
+    fw.innerHTML = '<div style="color:#9a9aa5">데이터 없음</div>';
   } else {
     const topVal = parseFloat(latestDay[0].sessions) || 0;
     latestDay.forEach((r, i) => {
       const val = parseFloat(r.sessions) || 0;
-      const width = topVal > 0 ? (val / topVal * 100) : 0;
+      const width = topVal > 0 ? val/topVal*100 : 0;
       const drop = r.dropoff_from_prev_pct;
       const row = document.createElement('div');
       row.className = 'funnel-row';
       row.innerHTML = `
         <div class="funnel-label">${r.step_number}. ${r.step_name}</div>
-        <div class="funnel-bar-outer">
-          <div class="funnel-bar-inner" style="width:${Math.max(width, 2)}%">${val.toLocaleString()} (${(r.pct_of_step1 ?? 0)}%)</div>
-        </div>
-        <div class="funnel-drop">${(drop !== null && drop !== undefined && i > 0) ? `↓ ${drop}% 이탈` : ''}</div>`;
-      funnelWrap.appendChild(row);
+        <div class="funnel-bar-outer"><div class="funnel-bar-inner" style="width:${Math.max(width,2)}%">${val.toLocaleString()} (${r.pct_of_step1 ?? 0}%)</div></div>
+        <div class="funnel-drop">${(drop!=null && i>0) ? `↓ ${drop}% 이탈` : ''}</div>`;
+      fw.appendChild(row);
     });
   }
 
-  // 2) 스텝별 세션 수 추이 (선택 조건 전체 날짜)
+  // 시계열 차트
   const stepsAll = uniqSorted(filtered.map(r => `${r.step_number}|${r.step_name}`));
-  const datesAll = uniqSorted(filtered.map(r => r.event_date));
-  const labels = datesAll.map(shortDate);
+  const labels = dates.map(shortDate);
   const palette = ['#4f8cff','#7bb0ff','#ffb84f','#7affc0','#ff7a7a','#c47aff','#7affe0'];
-
-  const stepDatasets = stepsAll.map((step, i) => {
-    const [num, name] = step.split('|');
+  const stepDatasets = stepsAll.map((s, i) => {
+    const [num, name] = s.split('|');
     return {
       label: `${num}. ${name}`,
-      data: datesAll.map(d => {
-        const rr = filtered.find(r => r.event_date === d && r.step_number == num && r.step_name === name);
+      data: dates.map(d => {
+        const rr = filtered.find(r => r.event_date===d && r.step_number==num && r.step_name===name);
         return rr ? parseFloat(rr.sessions) : 0;
       }),
       borderColor: palette[i % palette.length],
@@ -203,29 +222,21 @@ function render() {
       tension: 0.3, pointRadius: 2, fill: false
     };
   });
-
   if (charts.step) charts.step.destroy();
   charts.step = new Chart(document.getElementById('stepTrendChart').getContext('2d'), {
-    type: 'line',
-    data: { labels, datasets: stepDatasets },
-    options: {
-      responsive: true,
-      plugins: { legend: { labels: { color: '#cfd2da' } } },
-      scales: {
-        x: { ticks: { color: '#9a9aa5', maxRotation: 60, minRotation: 45, autoSkip: true }, grid: { color: '#242830' } },
-        y: { ticks: { color: '#9a9aa5' }, grid: { color: '#242830' } }
-      }
-    }
+    type: 'line', data: {labels, datasets: stepDatasets},
+    options: { responsive: true, plugins: {legend:{labels:{color:'#cfd2da'}}},
+      scales: {x:{ticks:{color:'#9a9aa5', maxRotation:60, minRotation:45, autoSkip:true},grid:{color:'#242830'}},
+               y:{ticks:{color:'#9a9aa5'},grid:{color:'#242830'}}} }
   });
 
-  // 3) 스텝간 이탈률 추이
-  const dropDatasets = stepsAll.map((step, i) => {
-    const [num, name] = step.split('|');
-    if (num == 1) return null; // 첫 스텝은 이탈률 없음
+  const dropDatasets = stepsAll.map((s, i) => {
+    const [num, name] = s.split('|');
+    if (num == 1) return null;
     return {
       label: `${num}. ${name}`,
-      data: datesAll.map(d => {
-        const rr = filtered.find(r => r.event_date === d && r.step_number == num && r.step_name === name);
+      data: dates.map(d => {
+        const rr = filtered.find(r => r.event_date===d && r.step_number==num && r.step_name===name);
         return rr ? parseFloat(rr.dropoff_from_prev_pct) : null;
       }),
       borderColor: palette[i % palette.length],
@@ -233,32 +244,22 @@ function render() {
       tension: 0.3, pointRadius: 2, fill: false
     };
   }).filter(Boolean);
-
   if (charts.drop) charts.drop.destroy();
   charts.drop = new Chart(document.getElementById('dropoffChart').getContext('2d'), {
-    type: 'line',
-    data: { labels, datasets: dropDatasets },
-    options: {
-      responsive: true,
-      plugins: { legend: { labels: { color: '#cfd2da' } } },
-      scales: {
-        x: { ticks: { color: '#9a9aa5', maxRotation: 60, minRotation: 45, autoSkip: true }, grid: { color: '#242830' } },
-        y: { ticks: { color: '#9a9aa5' }, grid: { color: '#242830' } }
-      }
-    }
+    type: 'line', data: {labels, datasets: dropDatasets},
+    options: { responsive: true, plugins: {legend:{labels:{color:'#cfd2da'}}},
+      scales: {x:{ticks:{color:'#9a9aa5', maxRotation:60, minRotation:45, autoSkip:true},grid:{color:'#242830'}},
+               y:{ticks:{color:'#9a9aa5'},grid:{color:'#242830'}}} }
   });
 
-  // 4) 원본 테이블
+  // 원본 테이블
   const table = document.getElementById('dataTable');
   const keys = ['event_date','funnel_type','segment','step_number','step_name','sessions','pct_of_step1','dropoff_from_prev_pct'];
-  const thead = '<thead><tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr></thead>';
+  const thead = '<thead><tr>' + keys.map(k=>`<th>${k}</th>`).join('') + '</tr></thead>';
   const tbody = '<tbody>' + filtered.slice().reverse().map(r =>
-    '<tr>' + keys.map(k => `<td>${r[k] ?? ''}</td>`).join('') + '</tr>'
-  ).join('') + '</tbody>';
+    '<tr>' + keys.map(k=>`<td>${r[k] ?? ''}</td>`).join('') + '</tr>').join('') + '</tbody>';
   table.innerHTML = thead + tbody;
 }
-
 loadData();
 </script>
-</body>
-</html>
+</body></html>
