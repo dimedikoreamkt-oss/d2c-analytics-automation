@@ -79,6 +79,29 @@ const KOREAN_LABELS = {
   revenue_per_user: { ko: '유저당 매출', desc: '사용자 1명당 평균 매출' },
   revenue_per_acquired_user: { ko: '획득당 매출', desc: '신규 획득 유저 1명당 매출 (LTV 근사)' },
   atc_rate_pct: { ko: '장바구니 담기율', desc: '세션 100건 중 장바구니 담기 발생 비율' },
+  // Mart 17 광고 성과 (CAC/ROAS)
+  platform: { ko: '광고 플랫폼', desc: 'meta / google / naver / kakao / tiktok' },
+  utm_source: { ko: 'UTM 소스', desc: '유입 출처 (예: facebook, google, naver)' },
+  utm_medium: { ko: 'UTM 매체', desc: '유입 방식 (예: cpc, paid_social)' },
+  utm_campaign: { ko: 'UTM 캠페인', desc: '캠페인 식별자' },
+  impressions: { ko: '노출 수', desc: '광고가 사용자에게 보여진 횟수' },
+  clicks: { ko: '클릭 수', desc: '광고를 클릭한 횟수' },
+  spend_krw: { ko: '광고비 (원)', desc: '해당 조건의 광고 지출액 (KRW)' },
+  spend_original: { ko: '광고비 (원본 통화)', desc: '플랫폼 계정 통화 기준 금액' },
+  platform_conversions: { ko: '플랫폼 전환수', desc: '광고 플랫폼이 자체 측정한 전환 (참고용)' },
+  platform_revenue: { ko: '플랫폼 매출', desc: '광고 플랫폼이 자체 측정한 매출 (참고용)' },
+  ga_revenue: { ko: 'GA 매출', desc: 'GA4가 측정한 실제 매출 (신뢰 기준)' },
+  cpc: { ko: 'CPC (클릭당 비용)', desc: '광고비 ÷ 클릭 수' },
+  cpm: { ko: 'CPM (1000노출당)', desc: '광고비 ÷ 노출 × 1000' },
+  ctr_pct: { ko: 'CTR (클릭률)', desc: '클릭 ÷ 노출 × 100 (%)' },
+  cac_krw: { ko: 'CAC (신규 획득비)', desc: '광고비 ÷ 신규 획득 유저 — 낮을수록 좋음' },
+  cpa_krw: { ko: 'CPA (주문당 획득비)', desc: '광고비 ÷ 구매 수' },
+  roas: { ko: 'ROAS (매출 배수)', desc: 'GA 매출 ÷ 광고비 — 1.0 이상이 손익분기, 3.0 이상 건강' },
+  platform_roas: { ko: 'Platform ROAS', desc: '플랫폼 자체 매출 기준 (오버트래킹 주의)' },
+  click_to_purchase_pct: { ko: '클릭→구매 전환율', desc: '광고 클릭 후 실제 구매까지 이어진 비율' },
+  ltv_estimate_krw: { ko: 'LTV 추정치', desc: '획득 유저 1명이 가져온 누적 매출' },
+  ltv_cac_ratio: { ko: 'LTV / CAC', desc: '3배 이상이면 건강한 유닛이코노믹스, 1배 미만은 손해' },
+
 
 };
 const ko = (k) => (KOREAN_LABELS[k]?.ko) || k;
