@@ -3,31 +3,76 @@ body {
   margin: 0; font-family: -apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif;
   background: #0f1115; color: #e8e8ea; padding: 32px 20px;
 }
-.wrap { max-width: 1100px; margin: 0 auto; }
+.wrap { max-width: 1200px; margin: 0 auto; }
 a.back { color: #4f8cff; text-decoration: none; font-size: 14px; }
-h1 { margin: 8px 0 4px; font-size: 24px; }
+h1 { margin: 8px 0 4px; font-size: 26px; }
 p.sub { color: #9a9aa5; margin-top: 0; }
+
+/* 상단 핵심 지표 3개 배너 */
+.hero-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; margin: 20px 0 8px;
+}
+@media (max-width: 720px) { .hero-grid { grid-template-columns: 1fr; } }
+.hero-card {
+  background: linear-gradient(180deg, #1a1d24 0%, #151820 100%);
+  border: 1px solid #2a2d36; border-radius: 16px; padding: 20px 22px;
+  position: relative; overflow: hidden;
+}
+.hero-card .h-label { font-size: 11px; color: #9a9aa5; text-transform: uppercase; letter-spacing: .8px; }
+.hero-card .h-value { font-size: 34px; font-weight: 800; margin: 8px 0 4px; letter-spacing: -0.5px; }
+.hero-card .h-delta { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.hero-card canvas { margin-top: 12px; max-height: 60px; }
+
+/* 인사이트 카드 */
+.insight-box {
+  background: #14171e; border: 1px solid #2a2d36; border-radius: 14px;
+  padding: 18px 20px; margin: 20px 0 24px;
+}
+.insight-box .i-title {
+  font-size: 12px; color: #9a9aa5; text-transform: uppercase; letter-spacing: .8px;
+  margin-bottom: 10px;
+}
+.insight-item {
+  padding: 8px 0; font-size: 14px; color: #e8e8ea; line-height: 1.5;
+  border-bottom: 1px dashed #2a2d36;
+}
+.insight-item:last-child { border-bottom: none; }
+.insight-item.good { color: #7affc0; }
+.insight-item.warn { color: #ffb84f; }
+.insight-item.bad  { color: #ff7a7a; }
+
+/* 증감률 색상 */
+.delta-up   { color: #7affc0; }
+.delta-down { color: #ff7a7a; }
+.delta-flat { color: #9a9aa5; }
+
+/* 일반 KPI 그리드 */
 .kpi-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px; margin: 24px 0 32px;
+  gap: 14px; margin: 20px 0 28px;
 }
 .kpi-card {
-  background: #1a1d24; border: 1px solid #2a2d36; border-radius: 12px; padding: 16px;
+  background: #1a1d24; border: 1px solid #2a2d36; border-radius: 12px; padding: 14px 16px;
 }
-.kpi-card .label { font-size: 12px; color: #9a9aa5; text-transform: uppercase; }
-.kpi-card .value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+.kpi-card .label { font-size: 11px; color: #9a9aa5; text-transform: uppercase; letter-spacing: .5px; }
+.kpi-card .value { font-size: 22px; font-weight: 700; margin: 6px 0 4px; }
+.kpi-card .k-delta { font-size: 12px; font-weight: 600; }
+
 .chart-box {
   background: #1a1d24; border: 1px solid #2a2d36; border-radius: 14px;
-  padding: 20px; margin-bottom: 24px;
+  padding: 20px; margin-bottom: 20px;
 }
 .chart-box h3 { margin-top: 0; font-size: 15px; color: #cfd2da; }
+
 table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
 th, td { padding: 8px 10px; border-bottom: 1px solid #2a2d36; text-align: right; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
+
 .controls {
   display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
   background: #1a1d24; border: 1px solid #2a2d36; border-radius: 12px;
-  padding: 14px 16px; margin: 24px 0;
+  padding: 14px 16px; margin: 20px 0;
 }
 .controls label { font-size: 12px; color: #9a9aa5; margin-right: 6px; }
 .controls select {
