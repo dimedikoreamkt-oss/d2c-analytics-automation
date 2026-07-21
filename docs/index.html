@@ -3,57 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>D2C Analytics 대시보드</title>
+<title>D2C Analytics · 데이터 대시보드</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mart_common.css">
 <style>
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: -apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif;
-    background: #0f1115; color: #e8e8ea; padding: 40px 20px; }
-  .wrap { max-width: 960px; margin: 0 auto; }
-  h1 { font-size: 28px; margin-bottom: 4px; }
-  p.sub { color: #9a9aa5; margin-top: 0; margin-bottom: 32px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-  a.card { display: block; background: #1a1d24; border: 1px solid #2a2d36;
-    border-radius: 14px; padding: 20px; text-decoration: none; color: #e8e8ea;
-    transition: transform .15s, border-color .15s; }
-  a.card:hover { transform: translateY(-3px); border-color: #4f8cff; }
-  a.card .tag { font-size: 12px; color: #4f8cff; font-weight: 600; }
-  a.card h3 { margin: 8px 0 6px; font-size: 17px; }
-  a.card .desc { font-size: 13px; color: #9a9aa5; line-height: 1.4; }
+  .hero-wrap { background: linear-gradient(135deg, #0066FF 0%, #4d94ff 100%); color: white; padding: 80px 40px 100px; text-align: center; }
+  .hero-wrap h1 { font-size: 42px; font-weight: 800; letter-spacing: -1.2px; margin-bottom: 12px; }
+  .hero-wrap p { font-size: 16px; opacity: 0.9; max-width: 560px; margin: 0 auto; }
+  .badge-row { display: inline-flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
+  .badge-row .b { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .cards-wrap { max-width: 1200px; margin: -50px auto 60px; padding: 0 20px; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+  .m-card {
+    background: white; border-radius: 16px; padding: 24px; text-decoration: none; color: var(--text);
+    border: 1px solid var(--border); box-shadow: var(--shadow-md);
+    transition: transform .18s, box-shadow .18s, border-color .18s;
+    display: block;
+  }
+  .m-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--primary); }
+  .m-card .tag { display: inline-block; font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-light); padding: 4px 10px; border-radius: 6px; letter-spacing: 0.6px; }
+  .m-card h3 { font-size: 17px; font-weight: 700; margin: 12px 0 6px; }
+  .m-card .d { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>📊 D2C Analytics 대시보드</h1>
-    <p class="sub">BigQuery → GitHub Actions → 이 사이트 (매일 자동 갱신)</p>
-    <div class="grid">
-      <a class="card" href="mart1.html">
-        <div class="tag">MART 1</div><h3>일별 이커머스 핵심 KPI</h3>
-        <div class="desc">매출, 세션, 전환율, AOV 등 일자별 추이</div></a>
-      <a class="card" href="mart2.html">
-        <div class="tag">MART 2</div><h3>퍼널 이탈 분석</h3>
-        <div class="desc">Session→PDP→ATC→Checkout→Purchase 단계별 이탈률</div></a>
-      <a class="card" href="mart3.html">
-        <div class="tag">MART 3</div><h3>코호트 리텐션</h3>
-        <div class="desc">가입 시점별 재방문·재구매 유지율</div></a>
-      <a class="card" href="mart4.html">
-        <div class="tag">MART 4</div><h3>멀티터치 어트리뷰션</h3>
-        <div class="desc">first / last / linear 기여도</div></a>
-      <a class="card" href="mart5.html">
-        <div class="tag">MART 5</div><h3>LTV / RFM</h3>
-        <div class="desc">고객 등급 및 생애가치</div></a>
-      <a class="card" href="mart6.html">
-        <div class="tag">MART 6</div><h3>신규 vs 재방문</h3>
-        <div class="desc">유저 타입별 세션·전환 비교</div></a>
-      <a class="card" href="mart7.html">
-        <div class="tag">MART 7</div><h3>요일×시간대 히트맵</h3>
-        <div class="desc">7일×24시간 세션/전환 분포</div></a>
-      <a class="card" href="mart8.html">
-        <div class="tag">MART 8</div><h3>콘텐츠 참여도</h3>
-        <div class="desc">스크롤·비디오·다운로드 기반 tier</div></a>
-      <a class="card" href="mart9.html">
-        <div class="tag">MART 9</div><h3>다크소셜 / AI 리퍼럴</h3>
-        <div class="desc">ChatGPT·Perplexity 등 AI 유입 트래픽</div></a>
-    </div>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta">매일 KST 19:00 자동 갱신</div>
+</header>
+<div class="hero-wrap">
+  <h1>D2C Analytics 대시보드</h1>
+  <p>BigQuery · GitHub Actions · 자체 웹 대시보드로 구축한 완전 자동화 데이터 파이프라인. 매일 아홉 개의 실무 마트가 자동으로 갱신됩니다.</p>
+  <div class="badge-row">
+    <span class="b">🔄 매일 자동 갱신</span>
+    <span class="b">📊 9개 실무 마트</span>
+    <span class="b">🤖 3개 ML 예측 모델</span>
   </div>
+</div>
+<div class="cards-wrap">
+  <div class="cards-grid">
+    <a href="mart1.html" class="m-card"><span class="tag">MART 1</span><h3>일별 이커머스 핵심 KPI</h3><div class="d">매출, 세션, 전환율, AOV 등 일자별 추이를 한눈에 확인</div></a>
+    <a href="mart2.html" class="m-card"><span class="tag">MART 2</span><h3>퍼널 이탈 분석</h3><div class="d">상품조회→장바구니→결제→구매 각 단계 이탈률 추적</div></a>
+    <a href="mart3.html" class="m-card"><span class="tag">MART 3</span><h3>코호트 리텐션</h3><div class="d">가입 시점별 사용자 재방문·재구매 유지율</div></a>
+    <a href="mart4.html" class="m-card"><span class="tag">MART 4</span><h3>멀티터치 어트리뷰션</h3><div class="d">first · last · linear 방식 채널 기여도</div></a>
+    <a href="mart5.html" class="m-card"><span class="tag">MART 5</span><h3>LTV / RFM</h3><div class="d">고객 생애가치 · Recency Frequency Monetary 등급</div></a>
+    <a href="mart6.html" class="m-card"><span class="tag">MART 6</span><h3>신규 vs 재방문</h3><div class="d">유저 타입별 세션·전환 비교</div></a>
+    <a href="mart7.html" class="m-card"><span class="tag">MART 7</span><h3>요일×시간대 히트맵</h3><div class="d">7일 × 24시간 트래픽·전환 분포</div></a>
+    <a href="mart8.html" class="m-card"><span class="tag">MART 8</span><h3>콘텐츠 참여도</h3><div class="d">스크롤·비디오·다운로드 기반 참여 등급</div></a>
+    <a href="mart9.html" class="m-card"><span class="tag">MART 9</span><h3>다크소셜 / AI 리퍼럴</h3><div class="d">ChatGPT · Perplexity 등 AI 검색 유입</div></a>
+  </div>
+</div>
 </body>
 </html>
