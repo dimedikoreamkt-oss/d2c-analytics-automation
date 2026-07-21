@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mart 7 · 요일×시간대 히트맵</title>
+<link rel="stylesheet" href="mart_common.css">
+<style>
+  .heatmap { display: grid; grid-template-columns: 60px repeat(24, 1fr); gap: 2px; }
+  .heatmap .hcell {
+    padding: 10px 0; text-align: center; font-size: 11px; border-radius: 3px;
+    color: #fff; font-weight: 500; min-height: 30px;
+  }
+  .heatmap .hlabel { color: #cfd2da; background: transparent; font-weight: 600; }
+  .metric-tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+  .metric-tabs button {
+    background: #1a1d24; color: #cfd2da; border: 1px solid #2a2d36;
+    border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 13px;
+  }
+  .metric-tabs button.active { border-color: #4f8cff; color: #fff; background: #1e2530; }
+</style>
+</head><body><div class="wrap">
+<a class="back" href="index.html">← 대시보드 목록</a>
+<h1>Mart 7 · 요일×시간대 히트맵</h1>
+<p class="sub" id="status">데이터 불러오는 중...</p>
+<div class="metric-tabs" id="tabs"></div>
+<div class="chart-box"><h3 id="heatTitle">히트맵</h3>
+  <div class="heatmap" id="heatmap"></div>
+  <p style="color:#9a9aa5;font-size:12px;margin-top:12px">색이 짙을수록 해당 요일·시간대에 값이 높습니다.</p>
+</div>
+</div>
+<script>
+const DAY_NAMES = ['일','월','화','수','목','금','토'];
+let ROWS = [];
+let currentMetric = null;
+
+async function load() {
+  const statusEl = document.getElementById('status');
+  try {
+    const res = await fetch('data/mart7_time_heatmap.json?t=' + Date.now());
+    if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음');
+    ROWS = await res.json();
+    if (!ROWS.length) { statusEl.textContent = '데이터 없음'; return; }
+    statusEl.textContent = `총 ${ROWS.length} 셀 (요일×시간대)`;
+    initTabs();
+    draw();
+  } catch (e) { statusEl.textContent = '⚠️ ' + e.message; }
+}
+
+function initTabs() {
+  const numericKeys = Object.keys(ROWS[0]).filter(k =>
+    k !== 'day_of_week_num' && k !== 'hour_of_day' &&
+    !isNaN(parseFloat(ROWS[0][k])) && ROWS[0][k] !== null
+  );
+  currentMetric = numericKeys[0];
+  const tabs = document.getElementById('tabs');
+  numericKeys.forEach(k => {
+    const b = document.createElement('button');
+    b.textContent = k;
+    if (k === currentMetric) b.classList.add('active');
+    b.addEventListener('click', () => {
+      currentMetric = k;
+      document.querySelectorAll('#tabs button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      draw();
+    });
+    tabs.appendChild(b);
+  });
+}
+
+function draw() {
+  document.getElementById('heatTitle').textContent = `${currentMetric} 히트맵`;
+  const heat = document.getElementById('heatmap');
+  heat.innerHTML = '';
+  const vals = ROWS.map(r => parseFloat(r[currentMetric]) || 0);
+  const maxV = Math.max(...vals, 1);
+  // 헤더행
+  heat.appendChild(cell('', 'hlabel'));
+  for (let h = 0; h < 24; h++) heat.appendChild(cell(String(h), 'hlabel'));
+  // 각 요일행
+  for (let d = 0; d < 7; d++) {
+    heat.appendChild(cell(DAY_NAMES[d], 'hlabel'));
+    for (let h = 0; h < 24; h++) {
+      const r = ROWS.find(x => parseInt(x.day_of_week_num) === d && parseInt(x.hour_of_day) === h);
+      const v = r ? parseFloat(r[currentMetric]) || 0 : 0;
+      const intensity = v / maxV;
+      const bg = `rgba(79, 140, 255, ${0.05 + intensity * 0.85})`;
+      const c = cell(v > 0 ? (v >= 1 ? Math.round(v) : v.toFixed(2)) : '');
+      c.style.background = bg;
+      c.title = `${DAY_NAMES[d]} ${h}시 · ${currentMetric}: ${v}`;
+      heat.appendChild(c);
+    }
+  }
+}
+function cell(text, cls) {
+  const d = document.createElement('div');
+  d.className = 'hcell' + (cls ? ' ' + cls : '');
+  d.textContent = text;
+  return d;
+}
+load();
+</script>
+</body></html>
