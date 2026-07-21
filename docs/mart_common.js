@@ -88,14 +88,22 @@ function buildSidebar() {
     ['mart7.html', '7', '요일×시간대 히트맵'],
     ['mart8.html', '8', '콘텐츠 참여도'],
     ['mart9.html', '9', '다크소셜 / AI 리퍼럴'],
+    ['mart13.html', '13', '인구통계 분석'],
+    ['mart14.html', '14', '관심사 카테고리'],
+    ['mart16.html', '16', '광고 채널 딥다이브'],
   ];
   const sidebar = document.querySelector('.sidebar');
   if (!sidebar) return;
   const current = location.pathname.split('/').pop();
-  sidebar.innerHTML = `<div class="sec-label">Analytics</div>` +
-    marts.map(([h, tag, name]) => `<a href="${h}" class="${h === current ? 'active' : ''}">
+  sidebar.innerHTML =
+    `<div class="sec-label">기본 분석</div>` +
+    marts.slice(0, 9).map(([h, tag, name]) => `<a href="${h}" class="${h === current ? 'active' : ''}">
+      <span class="num">${tag}</span> ${name}</a>`).join('') +
+    `<div class="sec-label" style="margin-top:16px">고급 분석 · Growth</div>` +
+    marts.slice(9).map(([h, tag, name]) => `<a href="${h}" class="${h === current ? 'active' : ''}">
       <span class="num">${tag}</span> ${name}</a>`).join('');
 }
+
 
 // ===== 유틸 =====
 function shortDate(s) { const p = String(s).split('-'); return p.length === 3 ? `${p[1]}/${p[2]}` : s; }
