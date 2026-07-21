@@ -128,5 +128,14 @@ WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 ORDER BY event_date DESC, revenue DESC
 LIMIT 5000"
 
+# Mart 17 - CAC/ROAS
+run_export "Mart 17 (ad channel + spend)" "docs/data/mart17_ad_spend.json" "
+SELECT *
+FROM \`${PROJECT_ID}.marts.mart_ad_channel_with_spend\`
+WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+ORDER BY event_date DESC, spend_krw DESC NULLS LAST
+LIMIT 5000"
+
+
 
 echo "=== Dashboard data export done: $(date) ==="
