@@ -104,4 +104,29 @@ FROM \`${PROJECT_ID}.marts.mart_dark_social_ai_referral\`
 WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
 ORDER BY event_date ASC, sessions DESC"
 
+# Mart 13
+run_export "Mart 13 (demographics)" "docs/data/mart13_demographics.json" "
+SELECT *
+FROM \`${PROJECT_ID}.marts.mart_demographics\`
+WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+ORDER BY event_date DESC, users DESC
+LIMIT 5000"
+
+# Mart 14
+run_export "Mart 14 (interest affinity)" "docs/data/mart14_interest.json" "
+SELECT *
+FROM \`${PROJECT_ID}.marts.mart_interest_affinity\`
+WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+ORDER BY event_date DESC, users DESC
+LIMIT 5000"
+
+# Mart 16
+run_export "Mart 16 (ad channel deep)" "docs/data/mart16_ad_channel.json" "
+SELECT *
+FROM \`${PROJECT_ID}.marts.mart_ad_channel_deep\`
+WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+ORDER BY event_date DESC, revenue DESC
+LIMIT 5000"
+
+
 echo "=== Dashboard data export done: $(date) ==="
