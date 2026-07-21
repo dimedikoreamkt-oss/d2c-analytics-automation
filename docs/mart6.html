@@ -4,9 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mart 6 · 신규 vs 재방문 | D2C Analytics</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <link rel="stylesheet" href="mart_common.css">
+<style>
+  .nvr-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .nvr-hero { grid-template-columns: 1fr; } }
+  .nvr-card {
+    background: white; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 24px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+  }
+  .nvr-card.new { border-top: 4px solid #0066FF; }
+  .nvr-card.ret { border-top: 4px solid #00A76F; }
+  .nvr-card .nvr-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); }
+  .nvr-card.new .nvr-title { color: #0066FF; }
+  .nvr-card.ret .nvr-title { color: #00A76F; }
+  .nvr-card .nvr-desc { font-size: 12px; color: var(--text-muted); margin: 4px 0 16px; }
+  .nvr-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .nvr-metric { padding: 8px 0; }
+  .nvr-metric .m-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+  .nvr-metric .m-value { font-size: 22px; font-weight: 700; margin-top: 4px; letter-spacing: -0.4px; }
+  .nvr-metric .m-delta { font-size: 11px; font-weight: 600; margin-top: 2px; }
+</style>
 </head>
 <body>
 <header class="topbar">
@@ -19,13 +38,200 @@
     <div class="page-head">
       <div class="crumb">Dashboard / Marketing Analytics</div>
       <h1>Mart 6 · 신규 vs 재방문</h1>
-      <div class="desc">신규 유저와 재방문 유저의 행동·전환 차이를 비교합니다.</div>
+      <div class="desc">신규 유저(첫 방문)와 재방문 유저의 행동·전환 차이를 나란히 비교합니다. 신규 유입 확대 vs 재방문 리텐션 개선 중 어느 쪽에 예산을 배분할지 판단하는 기초 지표입니다.</div>
       <div class="meta-row"><span id="status">데이터 불러오는 중...</span></div>
     </div>
     <div id="root"></div>
   </main>
 </div>
-<script>const DATA_FILE = 'data/mart6_new_vs_returning.json';</script>
+
+<script>
+// mart_common.js에서 사용할 함수/객체는 그대로 재사용
+</script>
 <script src="mart_common.js"></script>
+<script>
+// mart_common.js의 자동 render를 덮어쓰기 위해, DOM에 이미 render된 것을 지우고 커스텀 render 실행
+// 단, mart_common.js가 fetch까지 하므로 데이터 로드 후 커스텀 render로 대체
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const root = document.getElementById('root');
+    root.innerHTML = ''; // 공용 render 결과 제거
+    customRender();
+  }, 200);
+});
+
+async function customRender() {
+  const statusEl = document.getElementById('status');
+  const root = document.getElementById('root');
+  try {
+    const res = await fetch('data/mart6_new_vs_returning.json?t=' + Date.now());
+    if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음');
+    const rows = await res.json();
+    if (!rows || !rows.length) { statusEl.textContent = '아직 데이터가 없습니다.'; return; }
+    statusEl.textContent = `총 ${rows.length.toLocaleString()}행 로드됨`;
+
+    const keys = Object.keys(rows[0]);
+    const dateKey = keys.find(k => k.toLowerCase().includes('date'));
+    const numericKeys = keys.filter(k => k !== dateKey && k !== 'user_type' && isNumeric(rows[0][k]));
+    const allDates = dateKey ? [...new Set(rows.map(r => r[dateKey]))].sort() : [];
+
+    // 날짜 필터
+    let currentRange = null;
+    if (dateKey && allDates.length) {
+      currentRange = buildDateFilter(root, allDates, (v) => { currentRange = v; draw(); });
+    }
+
+    // 지표 선택 칩
+    let selectedMetrics = numericKeys.slice(0, 4);
+    const chipBar = document.createElement('div');
+    chipBar.className = 'chip-bar';
+    chipBar.innerHTML = `<div class="chip-label">${ICONS.bar} 표시할 지표 선택</div>` +
+      numericKeys.map(k => `<span class="chip ${selectedMetrics.includes(k) ? 'active' : ''}" data-key="${k}" title="${koDesc(k)}">
+        ${ko(k)} <span class="chip-en">${k}</span></span>`).join('');
+    root.appendChild(chipBar);
+    chipBar.querySelectorAll('.chip').forEach(el => {
+      el.addEventListener('click', () => {
+        const k = el.dataset.key;
+        if (selectedMetrics.includes(k)) selectedMetrics = selectedMetrics.filter(x => x !== k);
+        else selectedMetrics.push(k);
+        el.classList.toggle('active');
+        draw();
+      });
+    });
+
+    const content = document.createElement('div');
+    root.appendChild(content);
+
+    function draw() {
+      content.innerHTML = '';
+      let filtered = rows;
+      if (dateKey && currentRange) {
+        filtered = filterByRange(rows, dateKey, currentRange.primaryStart, currentRange.primaryEnd);
+      }
+      if (!filtered.length) {
+        content.innerHTML = '<p class="status">선택 기간에 데이터가 없습니다.</p>';
+        return;
+      }
+
+      const newRows = filtered.filter(r => String(r.user_type).toLowerCase() === 'new');
+      const retRows = filtered.filter(r => String(r.user_type).toLowerCase() === 'returning');
+
+      // 비교 기간
+      let newComp = [], retComp = [];
+      if (dateKey && currentRange) {
+        const comp = filterByRange(rows, dateKey, currentRange.compareStart, currentRange.compareEnd);
+        newComp = comp.filter(r => String(r.user_type).toLowerCase() === 'new');
+        retComp = comp.filter(r => String(r.user_type).toLowerCase() === 'returning');
+      }
+
+      // ===== 신규 vs 재방문 나란히 배너 =====
+      const hero = document.createElement('div');
+      hero.className = 'nvr-hero';
+      hero.appendChild(buildTypeCard('new', '🆕 신규 사용자', '이번에 처음 방문한 사람들 — 유입 채널 성과의 핵심 지표', newRows, newComp, selectedMetrics));
+      hero.appendChild(buildTypeCard('ret', '🔄 재방문 사용자', '이전에 방문했던 사람들 — 리텐션·CRM 성과의 핵심 지표', retRows, retComp, selectedMetrics));
+      content.appendChild(hero);
+
+      // ===== 비교 인사이트 =====
+      const insArea = document.createElement('div');
+      const items = [];
+      selectedMetrics.forEach(k => {
+        const isPct = /pct|rate|ratio/i.test(k);
+        const nVal = isPct ? avgBy(newRows, k) : sumBy(newRows, k);
+        const rVal = isPct ? avgBy(retRows, k) : sumBy(retRows, k);
+        if (!isFinite(nVal) || !isFinite(rVal) || (nVal === 0 && rVal === 0)) return;
+        const ratio = rVal > 0 ? nVal / rVal : 0;
+        if (ratio >= 2) {
+          items.push({ tone: 'good', icon: ICONS.rocket, text: `<b>${ko(k)}</b>는 신규가 재방문의 <b>${ratio.toFixed(1)}배</b>입니다 (신규 ${fmt(nVal)} vs 재방문 ${fmt(rVal)}) → 신규 유입이 이 지표의 주력` });
+        } else if (ratio <= 0.5 && ratio > 0) {
+          items.push({ tone: 'warn', icon: ICONS.warn, text: `<b>${ko(k)}</b>는 재방문이 신규의 <b>${(1/ratio).toFixed(1)}배</b>입니다 (신규 ${fmt(nVal)} vs 재방문 ${fmt(rVal)}) → 재방문 유저의 기여가 압도적, CRM/리텐션 강화가 효율적` });
+        }
+      });
+      // 재방문 비율
+      const nUsers = sumBy(newRows, 'users');
+      const rUsers = sumBy(retRows, 'users');
+      const totalU = nUsers + rUsers;
+      if (totalU > 0) {
+        const retPct = (rUsers / totalU * 100).toFixed(1);
+        let tone, msg;
+        if (retPct < 20) { tone = 'warn'; msg = `재방문율이 <b>${retPct}%</b>로 낮습니다 — 신규 유입에는 성공하고 있지만 다시 오게 만드는 요소(리마케팅/CRM/알림)를 강화하면 LTV가 크게 개선됩니다`; }
+        else if (retPct > 60) { tone = 'good'; msg = `재방문율이 <b>${retPct}%</b>로 매우 높습니다 — 리텐션은 건강하니 신규 유입 확대에 예산을 배분해도 좋은 상태입니다`; }
+        else { tone = 'good'; msg = `재방문율이 <b>${retPct}%</b>로 균형잡힌 상태입니다`; }
+        items.unshift({ tone, icon: ICONS.insight, text: msg });
+      }
+      if (items.length) {
+        insArea.className = 'insight-box';
+        insArea.innerHTML = `<div class="i-title">${ICONS.insight} 신규 vs 재방문 비교 요약</div>` +
+          items.slice(0, 6).map(i => `<div class="insight-item ${i.tone}"><span class="i-ico">${i.icon}</span><span class="i-txt">${i.text}</span></div>`).join('');
+        content.appendChild(insArea);
+      }
+
+      // ===== 시계열 오버레이 차트 =====
+      if (dateKey && selectedMetrics.length) {
+        const chartGrid = document.createElement('div');
+        chartGrid.className = 'chart-grid';
+        selectedMetrics.forEach(k => {
+          const dates = [...new Set(filtered.map(r => r[dateKey]))].sort();
+          const nMap = {}, rMap = {};
+          newRows.forEach(r => { const v = parseFloat(r[k]); if (isFinite(v)) nMap[r[dateKey]] = (nMap[r[dateKey]]||0)+v; });
+          retRows.forEach(r => { const v = parseFloat(r[k]); if (isFinite(v)) rMap[r[dateKey]] = (rMap[r[dateKey]]||0)+v; });
+          const box = document.createElement('div');
+          box.className = 'chart-box';
+          box.innerHTML = `<h3>${ko(k)} <span class="chart-en">${k}</span></h3><div class="h3-sub">${koDesc(k)} · 신규 vs 재방문</div><canvas></canvas>`;
+          chartGrid.appendChild(box);
+          new Chart(box.querySelector('canvas').getContext('2d'), {
+            type: 'line',
+            data: {
+              labels: dates.map(shortDate),
+              datasets: [
+                { label: '신규', data: dates.map(d => nMap[d]||0), borderColor: '#0066FF', backgroundColor: 'rgba(0,102,255,0.12)', tension: 0.35, pointRadius: 2, borderWidth: 2.5, fill: true },
+                { label: '재방문', data: dates.map(d => rMap[d]||0), borderColor: '#00A76F', backgroundColor: 'rgba(0,167,111,0.12)', tension: 0.35, pointRadius: 2, borderWidth: 2.5, fill: true }
+              ]
+            },
+            options: { responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { labels: { color: '#5A6478', font: { size: 11 } } } },
+              scales: {
+                x: { ticks: { color: '#8892A6', font: { size: 11 }, maxRotation: 60, minRotation: 45, autoSkip: true }, grid: { color: '#F0F3F7' } },
+                y: { ticks: { color: '#8892A6', font: { size: 11 } }, grid: { color: '#F0F3F7' }, beginAtZero: true }
+              } }
+          });
+        });
+        content.appendChild(chartGrid);
+      }
+
+      // 원본 테이블
+      const tblBox = document.createElement('div');
+      tblBox.className = 'chart-box';
+      tblBox.innerHTML = `<h3>원본 데이터 <span class="chart-en">Raw Data</span></h3><div class="h3-sub">기준 기간 · 최대 500행</div><div style="overflow-x:auto"><table></table></div>`;
+      content.appendChild(tblBox);
+      const table = tblBox.querySelector('table');
+      const shown = filtered.slice(0, 500);
+      const thead = '<thead><tr>' + keys.map(k => `<th><div class="th-ko">${ko(k)}</div><div class="th-en">${k}</div></th>`).join('') + '</tr></thead>';
+      const tbody = '<tbody>' + shown.map(r => '<tr>' + keys.map(k => `<td>${r[k] ?? ''}</td>`).join('') + '</tr>').join('') + '</tbody>';
+      table.innerHTML = thead + tbody;
+    }
+    draw();
+  } catch (e) { statusEl.textContent = '⚠️ ' + e.message; }
+}
+
+function buildTypeCard(cls, title, desc, primRows, compRows, metrics) {
+  const card = document.createElement('div');
+  card.className = 'nvr-card ' + cls;
+  const metricsHtml = metrics.slice(0, 6).map(k => {
+    const isPct = /pct|rate|ratio/i.test(k);
+    const cur = isPct ? avgBy(primRows, k) : sumBy(primRows, k);
+    const prev = isPct ? avgBy(compRows, k) : sumBy(compRows, k);
+    return `<div class="nvr-metric">
+      <div class="m-label">${ko(k)}</div>
+      <div class="m-value">${fmt(cur)}</div>
+      <div class="m-delta">${compRows.length ? deltaBadge(cur, prev, isPct) : ''}</div>
+    </div>`;
+  }).join('');
+  card.innerHTML = `
+    <div class="nvr-title">${title}</div>
+    <div class="nvr-desc">${desc}</div>
+    <div class="nvr-metrics">${metricsHtml}</div>`;
+  return card;
+}
+</script>
 </body>
 </html>
