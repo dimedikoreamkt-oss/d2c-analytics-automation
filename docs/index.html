@@ -6,49 +6,53 @@
 <title>D2C Analytics 대시보드</title>
 <style>
   * { box-sizing: border-box; }
-  body {
-    margin: 0; font-family: -apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif;
-    background: #0f1115; color: #e8e8ea; padding: 40px 20px;
-  }
+  body { margin: 0; font-family: -apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: #0f1115; color: #e8e8ea; padding: 40px 20px; }
   .wrap { max-width: 960px; margin: 0 auto; }
   h1 { font-size: 28px; margin-bottom: 4px; }
   p.sub { color: #9a9aa5; margin-top: 0; margin-bottom: 32px; }
-  .grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 16px;
-  }
-  a.card {
-    display: block; background: #1a1d24; border: 1px solid #2a2d36;
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  a.card { display: block; background: #1a1d24; border: 1px solid #2a2d36;
     border-radius: 14px; padding: 20px; text-decoration: none; color: #e8e8ea;
-    transition: transform .15s, border-color .15s;
-  }
+    transition: transform .15s, border-color .15s; }
   a.card:hover { transform: translateY(-3px); border-color: #4f8cff; }
   a.card .tag { font-size: 12px; color: #4f8cff; font-weight: 600; }
   a.card h3 { margin: 8px 0 6px; font-size: 17px; }
   a.card .desc { font-size: 13px; color: #9a9aa5; line-height: 1.4; }
-  a.card.disabled { opacity: .4; pointer-events: none; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <h1>📊 D2C Analytics 대시보드</h1>
-    <p class="sub">매일 오전 자동 갱신됩니다 (BigQuery → GitHub Actions → 이 사이트)</p>
+    <p class="sub">BigQuery → GitHub Actions → 이 사이트 (매일 자동 갱신)</p>
     <div class="grid">
       <a class="card" href="mart1.html">
-        <div class="tag">MART 1</div>
-        <h3>일별 이커머스 핵심 KPI</h3>
-        <div class="desc">매출, 세션, 전환율, AOV 등 일자별 추이</div>
-      </a>
+        <div class="tag">MART 1</div><h3>일별 이커머스 핵심 KPI</h3>
+        <div class="desc">매출, 세션, 전환율, AOV 등 일자별 추이</div></a>
       <a class="card" href="mart2.html">
-  <div class="tag">MART 2</div>
-  <h3>퍼널 이탈 분석</h3>
-  <div class="desc">Session→PDP→ATC→Checkout→Purchase 단계별 이탈률</div>
-</a>
-      <a class="card disabled" href="#">
-        <div class="tag">MART 3</div>
-        <h3>코호트 리텐션</h3>
-        <div class="desc">준비 중</div>
-      </a>
+        <div class="tag">MART 2</div><h3>퍼널 이탈 분석</h3>
+        <div class="desc">Session→PDP→ATC→Checkout→Purchase 단계별 이탈률</div></a>
+      <a class="card" href="mart3.html">
+        <div class="tag">MART 3</div><h3>코호트 리텐션</h3>
+        <div class="desc">가입 시점별 재방문·재구매 유지율</div></a>
+      <a class="card" href="mart4.html">
+        <div class="tag">MART 4</div><h3>멀티터치 어트리뷰션</h3>
+        <div class="desc">first / last / linear 기여도</div></a>
+      <a class="card" href="mart5.html">
+        <div class="tag">MART 5</div><h3>LTV / RFM</h3>
+        <div class="desc">고객 등급 및 생애가치</div></a>
+      <a class="card" href="mart6.html">
+        <div class="tag">MART 6</div><h3>신규 vs 재방문</h3>
+        <div class="desc">유저 타입별 세션·전환 비교</div></a>
+      <a class="card" href="mart7.html">
+        <div class="tag">MART 7</div><h3>요일×시간대 히트맵</h3>
+        <div class="desc">7일×24시간 세션/전환 분포</div></a>
+      <a class="card" href="mart8.html">
+        <div class="tag">MART 8</div><h3>콘텐츠 참여도</h3>
+        <div class="desc">스크롤·비디오·다운로드 기반 tier</div></a>
+      <a class="card" href="mart9.html">
+        <div class="tag">MART 9</div><h3>다크소셜 / AI 리퍼럴</h3>
+        <div class="desc">ChatGPT·Perplexity 등 AI 유입 트래픽</div></a>
     </div>
   </div>
 </body>
