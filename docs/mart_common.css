@@ -284,3 +284,60 @@ tr:hover td { background: var(--primary-50); }
 .th-ko { font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; font-size: 12px; }
 .th-en { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
 
+/* ===== 공용 날짜 필터 ===== */
+.date-filter {
+  background: white; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 20px; margin-bottom: 20px;
+  display: grid; grid-template-columns: 1fr 1fr auto; gap: 20px; align-items: end;
+}
+@media (max-width: 900px) { .date-filter { grid-template-columns: 1fr; } }
+.df-section .df-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--text-muted); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.df-section.primary .df-title { color: var(--primary); }
+.df-inputs { display: flex; gap: 8px; align-items: center; }
+.df-inputs input[type="date"] {
+  border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px 12px;
+  font-family: inherit; font-size: 13px; color: var(--text); background: white;
+  cursor: pointer; flex: 1; min-width: 130px;
+}
+.df-inputs input[type="date"]:focus { outline: none; border-color: var(--primary); }
+.df-inputs .df-sep { color: var(--text-muted); font-size: 12px; }
+.df-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.df-quick button {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; font-family: inherit; transition: all .1s;
+}
+.df-quick button:hover { border-color: var(--primary); color: var(--primary); }
+.df-quick button.active { background: var(--primary); color: white; border-color: var(--primary); }
+.df-apply {
+  background: var(--primary); color: white; border: none; border-radius: 8px;
+  padding: 10px 20px; font-weight: 600; font-size: 13px; font-family: inherit;
+  cursor: pointer; height: fit-content;
+}
+.df-apply:hover { background: var(--primary-dark); }
+
+/* 비교 배너 */
+.compare-hero {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;
+}
+@media (max-width: 900px) { .compare-hero { grid-template-columns: 1fr; } }
+.compare-card {
+  background: white; border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 22px 24px; box-shadow: var(--shadow-sm);
+}
+.compare-card .cc-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
+.compare-card .cc-label .en { font-family: 'JetBrains Mono', monospace; font-weight: 400; font-size: 11px; margin-left: 6px; opacity: 0.7; }
+.compare-card .cc-desc { font-size: 11.5px; color: var(--text-muted); margin: 3px 0 12px; }
+.compare-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+.compare-rows .cr-block { padding: 4px 0; }
+.compare-rows .cr-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+.compare-rows .cr-value { font-size: 22px; font-weight: 700; margin-top: 4px; letter-spacing: -0.5px; }
+.compare-rows .cr-primary .cr-value { color: var(--primary); }
+.compare-rows .cr-secondary .cr-value { color: var(--text-secondary); }
+.compare-delta { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); font-size: 13px; }
+
+
