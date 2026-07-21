@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mart 14 · 관심사 카테고리 | D2C Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="mart_common.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta">매일 KST 19:00 자동 갱신</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard / Growth Analytics</div>
+      <h1>Mart 14 · 관심사 카테고리 분석</h1>
+      <div class="desc">GA4가 자동 분류한 사용자의 관심사(affinity), 구매 의향(in-market), 생애 이벤트(life event) 카테고리별 유입·전환·매출. 우리 브랜드에 반응이 큰 관심사 클러스터를 찾아 신규 타겟 확장에 활용하세요.</div>
+      <div class="meta-row"><span id="status">데이터 불러오는 중...</span></div>
+    </div>
+    <div id="root"></div>
+  </main>
+</div>
+<script>const DATA_FILE = 'data/mart14_interest.json';</script>
+<script src="mart_common.js"></script>
+</body>
+</html>
