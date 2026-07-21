@@ -1,47 +1,113 @@
 <!DOCTYPE html>
-<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mart 7 · 요일×시간대 히트맵</title>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mart 7 · 요일×시간대 히트맵 | D2C Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="mart_common.css">
 <style>
-  .heatmap { display: grid; grid-template-columns: 60px repeat(24, 1fr); gap: 2px; }
-  .heatmap .hcell {
-    padding: 10px 0; text-align: center; font-size: 11px; border-radius: 3px;
-    color: #fff; font-weight: 500; min-height: 30px;
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap {
+    display: grid;
+    grid-template-columns: 60px repeat(24, minmax(38px, 1fr));
+    gap: 3px;
+    min-width: 900px;
   }
-  .heatmap .hlabel { color: #cfd2da; background: transparent; font-weight: 600; }
-  .metric-tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+  .hcell {
+    padding: 10px 4px; text-align: center; font-size: 12px; border-radius: 6px;
+    font-weight: 600; min-height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .1s;
+  }
+  .hcell:hover { transform: scale(1.08); z-index: 10; box-shadow: var(--shadow-md); cursor: default; }
+  .hlabel {
+    background: transparent; color: var(--text-muted);
+    font-weight: 700; font-size: 11px;
+  }
+  .hlabel-day { color: var(--text); font-weight: 700; }
+  .metric-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .metric-tabs button {
-    background: #1a1d24; color: #cfd2da; border: 1px solid #2a2d36;
-    border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 13px;
+    background: white; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 16px; cursor: pointer;
+    font-size: 12px; font-weight: 600; font-family: inherit;
+    transition: all .15s;
   }
-  .metric-tabs button.active { border-color: #4f8cff; color: #fff; background: #1e2530; }
+  .metric-tabs button:hover { border-color: var(--primary); color: var(--primary); }
+  .metric-tabs button.active { background: var(--primary); border-color: var(--primary); color: white; }
+  .legend {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--text-muted);
+    margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);
+  }
+  .legend-bar {
+    display: flex; width: 200px; height: 12px; border-radius: 6px;
+    background: linear-gradient(90deg, #EEF4FF, #0066FF);
+  }
+  .peak-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .peak-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .peak-card .label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .peak-card .value { font-size: 22px; font-weight: 700; margin: 6px 0 2px; }
+  .peak-card .sub { font-size: 12px; color: var(--text-secondary); }
 </style>
-</head><body><div class="wrap">
-<a class="back" href="index.html">← 대시보드 목록</a>
-<h1>Mart 7 · 요일×시간대 히트맵</h1>
-<p class="sub" id="status">데이터 불러오는 중...</p>
-<div class="metric-tabs" id="tabs"></div>
-<div class="chart-box"><h3 id="heatTitle">히트맵</h3>
-  <div class="heatmap" id="heatmap"></div>
-  <p style="color:#9a9aa5;font-size:12px;margin-top:12px">색이 짙을수록 해당 요일·시간대에 값이 높습니다.</p>
-</div>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta">매일 KST 19:00 자동 갱신</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard / Marketing Analytics</div>
+      <h1>Mart 7 · 요일×시간대 히트맵</h1>
+      <div class="desc">7일 × 24시간 그리드로 언제 트래픽·전환이 몰리는지 시각적으로 파악합니다. 광고 집행 시간대 최적화에 활용하세요.</div>
+      <div class="meta-row"><span id="status">데이터 불러오는 중...</span></div>
+    </div>
+
+    <div class="metric-tabs" id="tabs"></div>
+
+    <div id="peakCards" class="peak-cards"></div>
+
+    <div class="chart-box wide">
+      <h3 id="heatTitle">히트맵</h3>
+      <div class="h3-sub" id="heatSub">색이 짙을수록 값이 높습니다. 셀에 마우스를 올리면 상세 정보 확인.</div>
+      <div class="heatmap-wrap">
+        <div class="heatmap" id="heatmap"></div>
+      </div>
+      <div class="legend">
+        <span>낮음</span>
+        <div class="legend-bar"></div>
+        <span>높음</span>
+      </div>
+    </div>
+  </main>
 </div>
 <script>
-const DAY_NAMES = ['일','월','화','수','목','금','토'];
+const DAY_NAMES = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+const KO = {
+  sessions: '세션 수', users: '사용자 수', add_to_carts: '장바구니 담기',
+  purchases: '구매 완료', revenue: '매출', session_conversion_rate_pct: '세션 전환율 (%)',
+  cvr_session_pct: '세션 전환율 (%)'
+};
+const ko = k => KO[k] || k;
+
 let ROWS = [];
 let currentMetric = null;
 
 async function load() {
-  const statusEl = document.getElementById('status');
+  const s = document.getElementById('status');
   try {
     const res = await fetch('data/mart7_time_heatmap.json?t=' + Date.now());
     if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음');
     ROWS = await res.json();
-    if (!ROWS.length) { statusEl.textContent = '데이터 없음'; return; }
-    statusEl.textContent = `총 ${ROWS.length} 셀 (요일×시간대)`;
+    if (!ROWS.length) { s.textContent = '데이터 없음'; return; }
+    s.textContent = `총 ${ROWS.length}개 셀 (요일 × 시간대)`;
     initTabs();
     draw();
-  } catch (e) { statusEl.textContent = '⚠️ ' + e.message; }
+  } catch (e) { s.textContent = '⚠️ ' + e.message; }
 }
 
 function initTabs() {
@@ -53,7 +119,7 @@ function initTabs() {
   const tabs = document.getElementById('tabs');
   numericKeys.forEach(k => {
     const b = document.createElement('button');
-    b.textContent = k;
+    b.innerHTML = `${k} <span style="opacity:.7">· ${ko(k)}</span>`;
     if (k === currentMetric) b.classList.add('active');
     b.addEventListener('click', () => {
       currentMetric = k;
@@ -66,28 +132,64 @@ function initTabs() {
 }
 
 function draw() {
-  document.getElementById('heatTitle').textContent = `${currentMetric} 히트맵`;
+  document.getElementById('heatTitle').textContent = `${currentMetric} · ${ko(currentMetric)}`;
+
+  // 피크 카드
+  const peakDiv = document.getElementById('peakCards');
+  peakDiv.innerHTML = '';
+  const valid = ROWS.filter(r => isFinite(parseFloat(r[currentMetric])));
+  if (valid.length) {
+    const sorted = [...valid].sort((a, b) => parseFloat(b[currentMetric]) - parseFloat(a[currentMetric]));
+    const peak = sorted[0];
+    const total = valid.reduce((s, r) => s + parseFloat(r[currentMetric]), 0);
+    const avg = total / valid.length;
+    const peakVal = parseFloat(peak[currentMetric]);
+    peakDiv.innerHTML = `
+      <div class="peak-card">
+        <div class="label">🔥 Peak · 최고 시간대</div>
+        <div class="value">${peakVal.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+        <div class="sub">${DAY_NAMES[parseInt(peak.day_of_week_num)]} ${peak.hour_of_day}시</div>
+      </div>
+      <div class="peak-card">
+        <div class="label">📊 Average · 평균</div>
+        <div class="value">${avg.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+        <div class="sub">전체 168개 셀 평균</div>
+      </div>
+      <div class="peak-card">
+        <div class="label">🎯 Peak vs Avg</div>
+        <div class="value">${avg > 0 ? (peakVal/avg).toFixed(1) : '-'}x</div>
+        <div class="sub">피크가 평균의 몇 배</div>
+      </div>`;
+  }
+
+  // 히트맵
   const heat = document.getElementById('heatmap');
   heat.innerHTML = '';
   const vals = ROWS.map(r => parseFloat(r[currentMetric]) || 0);
   const maxV = Math.max(...vals, 1);
+
   // 헤더행
   heat.appendChild(cell('', 'hlabel'));
   for (let h = 0; h < 24; h++) heat.appendChild(cell(String(h), 'hlabel'));
-  // 각 요일행
-  for (let d = 0; d < 7; d++) {
-    heat.appendChild(cell(DAY_NAMES[d], 'hlabel'));
+
+  // 요일 순서: 월화수목금토일 (마케팅 실무에서는 월요일 시작이 더 익숙)
+  const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+  dayOrder.forEach(d => {
+    heat.appendChild(cell(DAY_NAMES[d].substring(0,1), 'hlabel hlabel-day'));
     for (let h = 0; h < 24; h++) {
       const r = ROWS.find(x => parseInt(x.day_of_week_num) === d && parseInt(x.hour_of_day) === h);
       const v = r ? parseFloat(r[currentMetric]) || 0 : 0;
-      const intensity = v / maxV;
-      const bg = `rgba(79, 140, 255, ${0.05 + intensity * 0.85})`;
-      const c = cell(v > 0 ? (v >= 1 ? Math.round(v) : v.toFixed(2)) : '');
+      const intensity = maxV > 0 ? v / maxV : 0;
+      const bg = `rgba(0, 102, 255, ${0.05 + intensity * 0.85})`;
+      const color = intensity > 0.5 ? 'white' : '#0A1628';
+      const displayVal = v > 0 ? (v >= 100 ? Math.round(v) : v >= 1 ? v.toFixed(0) : v.toFixed(2)) : '';
+      const c = cell(displayVal);
       c.style.background = bg;
-      c.title = `${DAY_NAMES[d]} ${h}시 · ${currentMetric}: ${v}`;
+      c.style.color = color;
+      c.title = `${DAY_NAMES[d]} ${h}시 · ${ko(currentMetric)}: ${v}`;
       heat.appendChild(c);
     }
-  }
+  });
 }
 function cell(text, cls) {
   const d = document.createElement('div');
@@ -95,6 +197,22 @@ function cell(text, cls) {
   d.textContent = text;
   return d;
 }
+
+// 사이드바
+(function(){
+  const marts = [
+    ['mart1.html','1','일별 이커머스 KPI'],['mart2.html','2','퍼널 이탈 분석'],
+    ['mart3.html','3','코호트 리텐션'],['mart4.html','4','멀티터치 어트리뷰션'],
+    ['mart5.html','5','LTV / RFM'],['mart6.html','6','신규 vs 재방문'],
+    ['mart7.html','7','요일×시간대 히트맵'],['mart8.html','8','콘텐츠 참여도'],
+    ['mart9.html','9','다크소셜 / AI 리퍼럴']
+  ];
+  const sb = document.querySelector('.sidebar');
+  const cur = location.pathname.split('/').pop();
+  sb.innerHTML = `<div class="sec-label">Analytics</div>` +
+    marts.map(([h,n,name]) => `<a href="${h}" class="${h===cur?'active':''}"><span class="num">${n}</span> ${name}</a>`).join('');
+})();
 load();
 </script>
-</body></html>
+</body>
+</html>
