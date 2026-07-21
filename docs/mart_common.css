@@ -234,3 +234,53 @@ tr:hover td { background: var(--primary-50); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* 한국어 라벨 병기 */
+.h-label .en, .kpi-card .label .en, .chart-box h3 .chart-en {
+  color: var(--text-muted); font-weight: 400; font-size: 11px;
+  margin-left: 6px; font-family: 'JetBrains Mono', monospace;
+}
+.chart-box h3 .chart-en { font-size: 12px; }
+.h-desc { font-size: 11.5px; color: var(--text-muted); margin: 3px 0 10px; line-height: 1.4; }
+.kpi-card .k-desc { font-size: 11px; color: var(--text-muted); margin: 4px 0 8px; line-height: 1.4; min-height: 30px; }
+
+/* 지표 선택 칩 개선 */
+.chip { display: inline-flex; align-items: center; gap: 6px; }
+.chip .chip-en {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.6; font-weight: 400;
+}
+.chip.active .chip-en { opacity: 0.85; color: rgba(255,255,255,0.9); }
+.chip-label { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.chip-label svg { color: var(--primary); }
+
+/* 인사이트 아이콘 */
+.insight-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 0; font-size: 13.5px; line-height: 1.55;
+  border-bottom: 1px dashed var(--border);
+}
+.insight-item:last-child { border-bottom: none; }
+.insight-item .i-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; margin-top: 1px;
+}
+.insight-item.good .i-ico { background: var(--success-light); color: var(--success); }
+.insight-item.warn .i-ico, .insight-item.bad .i-ico { background: var(--warning-light); color: var(--warning); }
+.insight-item.bad .i-ico { background: var(--danger-light); color: var(--danger); }
+.insight-item .i-txt { color: var(--text); font-weight: 500; }
+.insight-item b { color: var(--text); font-weight: 700; }
+.insight-box .i-title { display: flex; align-items: center; gap: 8px; }
+.insight-box .i-title svg { color: var(--primary); }
+
+/* 배너 개선 */
+.hero-card .h-delta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hero-card .h-delta .d-lbl { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+.delta-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700;
+}
+.delta-badge svg { width: 12px; height: 12px; }
+
+/* 테이블 헤더 개선 */
+.th-ko { font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; font-size: 12px; }
+.th-en { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+
