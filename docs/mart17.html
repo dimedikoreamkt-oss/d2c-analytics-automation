@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mart 17 · 광고 CAC / ROAS | D2C Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="mart_common.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta">매일 KST 19:00 자동 갱신</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard / Growth Analytics</div>
+      <h1>Mart 17 · 광고 CAC / ROAS</h1>
+      <div class="desc">Meta · Google Ads 광고비를 GA4 성과와 자동 매칭하여 실제 CAC(고객 획득 비용), ROAS(광고비 대비 매출), LTV/CAC 비율을 계산합니다. LTV/CAC ≥ 3이 건강한 유닛이코노믹스 기준입니다.</div>
+      <div class="meta-row"><span id="status">데이터 불러오는 중...</span></div>
+    </div>
+    <div id="root"></div>
+  </main>
+</div>
+<script>const DATA_FILE = 'data/mart17_ad_spend.json';</script>
+<script src="mart_common.js"></script>
+</body>
+</html>
