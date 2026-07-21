@@ -136,6 +136,8 @@ function buildSidebar() {
     ['mart13.html', '13', '인구통계 분석'],
     ['mart14.html', '14', '관심사 카테고리'],
     ['mart16.html', '16', '광고 채널 딥다이브'],
+    ['mart17.html', '17', '광고 CAC / ROAS'],
+
   ];
   const sidebar = document.querySelector('.sidebar');
   if (!sidebar) return;
