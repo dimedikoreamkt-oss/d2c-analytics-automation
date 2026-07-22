@@ -28,3 +28,16 @@ jobs:
         with:
           commit_message: "chore: update dashboard data [skip ci]"
           file_pattern: "docs/data/*.json"
+      - name: Refresh Mart 16 (channel deep)
+        run: |
+          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none < sql/16_mart_ad_channel_deep.sql
+
+      - name: Export mart16_channels
+        run: |
+          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=json --max_rows=50000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_channel_deep\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC" \
+            > docs/data/mart16_channels.json
