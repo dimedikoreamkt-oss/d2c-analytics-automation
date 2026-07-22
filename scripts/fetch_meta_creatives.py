@@ -1,6 +1,6 @@
 """
 Meta Marketing API -> BigQuery
-- meta_creatives: 활성 광고 + 소재 이미지 URL, 카피, CTA, 랜딩 URL
+- meta_creatives: 활성/정지/아카이브 광고 + 소재 이미지 URL, 카피, CTA, 랜딩 URL
 - meta_ad_insights: 광고별 일별 성과 (impressions/reach/frequency/spend/cpc/cpm/clicks/ctr/actions/videos)
 """
 import os
@@ -10,7 +10,7 @@ from datetime import date, timedelta, datetime
 from google.cloud import bigquery
 
 META_TOKEN = os.environ["META_ACCESS_TOKEN"]
-AD_ACCOUNT_ID = os.environ["META_AD_ACCOUNT_ID"]  # act_ 없이 숫자만
+AD_ACCOUNT_ID = os.environ["META_AD_ACCOUNT_ID"]
 PROJECT_ID = "d2c-analytics-502304"
 DATASET = "marts"
 LOCATION = "asia-northeast3"
@@ -27,18 +27,18 @@ def api_get(endpoint, params=None):
 
 
 def fetch_active_ads():
+    """계정의 모든 광고 (활성/정지/아카이브 포함)"""
     ads = []
     url = f"act_{AD_ACCOUNT_ID}/ads"
     params = {
         "fields": (
-            "id,name,status,effective_status,campaign_id,campaign{name,status,effective_status},"
+            "id,name,status,effective_status,"
+            "campaign_id,campaign{name,status,effective_status},"
             "adset_id,adset{name,status,effective_status},"
             "creative{id,name,thumbnail_url,image_url,object_story_spec,"
             "body,title,call_to_action_type,instagram_permalink_url,video_id}"
         ),
         "limit": 100,
-        # 필터 완전 제거 → 계정의 모든 광고 반환
-        # 또는 아래 광범위 필터 사용:
         "filtering": json.dumps([{
             "field": "effective_status",
             "operator": "IN",
@@ -58,19 +58,6 @@ def fetch_active_ads():
         next_url = data.get("paging", {}).get("next")
         if not next_url:
             break
-        url = next_url.replace(f"{BASE_URL}/", "")
-        params = {}
-    return ads
-
-
-    }
-    while True:
-        data = api_get(url, params)
-        ads.extend(data.get("data", []))
-        next_url = data.get("paging", {}).get("next")
-        if not next_url:
-            break
-        # next URL은 절대 경로 → base 부분 제거
         url = next_url.replace(f"{BASE_URL}/", "")
         params = {}
     return ads
@@ -142,8 +129,10 @@ def load_creatives_to_bq(rows):
         bigquery.SchemaField("ad_name", "STRING"),
         bigquery.SchemaField("campaign_id", "STRING"),
         bigquery.SchemaField("campaign_name", "STRING"),
+        bigquery.SchemaField("campaign_status", "STRING"),
         bigquery.SchemaField("adset_id", "STRING"),
         bigquery.SchemaField("adset_name", "STRING"),
+        bigquery.SchemaField("adset_status", "STRING"),
         bigquery.SchemaField("creative_id", "STRING"),
         bigquery.SchemaField("creative_name", "STRING"),
         bigquery.SchemaField("effective_status", "STRING"),
@@ -210,7 +199,6 @@ def load_insights_to_bq(rows):
         bigquery.SchemaField("fetched_at", "TIMESTAMP"),
     ]
 
-    # 1. 스테이징 테이블에 신규 데이터 적재
     stage_job = client.load_table_from_json(
         rows,
         staging_id,
@@ -222,7 +210,6 @@ def load_insights_to_bq(rows):
     stage_job.result()
     print(f"[OK] staged {len(rows)} rows -> {staging_id}")
 
-    # 2. 최종 테이블 없으면 그대로 옮기고, 있으면 겹치는 날짜 제거 후 UNION
     try:
         client.get_table(table_id)
         exists = True
@@ -257,7 +244,7 @@ def main():
     print(f"[INFO] range: {since} ~ {until}")
 
     ads = fetch_active_ads()
-    print(f"[INFO] active/paused ads: {len(ads)}")
+    print(f"[INFO] fetched ads: {len(ads)}")
 
     creatives_rows = []
     insights_rows = []
@@ -290,13 +277,18 @@ def main():
 
         local_path = f"creatives/{ad_id}.jpg" if img_url else None
 
+        campaign_obj = ad.get("campaign") or {}
+        adset_obj = ad.get("adset") or {}
+
         creatives_rows.append({
             "ad_id": ad_id,
             "ad_name": ad.get("name"),
             "campaign_id": ad.get("campaign_id"),
-            "campaign_name": (ad.get("campaign") or {}).get("name"),
+            "campaign_name": campaign_obj.get("name"),
+            "campaign_status": campaign_obj.get("effective_status"),
             "adset_id": ad.get("adset_id"),
-            "adset_name": (ad.get("adset") or {}).get("name"),
+            "adset_name": adset_obj.get("name"),
+            "adset_status": adset_obj.get("effective_status"),
             "creative_id": creative_id,
             "creative_name": creative.get("name"),
             "effective_status": ad.get("effective_status"),
