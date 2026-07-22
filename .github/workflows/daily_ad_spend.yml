@@ -1,0 +1,42 @@
+name: Daily Ad Spend Import (Meta)
+on:
+  schedule:
+    - cron: '0 11 * * *'    # KST 20:00 = UTC 11:00 (daily_marts.yml 완료 후 실행)
+  workflow_dispatch:
+    inputs:
+      backfill_days:
+        description: '백필 일수 (수동 실행 시)'
+        required: false
+        default: '1'
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-meta-ads:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --quiet -r scripts/requirements.txt
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Fetch Meta Ads → BigQuery
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
+          BACKFILL_DAYS: ${{ github.event.inputs.backfill_days || '1' }}
+        run: |
+          python scripts/fetch_meta_ads.py
