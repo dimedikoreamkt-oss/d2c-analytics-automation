@@ -7,6 +7,18 @@ Loads data into:
   - meta_ad_insights_age_gender   (breakdown: age, gender)
   - meta_ad_insights_platform     (breakdown: publisher_platform, platform_position, device_platform)
   - meta_ad_insights_region       (breakdown: region)
+  # ===== Config =====
+META_ACCESS_TOKEN  = os.environ["META_ACCESS_TOKEN"]
+META_AD_ACCOUNT_ID = os.environ["META_AD_ACCOUNT_ID"]
+BACKFILL_DAYS      = int(os.environ.get("BACKFILL_DAYS", "7"))
+PROJECT_ID         = os.environ.get("PROJECT_ID", "d2c-analytics-502304")
+DATASET            = "marts"
+API_VERSION        = "v20.0"
+BASE_URL           = f"https://graph.facebook.com/{API_VERSION}"
+
+USD_TO_KRW = 1350.0
+ACCOUNT_CURRENCY = "USD"  # main()에서 자동 감지, 기본값
+
 """
 import os, json, time, sys, requests
 from datetime import datetime, timedelta, timezone
