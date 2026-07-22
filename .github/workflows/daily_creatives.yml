@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -62,56 +64,54 @@ jobs:
       - name: Refresh Mart 19 (creative performance)
         run: |
           bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=none \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
             < sql/19_mart_creative_performance.sql
 
       - name: Refresh Mart 20 (creative appeal)
         run: |
           bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=none \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
             < sql/20_mart_creative_appeal.sql
 
       - name: Refresh Mart 21 (creative fatigue)
         run: |
           bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=none \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
             < sql/21_mart_creative_fatigue.sql
 
       - name: Refresh Mart 22 (creative demographics)
         run: |
           bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=none \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
             < sql/22_mart_creative_demographics.sql
 
       - name: Refresh Mart 23 (creative platform)
         run: |
           bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=none \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
             < sql/23_mart_creative_platform.sql
 
       - name: Refresh Mart 24 (creative region)
         run: |
           bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=none \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
             < sql/24_mart_creative_region.sql
+
+      - name: Sync with remote (before generating JSON)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git stash push -m "auto-stash workflow changes" -- docs/data docs/creatives 2>/dev/null || true
+          git fetch origin main
+          git reset --hard origin/main
+          git stash pop 2>/dev/null || true
+          echo "✅ Synced with origin/main"
 
       - name: Export JSON for dashboard
         run: |
@@ -165,16 +165,9 @@ jobs:
 
           ls -lh docs/data/*.json
 
-      - name: Pull latest before commit
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main || git rebase --abort
-
       - name: Commit generated files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: sync Meta creatives (admin-exact) [skip ci]"
           file_pattern: "docs/data/*.json docs/creatives/*.jpg"
           push_options: '--force-with-lease'
-
