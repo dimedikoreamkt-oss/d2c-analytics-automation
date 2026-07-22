@@ -1,78 +1,40 @@
--- Mart 23: 자사 vs 시장 소구점 갭 분석
-DROP TABLE IF EXISTS `d2c-analytics-502304.marts.mart_appeal_gap`;
+-- Mart 23: 크리에이티브 × 지면(플랫폼) 성과
+-- publisher_platform (facebook/instagram/messenger/audience_network)
+--   × platform_position (feed/stories/reels/marketplace 등)
+DROP TABLE IF EXISTS `d2c-analytics-502304.marts.mart_creative_platform`;
 
-CREATE TABLE `d2c-analytics-502304.marts.mart_appeal_gap` AS
-
-WITH market_appeal AS (
-  -- 시장 승자 광고(WINNER 이상)에서 소구점 분포
-  SELECT
-    appeal_tag,
-    COUNT(DISTINCT ad_id) AS market_ad_count,
-    COUNT(DISTINCT page_id) AS market_advertiser_count
-  FROM `d2c-analytics-502304.marts.mart_market_winners`, UNNEST(appeal_tags) AS appeal_tag
-  WHERE winner_grade IN ('SUPER_WINNER', 'WINNER', 'GROWING')
-  GROUP BY appeal_tag
-),
-
-market_total AS (
-  SELECT COUNT(DISTINCT ad_id) AS total_market_ads
-  FROM `d2c-analytics-502304.marts.mart_market_winners`
-  WHERE winner_grade IN ('SUPER_WINNER', 'WINNER', 'GROWING')
-),
-
-own_appeal AS (
-  -- 자사 광고 소구점 분포 (최근 30일)
-  SELECT
-    appeal_tag,
-    COUNT(DISTINCT ad_id_str) AS own_ad_count,
-    SUM(spend_krw) AS own_spend,
-    SUM(ga_revenue) AS own_revenue
-  FROM (
-    SELECT
-      appeal_tag,
-      ARRAY_TO_STRING([CAST(FARM_FINGERPRINT(CONCAT(event_date, appeal_tag, creative_type)) AS STRING)], '') AS ad_id_str,
-      spend_krw,
-      ga_revenue
-    FROM `d2c-analytics-502304.marts.mart_creative_appeal`
-    WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-      AND appeal_tag != '미분류'
-  )
-  GROUP BY appeal_tag
-),
-
-own_total AS (
-  SELECT SUM(own_ad_count) AS total_own_ads
-  FROM own_appeal
-)
-
+CREATE TABLE `d2c-analytics-502304.marts.mart_creative_platform`
+PARTITION BY event_date AS
 SELECT
-  IFNULL(m.appeal_tag, o.appeal_tag) AS appeal_tag,
-  IFNULL(m.market_ad_count, 0) AS market_ad_count,
-  IFNULL(m.market_advertiser_count, 0) AS market_advertiser_count,
-  ROUND(SAFE_DIVIDE(m.market_ad_count, mt.total_market_ads) * 100, 1) AS market_share_pct,
-  IFNULL(o.own_ad_count, 0) AS own_ad_count,
-  ROUND(SAFE_DIVIDE(o.own_ad_count, ot.total_own_ads) * 100, 1) AS own_share_pct,
-  IFNULL(o.own_spend, 0) AS own_spend,
-  IFNULL(o.own_revenue, 0) AS own_revenue,
-  ROUND(
-    SAFE_DIVIDE(m.market_ad_count, mt.total_market_ads) * 100 -
-    SAFE_DIVIDE(o.own_ad_count, ot.total_own_ads) * 100,
-    1
-  ) AS gap_pct,
-
-  CASE
-    WHEN o.own_ad_count IS NULL OR o.own_ad_count = 0 THEN 'UNTOUCHED'
-    WHEN SAFE_DIVIDE(m.market_ad_count, mt.total_market_ads) -
-         SAFE_DIVIDE(o.own_ad_count, ot.total_own_ads) > 0.15 THEN 'UNDERUSED'
-    WHEN SAFE_DIVIDE(o.own_ad_count, ot.total_own_ads) -
-         SAFE_DIVIDE(m.market_ad_count, mt.total_market_ads) > 0.15 THEN 'OVERUSED'
-    ELSE 'BALANCED'
-  END AS gap_status,
-
-  CURRENT_TIMESTAMP() AS analyzed_at
-
-FROM market_appeal m
-CROSS JOIN market_total mt
-FULL OUTER JOIN own_appeal o ON m.appeal_tag = o.appeal_tag
-CROSS JOIN own_total ot
-ORDER BY gap_pct DESC;
+  event_date,
+  ad_id,
+  ad_name,
+  campaign_name,
+  adset_name,
+  IFNULL(publisher_platform, 'unknown') AS publisher_platform,
+  IFNULL(platform_position,  'unknown') AS platform_position,
+  CONCAT(
+    IFNULL(publisher_platform, 'unknown'),
+    ' - ',
+    IFNULL(platform_position, 'unknown')
+  ) AS placement,
+  SUM(impressions)         AS impressions,
+  SUM(reach)               AS reach,
+  SUM(clicks)              AS clicks,
+  SUM(inline_link_clicks)  AS link_clicks,
+  SUM(spend_krw)           AS spend_krw,
+  SUM(meta_purchases)      AS purchases,
+  SUM(meta_purchase_value) AS revenue,
+  SUM(meta_add_to_cart)          AS add_to_cart,
+  SUM(meta_initiate_checkout)    AS initiate_checkout,
+  SAFE_DIVIDE(SUM(clicks),         NULLIF(SUM(impressions), 0)) * 100 AS ctr_pct,
+  SAFE_DIVIDE(SUM(inline_link_clicks), NULLIF(SUM(impressions), 0)) * 100 AS link_ctr_pct,
+  SAFE_DIVIDE(SUM(meta_purchases), NULLIF(SUM(clicks), 0)) * 100 AS click_cvr_pct,
+  SAFE_DIVIDE(SUM(spend_krw),      NULLIF(SUM(clicks), 0))       AS cpc_krw,
+  SAFE_DIVIDE(SUM(spend_krw)*1000, NULLIF(SUM(impressions), 0))  AS cpm_krw,
+  SAFE_DIVIDE(SUM(spend_krw),      NULLIF(SUM(meta_purchases), 0)) AS cpa_krw,
+  SAFE_DIVIDE(SUM(meta_purchase_value), NULLIF(SUM(spend_krw), 0)) AS roas
+FROM `d2c-analytics-502304.marts.meta_ad_insights_platform`
+GROUP BY
+  event_date, ad_id, ad_name, campaign_name, adset_name,
+  publisher_platform, platform_position;
