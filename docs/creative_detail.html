@@ -2,210 +2,429 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>소재 상세 분석</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="mart_common.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-.detail-layout { display:grid; grid-template-columns:400px 1fr; gap:32px; margin-top:24px; }
-@media(max-width:960px){ .detail-layout{grid-template-columns:1fr;} }
-.creative-preview { position:sticky; top:20px; align-self:start; }
-.creative-preview img { width:100%; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.1); }
-.copy-block { background:#f9fafb; border-radius:8px; padding:12px; margin-top:12px; font-size:13px; line-height:1.5; }
-.copy-block strong { display:block; color:#6b7280; font-size:11px; text-transform:uppercase; margin-bottom:4px; }
-.kpi-section { margin-bottom:32px; }
-.kpi-section-title { font-size:15px; font-weight:700; color:#111827; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #2563eb; display:inline-block; }
-.kpi-grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
-.kpi-box { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px; }
-.kpi-box-label { font-size:11px; color:#6b7280; text-transform:uppercase; margin-bottom:4px; }
-.kpi-box-value { font-size:22px; font-weight:700; color:#111827; }
-.kpi-box-hint { font-size:11px; color:#6b7280; margin-top:4px; }
-.funnel-mini { display:flex; align-items:center; gap:12px; margin-top:8px; }
-.funnel-step { flex:1; background:#eff6ff; border-radius:6px; padding:8px 10px; text-align:center; font-size:13px; }
-.funnel-arrow { color:#9ca3af; font-size:20px; }
-.chart-box { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-top:16px; }
+  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;color:#111;}
+  .topbar{background:#fff;padding:14px 24px;display:flex;align-items:center;gap:20px;border-bottom:1px solid #e5e7eb;}
+  .topbar .logo{font-weight:700;color:#111;text-decoration:none;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .topbar .logo-mark{background:#2563eb;color:#fff;width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
+  .topbar nav a{color:#6b7280;text-decoration:none;font-size:13px;}
+  .wrap{max-width:1400px;margin:0 auto;padding:24px;}
+  .breadcrumb{font-size:13px;color:#6b7280;margin-bottom:8px;}
+  .breadcrumb a{color:#2563eb;text-decoration:none;}
+  h1{margin:0 0 4px;font-size:24px;font-weight:700;}
+  .subtitle{color:#6b7280;font-size:13px;margin-bottom:18px;}
+  .status-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px;vertical-align:middle;}
+  .status-ACTIVE{background:#d1fae5;color:#065f46;}
+  .status-PAUSED{background:#fef3c7;color:#92400e;}
+  .status-ARCHIVED,.status-CAMPAIGN_PAUSED,.status-ADSET_PAUSED{background:#e5e7eb;color:#4b5563;}
+
+  .date-control{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;margin-bottom:20px;}
+  .date-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .date-row:last-child{margin-bottom:0;}
+  .date-row label{font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+  .date-row select,.date-row input[type=date]{padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:13px;background:#fff;font-family:inherit;}
+  .date-row input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+  .date-row .compare-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600;color:#2563eb;}
+  .date-row .apply-btn{padding:7px 20px;background:#2563eb;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;}
+  .date-row .apply-btn:hover{background:#1d4ed8;}
+  .compare-row{display:none;padding-top:10px;border-top:1px dashed #e5e7eb;margin-top:10px;}
+  .compare-row.show{display:flex;}
+  .period-label{background:#eff6ff;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+
+  .detail-layout{display:grid;grid-template-columns:340px 1fr;gap:24px;}
+  @media(max-width:960px){.detail-layout{grid-template-columns:1fr;}}
+  .creative-preview{position:sticky;top:20px;align-self:start;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;}
+  .creative-preview img{width:100%;border-radius:8px;}
+  .copy-block{background:#f9fafb;border-radius:6px;padding:10px 12px;margin-top:8px;font-size:12px;line-height:1.5;}
+  .copy-block strong{display:block;color:#6b7280;font-size:10px;text-transform:uppercase;margin-bottom:2px;letter-spacing:0.5px;}
+
+  .kpi-section{margin-bottom:24px;}
+  .kpi-section-title{font-size:14px;font-weight:700;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #2563eb;display:inline-block;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .kpi-box{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px;position:relative;}
+  .kpi-box-label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
+  .kpi-box-value{font-size:20px;font-weight:700;line-height:1.2;}
+  .kpi-box-value.good{color:#059669;}
+  .kpi-box-value.bad{color:#dc2626;}
+  .kpi-box-hint{font-size:10px;color:#6b7280;margin-top:4px;}
+  .kpi-box-delta{font-size:11px;font-weight:700;margin-top:4px;display:inline-block;padding:1px 6px;border-radius:4px;}
+  .delta-up{background:#d1fae5;color:#065f46;}
+  .delta-down{background:#fee2e2;color:#991b1b;}
+  .delta-neutral{background:#f3f4f6;color:#6b7280;}
+  .kpi-box-prev{font-size:10px;color:#9ca3af;margin-top:2px;}
+
+  .funnel-mini{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .funnel-step{flex:1;min-width:100px;background:#eff6ff;border-radius:6px;padding:8px;text-align:center;font-size:11px;}
+  .funnel-arrow{color:#9ca3af;font-size:16px;}
+  .chart-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;margin-top:16px;}
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner">
-  <a href="index.html" class="brand">D2C Analytics</a>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
   <nav><a href="creative_gallery.html">← 소재 갤러리</a></nav>
-</div></header>
+</header>
 
-<main class="page-container">
+<div class="wrap">
   <div id="detailRoot">데이터 로딩 중...</div>
-</main>
+</div>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const AD_ID = params.get('ad_id');
-let CREATIVE = null, PERF = [];
+const params=new URLSearchParams(window.location.search);
+const AD_ID=params.get('ad_id');
+let CREATIVE=null, PERF=[];
 
-async function load() {
-  const [c, p] = await Promise.all([
-    fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
-    fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
-  ]);
-  CREATIVE = c.find(x => x.ad_id === AD_ID);
-  PERF = p.filter(x => x.ad_id === AD_ID).sort((a,b)=>a.event_date.localeCompare(b.event_date));
-  if (!CREATIVE) { document.getElementById('detailRoot').innerHTML = '<h2>소재를 찾을 수 없습니다.</h2>'; return; }
-  render();
+// 기간 상태
+let periodStart=null, periodEnd=null;
+let compareEnabled=false, compareStart=null, compareEnd=null;
+
+async function load(){
+  try{
+    const [c,p]=await Promise.all([
+      fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
+      fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
+    ]);
+    CREATIVE=c.find(x=>x.ad_id===AD_ID);
+    PERF=p.filter(x=>x.ad_id===AD_ID).sort((a,b)=>a.event_date.localeCompare(b.event_date));
+
+    if(!CREATIVE){document.getElementById('detailRoot').innerHTML='<h2>소재를 찾을 수 없습니다.</h2>';return;}
+
+    // 기본 기간: 데이터 최근 7일
+    const maxDate=PERF.length?PERF[PERF.length-1].event_date:new Date().toISOString().slice(0,10);
+    const minDate=PERF.length?PERF[0].event_date:maxDate;
+    periodEnd=maxDate;
+    const s=new Date(maxDate);s.setDate(s.getDate()-6);
+    periodStart=s.toISOString().slice(0,10);
+    if(periodStart<minDate) periodStart=minDate;
+    setCompareAuto();
+
+    render();
+    bindControls();
+  }catch(e){
+    document.getElementById('detailRoot').innerHTML='<h2>⚠️ 데이터 로드 실패: '+e.message+'</h2>';
+  }
 }
 
-function fmt(n,d=0){ if(n==null||isNaN(n))return'-'; return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d}); }
-function sum(arr,k){ return arr.reduce((a,r)=>a+(+r[k]||0),0); }
+function setCompareAuto(){
+  // 비교 기간: 선택 기간 바로 이전 동일 길이
+  const s=new Date(periodStart), e=new Date(periodEnd);
+  const days=Math.round((e-s)/86400000)+1;
+  const ce=new Date(s); ce.setDate(ce.getDate()-1);
+  const cs=new Date(ce); cs.setDate(cs.getDate()-(days-1));
+  compareStart=cs.toISOString().slice(0,10);
+  compareEnd=ce.toISOString().slice(0,10);
+}
 
-function render() {
-  const c = CREATIVE;
-  const totalSpend = sum(PERF,'spend_krw');
-  const totalImp = sum(PERF,'impressions');
-  const totalReach = Math.max(...PERF.map(r=>+r.reach||0), 0);
-  const avgFreq = sum(PERF,'impressions')/Math.max(totalReach,1);
-  const totalClicks = sum(PERF,'clicks');
-  const totalLinkClicks = sum(PERF,'link_clicks');
-  const ctr = totalImp ? totalClicks/totalImp*100 : 0;
-  const linkCtr = totalImp ? totalLinkClicks/totalImp*100 : 0;
-  const cpc = totalClicks ? totalSpend/totalClicks : 0;
-  const cpm = totalImp ? totalSpend/totalImp*1000 : 0;
-  const metaPurchases = sum(PERF,'meta_purchases');
-  const metaValue = sum(PERF,'meta_purchase_value');
-  const metaRoas = totalSpend ? metaValue/totalSpend : 0;
-  const gaSessions = sum(PERF,'ga_sessions');
-  const gaUsers = sum(PERF,'ga_users');
-  const gaPDP = sum(PERF,'ga_pdp_views');
-  const gaATC = sum(PERF,'ga_add_to_cart');
-  const gaLogins = sum(PERF,'ga_logins');
-  const gaSignups = sum(PERF,'ga_signups');
-  const gaCheckouts = sum(PERF,'ga_checkouts');
-  const gaPurchases = sum(PERF,'ga_purchases');
-  const gaRevenue = sum(PERF,'ga_revenue');
-  const gaRoas = totalSpend ? gaRevenue/totalSpend : 0;
-  const gaCvr = gaSessions ? gaPurchases/gaSessions*100 : 0;
-  const gaCac = gaPurchases ? totalSpend/gaPurchases : 0;
-  const avgEng = PERF.length ? sum(PERF,'ga_avg_engagement_sec')/PERF.length : 0;
-  const avgScroll = PERF.length ? sum(PERF,'ga_avg_scroll_depth_pct')/PERF.length : 0;
+function fmt(n,d=0){if(n==null||isNaN(n))return'-';return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});}
 
-  const videoP25 = sum(PERF,'video_p25');
-  const videoP100 = sum(PERF,'video_p100');
-  const holdRate = videoP25 ? videoP100/videoP25*100 : 0;
+function inRange(date,s,e){return date>=s&&date<=e;}
 
-  const img = c.local_image_path || c.thumbnail_url || 'assets/no-image.png';
+function aggregate(start,end){
+  const rows=PERF.filter(r=>inRange(r.event_date,start,end));
+  if(!rows.length) return null;
+  const sum=(k)=>rows.reduce((s,r)=>s+(+r[k]||0),0);
+  const totalImp=sum('impressions');
+  const totalSpend=sum('spend_krw');
+  const totalClicks=sum('clicks');
+  const totalLinkClicks=sum('link_clicks');
+  const metaValue=sum('meta_purchase_value');
+  const gaRevenue=sum('ga_revenue');
+  const gaSessions=sum('ga_sessions');
+  const gaPurchases=sum('ga_purchases');
 
-  document.getElementById('detailRoot').innerHTML = `
-    <div class="page-head">
-      <h1>${c.ad_name}</h1>
-      <p class="desc">${c.campaign_name || ''} · ${c.adset_name || ''} · <span class="status-badge status-${c.effective_status}">${c.effective_status}</span></p>
-    </div>
+  // ✅ Frequency: 노출 가중 평균 (Meta 표기 방식과 일치)
+  const weightedFreq=totalImp?rows.reduce((s,r)=>s+(+r.frequency||0)*(+r.impressions||0),0)/totalImp:0;
+
+  return {
+    days:rows.length,
+    spend:totalSpend,
+    impressions:totalImp,
+    reach:sum('reach'),   // reach는 일별 합이 아닌 unique count이므로 정확도가 떨어질 수 있음 (안내 표시)
+    frequency:weightedFreq,
+    clicks:totalClicks,
+    linkClicks:totalLinkClicks,
+    ctr:totalImp?totalClicks/totalImp*100:0,
+    linkCtr:totalImp?totalLinkClicks/totalImp*100:0,
+    cpc:totalClicks?totalSpend/totalClicks:0,
+    cpm:totalImp?totalSpend/totalImp*1000:0,
+    metaPurchases:sum('meta_purchases'),
+    metaValue:metaValue,
+    metaRoas:totalSpend?metaValue/totalSpend:0,
+    metaAtc:sum('meta_add_to_cart'),
+    gaSessions:gaSessions,
+    gaUsers:sum('ga_users'),
+    gaPDP:sum('ga_pdp_views'),
+    gaATC:sum('ga_add_to_cart'),
+    gaLogins:sum('ga_logins'),
+    gaSignups:sum('ga_signups'),
+    gaCheckouts:sum('ga_checkouts'),
+    gaPurchases:gaPurchases,
+    gaRevenue:gaRevenue,
+    gaRoas:totalSpend?gaRevenue/totalSpend:0,
+    gaCvr:gaSessions?gaPurchases/gaSessions*100:0,
+    gaCac:gaPurchases?totalSpend/gaPurchases:null,
+    avgEng:rows.length?rows.reduce((s,r)=>s+(+r.ga_avg_engagement_sec||0),0)/rows.length:0,
+    avgScroll:rows.length?rows.reduce((s,r)=>s+(+r.ga_avg_scroll_depth_pct||0),0)/rows.length:0,
+    videoP25:sum('video_p25'),
+    videoP50:sum('video_p50'),
+    videoP75:sum('video_p75'),
+    videoP100:sum('video_p100'),
+  };
+}
+
+function delta(current,previous){
+  if(previous==null||current==null) return null;
+  if(previous===0){return current===0?{pct:0,dir:'neutral'}:{pct:null,dir:'up',special:'신규'};}
+  const pct=(current-previous)/previous*100;
+  return {pct,dir:pct>0.5?'up':pct<-0.5?'down':'neutral'};
+}
+
+function deltaHTML(cur,prev,goodDir='up',unit='',digit=0){
+  if(!compareEnabled||prev==null) return '';
+  const d=delta(cur,prev);
+  if(!d) return '';
+  const cls='delta-'+d.dir;
+  const arrow=d.dir==='up'?'▲':d.dir==='down'?'▼':'─';
+  const better=(d.dir==='up'&&goodDir==='up')||(d.dir==='down'&&goodDir==='down');
+  const txt=d.special||(d.pct!=null?`${d.pct>0?'+':''}${d.pct.toFixed(1)}%`:'-');
+  return `<div class="kpi-box-delta ${cls}" title="${better?'개선':'악화'}">${arrow} ${txt}</div>
+          <div class="kpi-box-prev">이전: ${prev===null?'-':unit+fmt(prev,digit)+(unit==='%'?'':'')}</div>`;
+}
+
+function render(){
+  const c=CREATIVE;
+  const cur=aggregate(periodStart,periodEnd);
+  const prev=compareEnabled?aggregate(compareStart,compareEnd):null;
+
+  if(!cur){
+    document.getElementById('detailRoot').innerHTML=buildHeader()+'<div style="background:#fff;padding:40px;border-radius:12px;text-align:center;color:#9ca3af;">선택한 기간에 데이터가 없습니다.</div>';
+    return;
+  }
+
+  const img=c.local_image_path||c.thumbnail_url||'';
+
+  document.getElementById('detailRoot').innerHTML=`
+    ${buildHeader()}
 
     <div class="detail-layout">
       <div class="creative-preview">
-        <img src="${img}" onerror="this.src='https://via.placeholder.com/400/f3f4f6/9ca3af?text=No+Image'">
-        <div class="copy-block"><strong>제목</strong>${c.title_text || '-'}</div>
-        <div class="copy-block"><strong>본문</strong>${c.body_text || '-'}</div>
-        <div class="copy-block"><strong>CTA</strong>${c.cta_type || '-'}</div>
-        <div class="copy-block"><strong>랜딩 URL</strong><a href="${c.landing_url}" target="_blank" style="color:#2563eb;word-break:break-all;">${c.landing_url || '-'}</a></div>
-        ${c.instagram_permalink ? `<div class="copy-block"><strong>인스타그램</strong><a href="${c.instagram_permalink}" target="_blank" style="color:#2563eb;">게시물 보기 →</a></div>` : ''}
+        <img src="${img}" onerror="this.src='https://via.placeholder.com/340/f3f4f6/9ca3af?text=No+Image'">
+        <div class="copy-block"><strong>제목</strong>${c.title_text||'-'}</div>
+        <div class="copy-block"><strong>본문</strong>${(c.body_text||'-').slice(0,200)}${(c.body_text||'').length>200?'...':''}</div>
+        <div class="copy-block"><strong>CTA</strong>${c.cta_type||'-'}</div>
+        <div class="copy-block"><strong>랜딩</strong><a href="${c.landing_url}" target="_blank" style="color:#2563eb;word-break:break-all;font-size:11px;">${c.landing_url||'-'}</a></div>
       </div>
 
       <div>
         <div class="kpi-section">
-          <div class="kpi-section-title">📢 Meta 노출 성과</div>
-          <div class="kpi-grid-4">
-            <div class="kpi-box"><div class="kpi-box-label">지출</div><div class="kpi-box-value">₩${fmt(totalSpend)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">노출수</div><div class="kpi-box-value">${fmt(totalImp)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">도달수</div><div class="kpi-box-value">${fmt(totalReach)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">빈도</div><div class="kpi-box-value">${fmt(avgFreq,2)}</div><div class="kpi-box-hint">${avgFreq>3?'⚠️ 피로도 높음':'양호'}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">CPM</div><div class="kpi-box-value">₩${fmt(cpm)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">CPC</div><div class="kpi-box-value">₩${fmt(cpc)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">클릭수</div><div class="kpi-box-value">${fmt(totalClicks)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">CTR (전체)</div><div class="kpi-box-value">${fmt(ctr,2)}%</div><div class="kpi-box-hint">링크 CTR: ${fmt(linkCtr,2)}%</div></div>
+          <div class="kpi-section-title">📢 Meta 노출 성과 <span style="font-size:11px;color:#6b7280;font-weight:400;">· ${cur.days}일 데이터</span></div>
+          <div class="kpi-grid">
+            ${kpiBox('지출',`₩${fmt(cur.spend)}`,cur.spend,prev?.spend,'down','₩')}
+            ${kpiBox('노출수',fmt(cur.impressions),cur.impressions,prev?.impressions,'up','')}
+            ${kpiBox('도달수',fmt(cur.reach)+' <span style="font-size:9px;color:#9ca3af;">(누적)</span>',cur.reach,prev?.reach,'up','')}
+            ${kpiBox('빈도','<span title="노출 가중 평균 · Meta 표기와 일치">'+fmt(cur.frequency,2)+'</span>',cur.frequency,prev?.frequency,'down','',2,cur.frequency>3?'⚠️ 피로도 높음':'양호')}
+            ${kpiBox('CPM',`₩${fmt(cur.cpm)}`,cur.cpm,prev?.cpm,'down','₩')}
+            ${kpiBox('CPC',`₩${fmt(cur.cpc)}`,cur.cpc,prev?.cpc,'down','₩')}
+            ${kpiBox('클릭수',fmt(cur.clicks),cur.clicks,prev?.clicks,'up','')}
+            ${kpiBox('CTR (전체)',fmt(cur.ctr,2)+'%',cur.ctr,prev?.ctr,'up','',2,`링크 CTR: ${fmt(cur.linkCtr,2)}%`)}
           </div>
         </div>
 
         <div class="kpi-section">
-          <div class="kpi-section-title">💰 Meta 전환 성과</div>
-          <div class="kpi-grid-4">
-            <div class="kpi-box"><div class="kpi-box-label">Meta 구매</div><div class="kpi-box-value">${fmt(metaPurchases)}건</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">Meta 매출</div><div class="kpi-box-value">₩${fmt(metaValue)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">Meta ROAS</div><div class="kpi-box-value ${metaRoas>=1?'roas-good':'roas-bad'}">${fmt(metaRoas,2)}x</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">장바구니</div><div class="kpi-box-value">${fmt(sum(PERF,'meta_add_to_cart'))}건</div></div>
+          <div class="kpi-section-title">💰 Meta 전환 성과 (Meta 픽셀 어트리뷰션)</div>
+          <div class="kpi-grid">
+            ${kpiBox('Meta 구매',`${fmt(cur.metaPurchases)}건`,cur.metaPurchases,prev?.metaPurchases,'up','')}
+            ${kpiBox('Meta 매출',`₩${fmt(cur.metaValue)}`,cur.metaValue,prev?.metaValue,'up','₩')}
+            ${kpiBox('Meta ROAS',fmt(cur.metaRoas,2)+'x',cur.metaRoas,prev?.metaRoas,'up','',2)}
+            ${kpiBox('Meta 장바구니',`${fmt(cur.metaAtc)}건`,cur.metaAtc,prev?.metaAtc,'up','')}
           </div>
         </div>
 
         <div class="kpi-section">
           <div class="kpi-section-title">🛒 GA4 이커머스 성과 (사이트 실측)</div>
-          <div class="kpi-grid-4">
-            <div class="kpi-box"><div class="kpi-box-label">유입 세션</div><div class="kpi-box-value">${fmt(gaSessions)}</div><div class="kpi-box-hint">${fmt(gaUsers)} 유저</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">평균 체류시간</div><div class="kpi-box-value">${fmt(avgEng,1)}초</div><div class="kpi-box-hint">${avgEng<10?'⚠️ 이탈 위험':'양호'}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">평균 스크롤</div><div class="kpi-box-value">${fmt(avgScroll,0)}%</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">세션 전환율</div><div class="kpi-box-value">${fmt(gaCvr,2)}%</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">GA 매출</div><div class="kpi-box-value">₩${fmt(gaRevenue)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">GA ROAS</div><div class="kpi-box-value ${gaRoas>=1?'roas-good':'roas-bad'}">${fmt(gaRoas,2)}x</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">GA CAC</div><div class="kpi-box-value">₩${fmt(gaCac)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">GA 구매</div><div class="kpi-box-value">${fmt(gaPurchases)}건</div></div>
+          <div class="kpi-grid">
+            ${kpiBox('유입 세션',fmt(cur.gaSessions),cur.gaSessions,prev?.gaSessions,'up','',0,`${fmt(cur.gaUsers)} 유저`)}
+            ${kpiBox('평균 체류',`${fmt(cur.avgEng,1)}초`,cur.avgEng,prev?.avgEng,'up','',1,cur.avgEng<10?'⚠️ 이탈 위험':'양호')}
+            ${kpiBox('평균 스크롤',`${fmt(cur.avgScroll,0)}%`,cur.avgScroll,prev?.avgScroll,'up','',0)}
+            ${kpiBox('세션 CVR',fmt(cur.gaCvr,2)+'%',cur.gaCvr,prev?.gaCvr,'up','',2)}
+            ${kpiBox('GA 매출',`₩${fmt(cur.gaRevenue)}`,cur.gaRevenue,prev?.gaRevenue,'up','₩')}
+            ${kpiBox('GA ROAS',fmt(cur.gaRoas,2)+'x',cur.gaRoas,prev?.gaRoas,'up','',2)}
+            ${kpiBox('GA CAC',cur.gaCac?'₩'+fmt(cur.gaCac):'-',cur.gaCac,prev?.gaCac,'down','₩')}
+            ${kpiBox('GA 구매',`${fmt(cur.gaPurchases)}건`,cur.gaPurchases,prev?.gaPurchases,'up','')}
           </div>
         </div>
 
         <div class="kpi-section">
           <div class="kpi-section-title">🔻 랜딩 후 퍼널 (GA4)</div>
           <div class="funnel-mini">
-            <div class="funnel-step"><b>${fmt(gaSessions)}</b><br>세션</div>
+            <div class="funnel-step"><b>${fmt(cur.gaSessions)}</b><br>세션</div>
             <div class="funnel-arrow">→</div>
-            <div class="funnel-step"><b>${fmt(gaPDP)}</b><br>PDP<br><small>${fmt(gaSessions?gaPDP/gaSessions*100:0,1)}%</small></div>
+            <div class="funnel-step"><b>${fmt(cur.gaPDP)}</b><br>PDP<br><small>${fmt(cur.gaSessions?cur.gaPDP/cur.gaSessions*100:0,1)}%</small></div>
             <div class="funnel-arrow">→</div>
-            <div class="funnel-step"><b>${fmt(gaATC)}</b><br>장바구니<br><small>${fmt(gaPDP?gaATC/gaPDP*100:0,1)}%</small></div>
+            <div class="funnel-step"><b>${fmt(cur.gaATC)}</b><br>장바구니<br><small>${fmt(cur.gaPDP?cur.gaATC/cur.gaPDP*100:0,1)}%</small></div>
             <div class="funnel-arrow">→</div>
-            <div class="funnel-step"><b>${fmt(gaCheckouts)}</b><br>결제<br><small>${fmt(gaATC?gaCheckouts/gaATC*100:0,1)}%</small></div>
+            <div class="funnel-step"><b>${fmt(cur.gaCheckouts)}</b><br>결제<br><small>${fmt(cur.gaATC?cur.gaCheckouts/cur.gaATC*100:0,1)}%</small></div>
             <div class="funnel-arrow">→</div>
-            <div class="funnel-step"><b>${fmt(gaPurchases)}</b><br>구매<br><small>${fmt(gaCheckouts?gaPurchases/gaCheckouts*100:0,1)}%</small></div>
-          </div>
-          <div class="kpi-grid-4" style="margin-top:12px;">
-            <div class="kpi-box"><div class="kpi-box-label">로그인 이벤트</div><div class="kpi-box-value">${fmt(gaLogins)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">회원가입</div><div class="kpi-box-value">${fmt(gaSignups)}</div></div>
+            <div class="funnel-step"><b>${fmt(cur.gaPurchases)}</b><br>구매<br><small>${fmt(cur.gaCheckouts?cur.gaPurchases/cur.gaCheckouts*100:0,1)}%</small></div>
           </div>
         </div>
 
-        ${videoP25 ? `
+        ${cur.videoP25?`
         <div class="kpi-section">
-          <div class="kpi-section-title">🎥 영상 시청 성과</div>
-          <div class="kpi-grid-4">
-            <div class="kpi-box"><div class="kpi-box-label">25% 시청</div><div class="kpi-box-value">${fmt(videoP25)}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">50% 시청</div><div class="kpi-box-value">${fmt(sum(PERF,'video_p50'))}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">75% 시청</div><div class="kpi-box-value">${fmt(sum(PERF,'video_p75'))}</div></div>
-            <div class="kpi-box"><div class="kpi-box-label">100% 시청</div><div class="kpi-box-value">${fmt(videoP100)}</div><div class="kpi-box-hint">Hold Rate: ${fmt(holdRate,1)}%</div></div>
+          <div class="kpi-section-title">🎥 영상 시청</div>
+          <div class="kpi-grid">
+            ${kpiBox('25% 시청',fmt(cur.videoP25),cur.videoP25,prev?.videoP25,'up','')}
+            ${kpiBox('50% 시청',fmt(cur.videoP50),cur.videoP50,prev?.videoP50,'up','')}
+            ${kpiBox('75% 시청',fmt(cur.videoP75),cur.videoP75,prev?.videoP75,'up','')}
+            ${kpiBox('100% 시청',fmt(cur.videoP100),cur.videoP100,prev?.videoP100,'up','',0,`Hold rate: ${fmt(cur.videoP25?cur.videoP100/cur.videoP25*100:0,1)}%`)}
           </div>
-        </div>` : ''}
+        </div>`:''}
 
         <div class="chart-box">
-          <h3 style="margin-top:0;">📈 일별 성과 추이</h3>
-          <canvas id="trendChart" height="100"></canvas>
+          <h3 style="margin-top:0;">📈 일별 성과 추이 (선택 기간)</h3>
+          <canvas id="trendChart" height="90"></canvas>
         </div>
       </div>
     </div>
   `;
 
-  // 시계열 차트
-  const labels = PERF.map(r => r.event_date.slice(5));
-  const ctx = document.getElementById('trendChart').getContext('2d');
-  new Chart(ctx, {
+  drawTrend();
+  bindControls();
+}
+
+function buildHeader(){
+  const c=CREATIVE;
+  return `
+    <div class="breadcrumb"><a href="creative_gallery.html">← 소재 갤러리</a></div>
+    <h1>${c.ad_name}<span class="status-badge status-${c.effective_status}">${c.effective_status||''}</span></h1>
+    <div class="subtitle">${c.campaign_name||'-'} · ${c.adset_name||'-'}</div>
+
+    <div class="date-control">
+      <div class="date-row">
+        <label>기간</label>
+        <select id="quickPeriod">
+          <option value="7">최근 7일</option>
+          <option value="14">최근 14일</option>
+          <option value="30">최근 30일</option>
+          <option value="custom">사용자 지정</option>
+        </select>
+        <span style="color:#6b7280;">|</span>
+        <label>시작</label>
+        <input type="date" id="periodStart" value="${periodStart}">
+        <label>종료</label>
+        <input type="date" id="periodEnd" value="${periodEnd}">
+        <span class="period-label">현재 기간</span>
+        <label class="compare-toggle" style="margin-left:auto;">
+          <input type="checkbox" id="compareEnable" ${compareEnabled?'checked':''}>
+          🔀 비교 기간
+        </label>
+        <button class="apply-btn" id="applyBtn">적용</button>
+      </div>
+      <div class="compare-row ${compareEnabled?'show':''}" id="compareRow">
+        <label>비교 시작</label>
+        <input type="date" id="compareStart" value="${compareStart}">
+        <label>비교 종료</label>
+        <input type="date" id="compareEnd" value="${compareEnd}">
+        <span class="period-label" style="background:#fef3c7;color:#92400e;">비교 기간</span>
+        <span style="font-size:11px;color:#6b7280;">기본: 선택 기간의 바로 이전 동일 길이</span>
+      </div>
+    </div>
+  `;
+}
+
+function kpiBox(label,valHtml,curVal,prevVal,goodDir,unit,digit=0,hint=''){
+  const isBad=goodDir==='up'?curVal<0.5:false;
+  const cls=curVal>=1&&goodDir==='up'?'good':isBad?'bad':'';
+  return `<div class="kpi-box">
+    <div class="kpi-box-label">${label}</div>
+    <div class="kpi-box-value ${cls}">${valHtml}</div>
+    ${hint?`<div class="kpi-box-hint">${hint}</div>`:''}
+    ${deltaHTML(curVal,prevVal,goodDir,unit,digit)}
+  </div>`;
+}
+
+function drawTrend(){
+  const rows=PERF.filter(r=>inRange(r.event_date,periodStart,periodEnd));
+  if(!rows.length) return;
+  const labels=rows.map(r=>r.event_date.slice(5));
+  const ctx=document.getElementById('trendChart');
+  if(!ctx) return;
+  new Chart(ctx.getContext('2d'),{
     type:'line',
     data:{
       labels,
       datasets:[
-        {label:'지출(₩)', data:PERF.map(r=>+r.spend_krw||0), borderColor:'#dc2626', yAxisID:'y', tension:0.3},
-        {label:'GA 매출(₩)', data:PERF.map(r=>+r.ga_revenue||0), borderColor:'#059669', yAxisID:'y', tension:0.3},
-        {label:'CTR(%)', data:PERF.map(r=>+r.ctr_pct||0), borderColor:'#2563eb', yAxisID:'y1', tension:0.3},
+        {label:'지출(₩)',data:rows.map(r=>+r.spend_krw||0),borderColor:'#dc2626',yAxisID:'y',tension:0.3},
+        {label:'Meta 매출(₩)',data:rows.map(r=>+r.meta_purchase_value||0),borderColor:'#059669',yAxisID:'y',tension:0.3},
+        {label:'GA 매출(₩)',data:rows.map(r=>+r.ga_revenue||0),borderColor:'#2563eb',yAxisID:'y',tension:0.3},
+        {label:'CTR(%)',data:rows.map(r=>{const i=+r.impressions||0,c=+r.clicks||0;return i?c/i*100:0;}),borderColor:'#f59e0b',yAxisID:'y1',tension:0.3,borderDash:[5,3]},
       ]
     },
     options:{
       responsive:true,
+      plugins:{legend:{position:'bottom'}},
       scales:{
-        y:{position:'left', title:{display:true, text:'금액(₩)'}},
-        y1:{position:'right', title:{display:true, text:'CTR(%)'}, grid:{drawOnChartArea:false}}
+        y:{position:'left',title:{display:true,text:'금액(₩)'}},
+        y1:{position:'right',title:{display:true,text:'CTR(%)'},grid:{drawOnChartArea:false}}
       }
     }
   });
 }
+
+function bindControls(){
+  const qp=document.getElementById('quickPeriod');
+  const ps=document.getElementById('periodStart');
+  const pe=document.getElementById('periodEnd');
+  const ce=document.getElementById('compareEnable');
+  const cs=document.getElementById('compareStart');
+  const cend=document.getElementById('compareEnd');
+  const ab=document.getElementById('applyBtn');
+  const cr=document.getElementById('compareRow');
+
+  if(qp) qp.addEventListener('change',e=>{
+    if(e.target.value==='custom') return;
+    const days=+e.target.value;
+    const maxDate=PERF.length?PERF[PERF.length-1].event_date:new Date().toISOString().slice(0,10);
+    const s=new Date(maxDate);s.setDate(s.getDate()-(days-1));
+    ps.value=s.toISOString().slice(0,10);
+    pe.value=maxDate;
+  });
+
+  if(ce) ce.addEventListener('change',e=>{
+    compareEnabled=e.target.checked;
+    cr.classList.toggle('show',compareEnabled);
+  });
+
+  if(ab) ab.addEventListener('click',()=>{
+    periodStart=ps.value;
+    periodEnd=pe.value;
+    compareEnabled=ce.checked;
+    if(compareEnabled){
+      compareStart=cs.value;
+      compareEnd=cend.value;
+    }else{
+      setCompareAuto();
+    }
+    render();
+  });
+
+  // 기간 변경시 비교 기간 자동 갱신
+  [ps,pe].forEach(el=>{
+    if(!el) return;
+    el.addEventListener('change',()=>{
+      periodStart=ps.value; periodEnd=pe.value;
+      setCompareAuto();
+      if(cs) cs.value=compareStart;
+      if(cend) cend.value=compareEnd;
+    });
+  });
+}
+
 load();
 </script>
 </body>
