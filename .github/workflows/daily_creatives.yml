@@ -101,7 +101,7 @@ jobs:
             "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_appeal\` WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) ORDER BY event_date DESC" \
             > docs/data/mart20_appeal.json
 
-          ls -lh docs/data/meta_creatives.json docs/data/mart19_creatives.json docs/data/mart20_appeal.json
+          ls -lh docs/data/*.json
 
       - name: Commit generated files
         uses: stefanzweifel/git-auto-commit-action@v5
