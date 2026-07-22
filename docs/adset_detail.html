@@ -2,36 +2,69 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>광고세트 상세 · A/B 비교</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="mart_common.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;}
+  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;color:#111;}
+  .topbar{background:#fff;padding:14px 24px;display:flex;align-items:center;gap:20px;border-bottom:1px solid #e5e7eb;}
+  .topbar .logo{font-weight:700;color:#111;text-decoration:none;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .topbar .logo-mark{background:#2563eb;color:#fff;width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
   .wrap{max-width:1400px;margin:0 auto;padding:24px;}
   .breadcrumb{font-size:13px;color:#6b7280;margin-bottom:8px;}
   .breadcrumb a{color:#2563eb;text-decoration:none;}
-  h1{margin:0 0 18px;font-size:24px;font-weight:700;}
+  h1{margin:0 0 6px;font-size:24px;font-weight:700;}
+  .subtitle{color:#6b7280;font-size:14px;margin-bottom:20px;}
+
+  .date-control{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-bottom:20px;}
+  .date-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .date-row:last-child{margin-bottom:0;}
+  .date-row label{font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+  .date-row select,.date-row input[type=date]{padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:13px;background:#fff;font-family:inherit;}
+  .date-row input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+  .date-row .compare-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600;color:#2563eb;}
+  .apply-btn{padding:7px 20px;background:#2563eb;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;}
+  .apply-btn:hover{background:#1d4ed8;}
+  .compare-row{display:none;padding-top:10px;border-top:1px dashed #e5e7eb;margin-top:10px;}
+  .compare-row.show{display:flex;}
+  .period-label{background:#eff6ff;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+
   .adset-summary{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px;display:grid;grid-template-columns:repeat(6,1fr);gap:16px;}
-  .summary-item{text-align:center;}
-  .summary-item .v{font-size:22px;font-weight:700;color:#111;}
-  .summary-item .l{font-size:11px;color:#6b7280;text-transform:uppercase;margin-top:4px;}
-  .compare-table{width:100%;background:#fff;border-radius:12px;border:1px solid #e5e7eb;border-collapse:separate;border-spacing:0;overflow:hidden;margin-bottom:24px;}
-  .compare-table th{background:#f9fafb;padding:12px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb;}
-  .compare-table th:first-child,.compare-table td:first-child{text-align:left;padding-left:20px;}
-  .compare-table td{padding:14px 12px;text-align:right;font-size:13px;border-bottom:1px solid #f3f4f6;font-weight:600;}
-  .compare-table tr.winner td{background:linear-gradient(90deg,rgba(16,185,129,0.08),transparent);}
-  .compare-table tr.loser td{background:linear-gradient(90deg,rgba(239,68,68,0.06),transparent);opacity:0.75;}
-  .creative-thumb-small{width:60px;height:60px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:12px;}
-  .verdict-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;}
+  .summary-item{text-align:center;position:relative;}
+  .summary-item .v{font-size:22px;font-weight:700;}
+  .summary-item .v.good{color:#059669;}
+  .summary-item .v.bad{color:#dc2626;}
+  .summary-item .l{font-size:11px;color:#6b7280;text-transform:uppercase;margin-top:4px;letter-spacing:0.5px;}
+  .summary-item .delta{font-size:11px;font-weight:700;margin-top:4px;padding:1px 6px;border-radius:4px;display:inline-block;}
+  .delta-up{background:#d1fae5;color:#065f46;}
+  .delta-down{background:#fee2e2;color:#991b1b;}
+  .delta-neutral{background:#f3f4f6;color:#6b7280;}
+  .prev-val{font-size:10px;color:#9ca3af;margin-top:2px;}
+
+  .compare-table{width:100%;background:#fff;border-radius:12px;border:1px solid #e5e7eb;border-collapse:separate;border-spacing:0;overflow:hidden;font-size:12px;}
+  .compare-table th{background:#f9fafb;padding:10px 8px;text-align:right;font-size:10px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb;font-weight:600;}
+  .compare-table th:first-child,.compare-table td:first-child{text-align:left;padding-left:16px;min-width:220px;}
+  .compare-table td{padding:12px 8px;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:600;}
+  .compare-table tr.winner td{background:linear-gradient(90deg,rgba(16,185,129,0.1),transparent);}
+  .compare-table tr.loser td{background:linear-gradient(90deg,rgba(239,68,68,0.08),transparent);opacity:0.75;}
+  .compare-table tr.rebound td{background:linear-gradient(90deg,rgba(59,130,246,0.08),transparent);}
+  .compare-table tr.declining td{background:linear-gradient(90deg,rgba(245,158,11,0.08),transparent);}
+  .creative-thumb-small{width:48px;height:48px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:10px;}
+  .verdict-tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;}
   .verdict-tag.winner{background:#10b981;color:#fff;}
   .verdict-tag.loser{background:#ef4444;color:#fff;}
   .verdict-tag.monitor{background:#f59e0b;color:#fff;}
+  .verdict-tag.rebound{background:#3b82f6;color:#fff;}
+  .verdict-tag.declining{background:#f97316;color:#fff;}
+  .delta-inline{font-size:10px;font-weight:600;margin-left:3px;padding:1px 4px;border-radius:3px;}
   .chart-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px;}
   .chart-box h3{margin:0 0 16px;font-size:15px;font-weight:700;}
   .insight-box{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-left:4px solid #2563eb;padding:16px 20px;border-radius:8px;margin-bottom:24px;}
   .insight-box h3{margin:0 0 8px;font-size:14px;color:#1e40af;}
-  .insight-box ul{margin:0;padding-left:20px;font-size:13px;line-height:1.7;color:#374151;}
+  .insight-box ul{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#374151;}
+  .empty{text-align:center;padding:60px;color:#9ca3af;background:#fff;border-radius:12px;}
 </style>
 </head>
 <body>
@@ -41,205 +74,469 @@
 <div class="wrap">
   <div class="breadcrumb"><a href="creative_gallery.html">← 소재 갤러리</a> · 광고세트 상세</div>
   <h1 id="pageTitle">로딩 중...</h1>
+  <div class="subtitle" id="pageSubtitle"></div>
   <div id="content">데이터 로딩 중...</div>
 </div>
 <script>
 const params=new URLSearchParams(window.location.search);
 const CAMP=params.get('campaign');
 const ADSET=params.get('adset');
-let CREATIVES=[],PERF=[];
+let CREATIVES=[], PERF=[];
+let periodStart=null, periodEnd=null;
+let compareEnabled=false, compareStart=null, compareEnd=null;
 
 async function load(){
-  const [c,p]=await Promise.all([
-    fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
-    fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
-  ]);
-  CREATIVES=c.filter(x=>x.campaign_name===CAMP&&x.adset_name===ADSET);
-  const adIds=new Set(CREATIVES.map(x=>x.ad_id));
-  PERF=p.filter(x=>adIds.has(x.ad_id));
-  render();
+  try{
+    const [c,p]=await Promise.all([
+      fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
+      fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
+    ]);
+    CREATIVES=c.filter(x=>x.campaign_name===CAMP&&x.adset_name===ADSET);
+    const adIds=new Set(CREATIVES.map(x=>x.ad_id));
+    PERF=p.filter(x=>adIds.has(x.ad_id)).sort((a,b)=>a.event_date.localeCompare(b.event_date));
+
+    if(!CREATIVES.length){
+      document.getElementById('content').innerHTML='<div class="empty">해당 광고세트에 소재가 없습니다.</div>';
+      return;
+    }
+
+    // 기본 기간: 최근 7일
+    const dates=[...new Set(PERF.map(r=>r.event_date))].sort();
+    const maxDate=dates.length?dates[dates.length-1]:new Date().toISOString().slice(0,10);
+    const minDate=dates.length?dates[0]:maxDate;
+    periodEnd=maxDate;
+    const s=new Date(maxDate);s.setDate(s.getDate()-6);
+    periodStart=s.toISOString().slice(0,10);
+    if(periodStart<minDate) periodStart=minDate;
+    setCompareAuto();
+
+    render();
+  }catch(e){
+    document.getElementById('content').innerHTML='<div class="empty">⚠️ 데이터 로드 실패: '+e.message+'</div>';
+  }
+}
+
+function setCompareAuto(){
+  const s=new Date(periodStart), e=new Date(periodEnd);
+  const days=Math.round((e-s)/86400000)+1;
+  const ce=new Date(s); ce.setDate(ce.getDate()-1);
+  const cs=new Date(ce); cs.setDate(cs.getDate()-(days-1));
+  compareStart=cs.toISOString().slice(0,10);
+  compareEnd=ce.toISOString().slice(0,10);
 }
 
 function fmt(n,d=0){if(n==null||isNaN(n))return'-';return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});}
 
-function aggPerAd(){
+function inRange(date,s,e){return date>=s&&date<=e;}
+
+function aggPerAd(start,end){
   const agg={};
-  PERF.forEach(r=>{
+  PERF.filter(r=>inRange(r.event_date,start,end)).forEach(r=>{
     const k=r.ad_id;
-    if(!agg[k]) agg[k]={impressions:0,reach:0,spend_krw:0,clicks:0,ga_purchases:0,ga_revenue:0,meta_purchases:0,ga_add_to_cart:0,ga_sessions:0,ga_checkouts:0,frequency:0,ga_avg_engagement_sec:0,cnt:0};
-    agg[k].impressions+=+r.impressions||0;
+    if(!agg[k]) agg[k]={impressions:0,reach:0,spend_krw:0,clicks:0,ga_purchases:0,ga_revenue:0,meta_purchases:0,meta_value:0,ga_add_to_cart:0,ga_sessions:0,ga_checkouts:0,link_clicks:0,freq_weighted_sum:0,eng_sum:0,cnt:0};
+    const imp=+r.impressions||0;
+    agg[k].impressions+=imp;
     agg[k].reach=Math.max(agg[k].reach,+r.reach||0);
     agg[k].spend_krw+=+r.spend_krw||0;
     agg[k].clicks+=+r.clicks||0;
+    agg[k].link_clicks+=+r.link_clicks||0;
     agg[k].ga_purchases+=+r.ga_purchases||0;
     agg[k].ga_revenue+=+r.ga_revenue||0;
     agg[k].meta_purchases+=+r.meta_purchases||0;
+    agg[k].meta_value+=+r.meta_purchase_value||0;
     agg[k].ga_add_to_cart+=+r.ga_add_to_cart||0;
     agg[k].ga_sessions+=+r.ga_sessions||0;
     agg[k].ga_checkouts+=+r.ga_checkouts||0;
-    agg[k].frequency+=+r.frequency||0;
-    agg[k].ga_avg_engagement_sec+=+r.ga_avg_engagement_sec||0;
+    agg[k].freq_weighted_sum+=(+r.frequency||0)*imp;
+    agg[k].eng_sum+=+r.ga_avg_engagement_sec||0;
     agg[k].cnt++;
   });
   Object.values(agg).forEach(v=>{
     v.ctr_pct=v.impressions?v.clicks/v.impressions*100:0;
     v.ga_roas=v.spend_krw?v.ga_revenue/v.spend_krw:0;
+    v.meta_roas=v.spend_krw?v.meta_value/v.spend_krw:0;
     v.cpc=v.clicks?v.spend_krw/v.clicks:0;
     v.cpm=v.impressions?v.spend_krw/v.impressions*1000:0;
-    v.frequency=v.cnt?v.frequency/v.cnt:0;
-    v.ga_avg_engagement_sec=v.cnt?v.ga_avg_engagement_sec/v.cnt:0;
+    v.frequency=v.impressions?v.freq_weighted_sum/v.impressions:0;
+    v.avg_eng_sec=v.cnt?v.eng_sum/v.cnt:0;
     v.ga_cvr_pct=v.ga_sessions?v.ga_purchases/v.ga_sessions*100:0;
     v.ga_cac_krw=v.ga_purchases?v.spend_krw/v.ga_purchases:null;
   });
   return agg;
 }
 
-function verdict(p,allP){
-  if(p.spend_krw<10000) return null;
-  if(allP.length<2) return null;
-  const maxRoas=Math.max(...allP.map(x=>x.ga_roas));
-  if(p.ga_roas>=maxRoas && p.ga_roas>=0.5) return{tag:'winner',label:'🏆 승자'};
-  if(p.spend_krw>50000 && p.ga_roas<0.2) return{tag:'loser',label:'🚨 정지 권장'};
-  return{tag:'monitor',label:'👀 관찰'};
+function delta(cur,prev){
+  if(prev==null||cur==null) return null;
+  if(prev===0){return cur===0?{pct:0,dir:'neutral'}:{pct:null,dir:'up',special:'신규'};}
+  const pct=(cur-prev)/prev*100;
+  return {pct,dir:pct>0.5?'up':pct<-0.5?'down':'neutral'};
 }
 
-function insights(perAd,creatives){
+function deltaBadge(cur,prev,goodDir='up'){
+  if(!compareEnabled||prev==null) return '';
+  const d=delta(cur,prev);
+  if(!d) return '';
+  const arrow=d.dir==='up'?'▲':d.dir==='down'?'▼':'─';
+  const txt=d.special||(d.pct!=null?`${d.pct>0?'+':''}${d.pct.toFixed(1)}%`:'-');
+  return `<span class="delta-inline delta-${d.dir}">${arrow} ${txt}</span>`;
+}
+
+function summaryDelta(cur,prev,goodDir='up',digit=0,unit=''){
+  if(!compareEnabled||prev==null) return '';
+  const d=delta(cur,prev);
+  if(!d) return '';
+  const arrow=d.dir==='up'?'▲':d.dir==='down'?'▼':'─';
+  const txt=d.special||(d.pct!=null?`${d.pct>0?'+':''}${d.pct.toFixed(1)}%`:'-');
+  return `<div class="delta delta-${d.dir}">${arrow} ${txt}</div>
+          <div class="prev-val">이전: ${unit}${fmt(prev,digit)}</div>`;
+}
+
+function verdict(p, allP, prevP, allPrev){
+  if(p.spend_krw<10000) return null;
+  if(allP.length<2) return null;
+
+  const maxRoas=Math.max(...allP.map(x=>x.ga_roas));
+  const isWinner = p.ga_roas>=maxRoas && p.ga_roas>=0.5;
+  const isLoser = p.spend_krw>50000 && p.ga_roas<0.2;
+
+  // 비교 기간 대비 변화 판정
+  if(compareEnabled && prevP && allPrev){
+    const prevMaxRoas=allPrev.length>=2?Math.max(...allPrev.map(x=>x.ga_roas)):null;
+    const wasWinner=prevP.spend_krw>=10000 && prevMaxRoas!=null && prevP.ga_roas>=prevMaxRoas && prevP.ga_roas>=0.5;
+    const wasLoser=prevP.spend_krw>50000 && prevP.ga_roas<0.2;
+
+    if(!wasWinner && isWinner) return {tag:'rebound',label:'📈 반등'};
+    if(wasWinner && !isWinner && p.ga_roas<0.3) return {tag:'declining',label:'🔻 성과 하락'};
+  }
+
+  if(isWinner) return {tag:'winner',label:'🏆 승자'};
+  if(isLoser) return {tag:'loser',label:'🚨 정지 권장'};
+  return {tag:'monitor',label:'👀 관찰'};
+}
+
+function insights(perAd, prevPerAd, creatives){
   const items=[];
-  const arr=Object.entries(perAd).map(([id,p])=>({id,...p,name:creatives.find(c=>c.ad_id===id)?.ad_name}));
-  if(arr.length<2) return['소재가 1개뿐입니다. A/B 테스트를 위해 추가 소재를 광고세트에 넣어보세요.'];
+  const arr=Object.entries(perAd).map(([id,p])=>({id,...p,name:creatives.find(c=>c.ad_id===id)?.ad_name||''}));
+  if(arr.length<2) return['소재가 1개뿐입니다. A/B 테스트를 위해 광고세트에 소재 2개 이상 추가를 권장합니다.'];
+
   arr.sort((a,b)=>b.ga_roas-a.ga_roas);
   const best=arr[0], worst=arr[arr.length-1];
-  if(best.ga_roas>0&&worst.ga_roas>=0){
-    const ratio=worst.ga_roas?best.ga_roas/worst.ga_roas:'∞';
-    items.push(`ROAS 격차: 최고 소재 "${best.name}" (${fmt(best.ga_roas,2)}x) vs 최저 소재 "${worst.name}" (${fmt(worst.ga_roas,2)}x) → ${typeof ratio==='number'?fmt(ratio,1)+'배':ratio} 차이`);
+
+  if(best.ga_roas>0){
+    const gap=worst.ga_roas>0?best.ga_roas/worst.ga_roas:null;
+    items.push(`ROAS 격차: 최고 "${best.name}" (${fmt(best.ga_roas,2)}x) vs 최저 "${worst.name}" (${fmt(worst.ga_roas,2)}x)${gap?` → ${fmt(gap,1)}배 차이`:''}`);
   }
-  const highSpendLowRoas=arr.filter(x=>x.spend_krw>50000&&x.ga_roas<0.2);
-  if(highSpendLowRoas.length){
-    items.push(`즉시 정지 권장: ${highSpendLowRoas.map(x=>`"${x.name}" (지출 ₩${fmt(x.spend_krw)}, ROAS ${fmt(x.ga_roas,2)}x)`).join(', ')}`);
+
+  const kill=arr.filter(x=>x.spend_krw>50000&&x.ga_roas<0.2);
+  if(kill.length){
+    items.push(`🚨 즉시 정지 권장: ${kill.map(x=>`"${x.name}" (지출 ₩${fmt(x.spend_krw)}, ROAS ${fmt(x.ga_roas,2)}x)`).join(', ')}`);
   }
-  const highCtrLowRoas=arr.filter(x=>x.ctr_pct>3&&x.ga_roas<0.3&&x.spend_krw>30000);
-  if(highCtrLowRoas.length){
-    items.push(`퍼널 이탈 의심: ${highCtrLowRoas.map(x=>`"${x.name}"`).join(', ')} — CTR은 높은데 GA ROAS가 낮음. 랜딩 페이지 최적화 필요`);
+
+  const funnelLeak=arr.filter(x=>x.ctr_pct>3&&x.ga_roas<0.3&&x.spend_krw>30000);
+  if(funnelLeak.length){
+    items.push(`🔻 퍼널 이탈 의심: ${funnelLeak.map(x=>`"${x.name}"`).join(', ')} — CTR은 높은데 GA ROAS가 낮음. 랜딩 페이지 최적화 필요`);
   }
+
   const totalSpend=arr.reduce((s,x)=>s+x.spend_krw,0);
-  const bestSpendShare=totalSpend?best.spend_krw/totalSpend*100:0;
-  if(best.ga_roas>0.5&&bestSpendShare<40){
-    items.push(`예산 재배분: 승자 소재 "${best.name}"에 예산이 ${fmt(bestSpendShare,0)}%만 배정됨 → 60% 이상으로 이관 권장`);
+  const bestShare=totalSpend?best.spend_krw/totalSpend*100:0;
+  if(best.ga_roas>0.5&&bestShare<40){
+    items.push(`💰 예산 재배분: 승자 소재 "${best.name}"에 예산이 ${fmt(bestShare,0)}%만 배정됨 → 60% 이상으로 이관 권장`);
   }
-  return items.length?items:['현재까지는 명확한 승자·패자 판정 불가. 지출 축적 후 재분석 필요.'];
+
+  const highFreq=arr.filter(x=>x.frequency>3&&x.spend_krw>30000);
+  if(highFreq.length){
+    items.push(`⚠️ 소재 피로도 경고: ${highFreq.map(x=>`"${x.name}" (frequency ${fmt(x.frequency,2)})`).join(', ')} — 새 소재로 교체 권장`);
+  }
+
+  // 비교 기간 활성 시 시간 변화 인사이트
+  if(compareEnabled && prevPerAd){
+    const prevArr=Object.entries(prevPerAd).map(([id,p])=>({id,...p,name:creatives.find(c=>c.ad_id===id)?.ad_name||''}));
+    const prevTotalSpend=prevArr.reduce((s,x)=>s+x.spend_krw,0);
+    const prevTotalRev=prevArr.reduce((s,x)=>s+x.ga_revenue,0);
+    const prevRoas=prevTotalSpend?prevTotalRev/prevTotalSpend:0;
+    const curRoas=totalSpend?arr.reduce((s,x)=>s+x.ga_revenue,0)/totalSpend:0;
+    if(prevRoas>0){
+      const roasChange=(curRoas-prevRoas)/prevRoas*100;
+      if(roasChange<-15){
+        items.push(`📉 전체 광고세트 ROAS ${Math.abs(roasChange).toFixed(1)}% 하락 (${fmt(prevRoas,2)}x → ${fmt(curRoas,2)}x) — 소재 피로도 또는 계절성 확인 필요`);
+      }else if(roasChange>15){
+        items.push(`📈 전체 광고세트 ROAS ${roasChange.toFixed(1)}% 상승 (${fmt(prevRoas,2)}x → ${fmt(curRoas,2)}x) — 현재 배분·소재 유지 권장`);
+      }
+    }
+
+    // 반등·하락 소재
+    const rebound=[];
+    const declining=[];
+    arr.forEach(cur=>{
+      const prev=prevPerAd[cur.id];
+      if(!prev) return;
+      if(prev.ga_roas>0 && cur.ga_roas>0){
+        const change=(cur.ga_roas-prev.ga_roas)/prev.ga_roas*100;
+        if(change>30 && cur.spend_krw>20000) rebound.push({name:cur.name,change});
+        if(change<-30 && prev.spend_krw>20000) declining.push({name:cur.name,change});
+      }
+    });
+    if(rebound.length) items.push(`📈 반등 소재: ${rebound.map(x=>`"${x.name}" (+${x.change.toFixed(0)}%)`).join(', ')}`);
+    if(declining.length) items.push(`🔻 하락 소재: ${declining.map(x=>`"${x.name}" (${x.change.toFixed(0)}%)`).join(', ')} — 원인 분석 필요`);
+  }
+
+  return items.length?items:['현재 데이터로는 명확한 판정 어려움. 지출 축적 후 재분석 필요.'];
 }
 
 function render(){
-  const perAd=aggPerAd();
+  const perAd=aggPerAd(periodStart,periodEnd);
+  const prevPerAd=compareEnabled?aggPerAd(compareStart,compareEnd):null;
   const allPerf=Object.values(perAd);
+  const allPrev=prevPerAd?Object.values(prevPerAd):[];
+
   const totalSpend=allPerf.reduce((s,p)=>s+p.spend_krw,0);
   const totalRev=allPerf.reduce((s,p)=>s+p.ga_revenue,0);
   const totalImps=allPerf.reduce((s,p)=>s+p.impressions,0);
   const totalClicks=allPerf.reduce((s,p)=>s+p.clicks,0);
   const totalPurchases=allPerf.reduce((s,p)=>s+p.ga_purchases,0);
+  const avgRoas=totalSpend?totalRev/totalSpend:0;
+  const avgCtr=totalImps?totalClicks/totalImps*100:0;
 
-  document.getElementById('pageTitle').textContent=`${ADSET}`;
+  const prevTotalSpend=allPrev.reduce((s,p)=>s+p.spend_krw,0);
+  const prevTotalRev=allPrev.reduce((s,p)=>s+p.ga_revenue,0);
+  const prevTotalImps=allPrev.reduce((s,p)=>s+p.impressions,0);
+  const prevTotalClicks=allPrev.reduce((s,p)=>s+p.clicks,0);
+  const prevTotalPurchases=allPrev.reduce((s,p)=>s+p.ga_purchases,0);
+  const prevAvgRoas=prevTotalSpend?prevTotalRev/prevTotalSpend:0;
+  const prevAvgCtr=prevTotalImps?prevTotalClicks/prevTotalImps*100:0;
+
+  document.getElementById('pageTitle').textContent=ADSET||'(광고세트 없음)';
+  document.getElementById('pageSubtitle').textContent=`캠페인: ${CAMP||'(캠페인 없음)'} · 소재 ${CREATIVES.length}개`;
+
   const html=`
-    <div class="breadcrumb">캠페인: ${CAMP}</div>
+    <div class="date-control">
+      <div class="date-row">
+        <label>기간</label>
+        <select id="quickPeriod">
+          <option value="7">최근 7일</option>
+          <option value="14">최근 14일</option>
+          <option value="30">최근 30일</option>
+          <option value="custom">사용자 지정</option>
+        </select>
+        <span style="color:#6b7280;">|</span>
+        <label>시작</label>
+        <input type="date" id="periodStart" value="${periodStart}">
+        <label>종료</label>
+        <input type="date" id="periodEnd" value="${periodEnd}">
+        <span class="period-label">현재 기간</span>
+        <label class="compare-toggle" style="margin-left:auto;">
+          <input type="checkbox" id="compareEnable" ${compareEnabled?'checked':''}>
+          🔀 비교 기간
+        </label>
+        <button class="apply-btn" id="applyBtn">적용</button>
+      </div>
+      <div class="compare-row ${compareEnabled?'show':''}" id="compareRow">
+        <label>비교 시작</label>
+        <input type="date" id="compareStart" value="${compareStart}">
+        <label>비교 종료</label>
+        <input type="date" id="compareEnd" value="${compareEnd}">
+        <span class="period-label" style="background:#fef3c7;color:#92400e;">비교 기간</span>
+        <span style="font-size:11px;color:#6b7280;">기본: 선택 기간의 바로 이전 동일 길이</span>
+      </div>
+    </div>
 
     <div class="adset-summary">
-      <div class="summary-item"><div class="v">${CREATIVES.length}</div><div class="l">소재 개수</div></div>
-      <div class="summary-item"><div class="v">₩${fmt(totalSpend)}</div><div class="l">총 지출</div></div>
-      <div class="summary-item"><div class="v">${fmt(totalImps)}</div><div class="l">총 노출</div></div>
-      <div class="summary-item"><div class="v">${fmt(totalImps?totalClicks/totalImps*100:0,2)}%</div><div class="l">평균 CTR</div></div>
-      <div class="summary-item"><div class="v">${totalPurchases}건</div><div class="l">총 구매</div></div>
-      <div class="summary-item"><div class="v">${fmt(totalSpend?totalRev/totalSpend:0,2)}x</div><div class="l">평균 GA ROAS</div></div>
+      <div class="summary-item">
+        <div class="v">${CREATIVES.length}</div>
+        <div class="l">소재 개수</div>
+      </div>
+      <div class="summary-item">
+        <div class="v">₩${fmt(totalSpend)}</div>
+        <div class="l">총 지출</div>
+        ${summaryDelta(totalSpend,prevTotalSpend,'down',0,'₩')}
+      </div>
+      <div class="summary-item">
+        <div class="v">${fmt(totalImps)}</div>
+        <div class="l">총 노출</div>
+        ${summaryDelta(totalImps,prevTotalImps,'up')}
+      </div>
+      <div class="summary-item">
+        <div class="v">${fmt(avgCtr,2)}%</div>
+        <div class="l">평균 CTR</div>
+        ${summaryDelta(avgCtr,prevAvgCtr,'up',2)}
+      </div>
+      <div class="summary-item">
+        <div class="v">${totalPurchases}건</div>
+        <div class="l">총 구매</div>
+        ${summaryDelta(totalPurchases,prevTotalPurchases,'up')}
+      </div>
+      <div class="summary-item">
+        <div class="v ${avgRoas>=1?'good':avgRoas>0?'bad':''}">${fmt(avgRoas,2)}x</div>
+        <div class="l">평균 GA ROAS</div>
+        ${summaryDelta(avgRoas,prevAvgRoas,'up',2)}
+      </div>
     </div>
 
     <div class="insight-box">
-      <h3>💡 자동 인사이트</h3>
-      <ul>${insights(perAd,CREATIVES).map(i=>`<li>${i}</li>`).join('')}</ul>
+      <h3>💡 자동 인사이트 (그로스 관점)</h3>
+      <ul>${insights(perAd,prevPerAd,CREATIVES).map(i=>`<li>${i}</li>`).join('')}</ul>
     </div>
 
     <div class="chart-box">
-      <h3>📊 소재 간 정면 비교</h3>
-      <table class="compare-table">
-        <thead><tr>
-          <th>소재</th><th>상태</th><th>지출</th><th>노출</th><th>CTR</th><th>CPC</th>
-          <th>세션</th><th>체류(초)</th><th>ATC</th><th>구매</th><th>매출</th><th>GA ROAS</th><th>CAC</th>
-        </tr></thead>
-        <tbody>
-          ${CREATIVES.map(c=>{
-            const p=perAd[c.ad_id]||{};
-            const v=verdict(p,allPerf);
-            return `<tr class="${v?v.tag:''}">
-              <td><img class="creative-thumb-small" src="${c.local_image_path||c.thumbnail_url||''}" onerror="this.style.display='none'">${c.ad_name}${v?`<span class="verdict-tag ${v.tag}">${v.label}</span>`:''}</td>
-              <td>${c.effective_status||'-'}</td>
-              <td>₩${fmt(p.spend_krw||0)}</td>
-              <td>${fmt(p.impressions||0)}</td>
-              <td>${fmt(p.ctr_pct||0,2)}%</td>
-              <td>₩${fmt(p.cpc||0)}</td>
-              <td>${fmt(p.ga_sessions||0)}</td>
-              <td>${fmt(p.ga_avg_engagement_sec||0,1)}</td>
-              <td>${fmt(p.ga_add_to_cart||0)}</td>
-              <td>${fmt(p.ga_purchases||0)}</td>
-              <td>₩${fmt(p.ga_revenue||0)}</td>
-              <td>${fmt(p.ga_roas||0,2)}x</td>
-              <td>${p.ga_cac_krw?'₩'+fmt(p.ga_cac_krw):'-'}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+      <h3>📊 소재 간 정면 비교 ${compareEnabled?'(이전 기간 대비 증감 표시)':''}</h3>
+      <div style="overflow-x:auto;">
+        <table class="compare-table">
+          <thead><tr>
+            <th>소재</th><th>상태</th><th>지출</th><th>노출</th><th>빈도</th><th>CTR</th><th>CPC</th>
+            <th>세션</th><th>체류(초)</th><th>ATC</th><th>구매</th><th>매출</th><th>GA ROAS</th><th>CAC</th>
+          </tr></thead>
+          <tbody>
+            ${CREATIVES.map(c=>{
+              const p=perAd[c.ad_id]||{spend_krw:0,impressions:0,frequency:0,ctr_pct:0,cpc:0,ga_sessions:0,avg_eng_sec:0,ga_add_to_cart:0,ga_purchases:0,ga_revenue:0,ga_roas:0,ga_cac_krw:null};
+              const prev=prevPerAd?prevPerAd[c.ad_id]:null;
+              const v=verdict(p,allPerf,prev,allPrev);
+              return `<tr class="${v?v.tag:''}" onclick="window.location.href='creative_detail.html?ad_id=${encodeURIComponent(c.ad_id)}'" style="cursor:pointer;">
+                <td><img class="creative-thumb-small" src="${c.local_image_path||c.thumbnail_url||''}" onerror="this.style.display='none'">${c.ad_name}${v?`<span class="verdict-tag ${v.tag}">${v.label}</span>`:''}</td>
+                <td>${c.effective_status||'-'}</td>
+                <td>₩${fmt(p.spend_krw)}${deltaBadge(p.spend_krw,prev?.spend_krw,'down')}</td>
+                <td>${fmt(p.impressions)}${deltaBadge(p.impressions,prev?.impressions,'up')}</td>
+                <td>${fmt(p.frequency,2)}${deltaBadge(p.frequency,prev?.frequency,'down')}</td>
+                <td>${fmt(p.ctr_pct,2)}%${deltaBadge(p.ctr_pct,prev?.ctr_pct,'up')}</td>
+                <td>₩${fmt(p.cpc)}${deltaBadge(p.cpc,prev?.cpc,'down')}</td>
+                <td>${fmt(p.ga_sessions)}${deltaBadge(p.ga_sessions,prev?.ga_sessions,'up')}</td>
+                <td>${fmt(p.avg_eng_sec,1)}${deltaBadge(p.avg_eng_sec,prev?.avg_eng_sec,'up')}</td>
+                <td>${fmt(p.ga_add_to_cart)}${deltaBadge(p.ga_add_to_cart,prev?.ga_add_to_cart,'up')}</td>
+                <td>${fmt(p.ga_purchases)}${deltaBadge(p.ga_purchases,prev?.ga_purchases,'up')}</td>
+                <td>₩${fmt(p.ga_revenue)}${deltaBadge(p.ga_revenue,prev?.ga_revenue,'up')}</td>
+                <td>${fmt(p.ga_roas,2)}x${deltaBadge(p.ga_roas,prev?.ga_roas,'up')}</td>
+                <td>${p.ga_cac_krw?'₩'+fmt(p.ga_cac_krw):'-'}${prev?.ga_cac_krw?deltaBadge(p.ga_cac_krw,prev.ga_cac_krw,'down'):''}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${compareEnabled?'<div style="margin-top:12px;font-size:11px;color:#6b7280;">🏆 승자 · 🚨 정지 권장 · 👀 관찰 · 📈 반등 (이전 대비 개선) · 🔻 하락 (이전 대비 악화)</div>':'<div style="margin-top:12px;font-size:11px;color:#6b7280;">🏆 승자 · 🚨 정지 권장 · 👀 관찰</div>'}
     </div>
 
     <div class="chart-box">
-      <h3>📈 소재별 일별 지출 · 매출 추이</h3>
+      <h3>📈 소재별 일별 지출 추이</h3>
       <canvas id="trendChart" height="90"></canvas>
     </div>
 
     <div class="chart-box">
-      <h3>🎯 소재별 CTR vs ROAS 산점도</h3>
+      <h3>🎯 CTR vs GA ROAS 산점도 (버블 크기 = 지출액)</h3>
       <canvas id="scatterChart" height="90"></canvas>
     </div>
   `;
   document.getElementById('content').innerHTML=html;
+  drawCharts(perAd);
+  bindControls();
+}
 
-  // 시계열 차트
-  const dates=[...new Set(PERF.map(r=>r.event_date))].sort();
-  const palette=['#2563eb','#dc2626','#059669','#f59e0b','#7c3aed','#ec4899','#0891b2','#65a30d'];
+function drawCharts(perAd){
+  const rows=PERF.filter(r=>inRange(r.event_date,periodStart,periodEnd));
+  const dates=[...new Set(rows.map(r=>r.event_date))].sort();
+  if(!dates.length) return;
+
+  const palette=['#2563eb','#dc2626','#059669','#f59e0b','#7c3aed','#ec4899','#0891b2','#65a30d','#e11d48','#0284c7'];
+
   const spendDatasets=CREATIVES.map((c,i)=>({
-    label:(c.ad_name||'').slice(0,20),
+    label:(c.ad_name||'').slice(0,25),
     data:dates.map(d=>{
-      const r=PERF.find(x=>x.ad_id===c.ad_id&&x.event_date===d);
+      const r=rows.find(x=>x.ad_id===c.ad_id&&x.event_date===d);
       return r?+r.spend_krw:0;
     }),
     borderColor:palette[i%palette.length],
     backgroundColor:palette[i%palette.length]+'22',
     tension:0.3,
-    yAxisID:'y'
+    fill:false
   }));
-  new Chart(document.getElementById('trendChart'),{
-    type:'line',
-    data:{labels:dates.map(d=>d.slice(5)),datasets:spendDatasets},
-    options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{title:{display:true,text:'지출(₩)'}}}}
+
+  const trendCtx=document.getElementById('trendChart');
+  if(trendCtx){
+    new Chart(trendCtx,{
+      type:'line',
+      data:{labels:dates.map(d=>d.slice(5)),datasets:spendDatasets},
+      options:{
+        responsive:true,
+        plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+        scales:{y:{title:{display:true,text:'지출(₩)'}}}
+      }
+    });
+  }
+
+  const scatterCtx=document.getElementById('scatterChart');
+  if(scatterCtx){
+    const scatterData=CREATIVES.map((c,i)=>{
+      const p=perAd[c.ad_id]||{};
+      return {
+        label:(c.ad_name||'').slice(0,25),
+        data:[{x:p.ctr_pct||0,y:p.ga_roas||0,r:Math.max(5,Math.sqrt(p.spend_krw||1)/30)}],
+        backgroundColor:palette[i%palette.length]
+      };
+    });
+    new Chart(scatterCtx,{
+      type:'bubble',
+      data:{datasets:scatterData},
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{position:'bottom',labels:{font:{size:11}}},
+          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: CTR ${ctx.parsed.x.toFixed(2)}%, ROAS ${ctx.parsed.y.toFixed(2)}x`}}
+        },
+        scales:{
+          x:{title:{display:true,text:'CTR (%)'}},
+          y:{title:{display:true,text:'GA ROAS'}}
+        }
+      }
+    });
+  }
+}
+
+function bindControls(){
+  const qp=document.getElementById('quickPeriod');
+  const ps=document.getElementById('periodStart');
+  const pe=document.getElementById('periodEnd');
+  const ce=document.getElementById('compareEnable');
+  const cs=document.getElementById('compareStart');
+  const cend=document.getElementById('compareEnd');
+  const ab=document.getElementById('applyBtn');
+  const cr=document.getElementById('compareRow');
+
+  if(qp) qp.addEventListener('change',e=>{
+    if(e.target.value==='custom') return;
+    const days=+e.target.value;
+    const dates=[...new Set(PERF.map(r=>r.event_date))].sort();
+    const maxDate=dates.length?dates[dates.length-1]:new Date().toISOString().slice(0,10);
+    const s=new Date(maxDate);s.setDate(s.getDate()-(days-1));
+    ps.value=s.toISOString().slice(0,10);
+    pe.value=maxDate;
   });
 
-  // 산점도
-  const scatterData=CREATIVES.map((c,i)=>{
-    const p=perAd[c.ad_id]||{};
-    return {label:(c.ad_name||'').slice(0,20),data:[{x:p.ctr_pct||0,y:p.ga_roas||0,r:Math.max(5,Math.sqrt(p.spend_krw||1)/30)}],backgroundColor:palette[i%palette.length]};
+  if(ce) ce.addEventListener('change',e=>{
+    compareEnabled=e.target.checked;
+    cr.classList.toggle('show',compareEnabled);
   });
-  new Chart(document.getElementById('scatterChart'),{
-    type:'bubble',
-    data:{datasets:scatterData},
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{position:'bottom'},
-        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: CTR ${ctx.parsed.x.toFixed(2)}%, ROAS ${ctx.parsed.y.toFixed(2)}x`}}
-      },
-      scales:{
-        x:{title:{display:true,text:'CTR (%)'}},
-        y:{title:{display:true,text:'GA ROAS'}}
-      }
+
+  if(ab) ab.addEventListener('click',()=>{
+    periodStart=ps.value;
+    periodEnd=pe.value;
+    compareEnabled=ce.checked;
+    if(compareEnabled){
+      compareStart=cs.value;
+      compareEnd=cend.value;
+    }else{
+      setCompareAuto();
     }
+    render();
+  });
+
+  [ps,pe].forEach(el=>{
+    if(!el) return;
+    el.addEventListener('change',()=>{
+      periodStart=ps.value; periodEnd=pe.value;
+      setCompareAuto();
+      if(cs) cs.value=compareStart;
+      if(cend) cend.value=compareEnd;
+    });
   });
 }
+
 load();
 </script>
 </body>
