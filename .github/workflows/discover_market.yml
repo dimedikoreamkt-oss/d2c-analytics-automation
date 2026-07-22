@@ -2,7 +2,7 @@ name: Daily Market Intelligence Discovery
 
 on:
   schedule:
-    - cron: '0 12 * * *'   # KST 21:00 = UTC 12:00
+    - cron: '0 12 * * *'
   workflow_dispatch:
 
 permissions:
@@ -39,6 +39,12 @@ jobs:
           pip install playwright
           playwright install chromium --with-deps
 
+      - name: Ensure output directories
+        run: |
+          mkdir -p docs/data
+          mkdir -p docs/landings
+          touch docs/landings/.gitkeep
+
       - name: Discover competitor ads
         run: python scripts/discover_competitor_ads.py
 
@@ -66,8 +72,6 @@ jobs:
 
       - name: Export JSON for dashboard
         run: |
-          mkdir -p docs/data
-
           echo "=== export market_winners ==="
           bq query \
             --project_id="${PROJECT_ID}" \
@@ -89,9 +93,14 @@ jobs:
             > docs/data/appeal_gap.json
 
           ls -lh docs/data/market_winners.json docs/data/appeal_gap.json
+          echo "=== landings dir ==="
+          ls -la docs/landings/ || echo "no landings"
 
       - name: Commit generated files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: sync market intelligence [skip ci]"
-          file_pattern: "docs/data/*.json docs/landings/*.png"
+          file_pattern: |
+            docs/data/*.json
+            docs/landings/*
+          skip_dirty_check: false
