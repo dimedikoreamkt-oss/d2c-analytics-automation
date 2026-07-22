@@ -120,6 +120,62 @@ jobs:
             "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_fatigue\` ORDER BY fatigue_score DESC" \
             > docs/data/mart21_fatigue.json
 
+                  - name: Refresh Mart 22 (creative demographics)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/22_mart_creative_demographics.sql
+
+      - name: Refresh Mart 23 (creative platform)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/23_mart_creative_platform.sql
+
+      - name: Refresh Mart 24 (creative region)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/24_mart_creative_region.sql
+
+      # Export 섹션에 추가
+      - name: Export mart22_demographics
+        run: |
+          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=json --max_rows=100000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_demographics\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC" \
+            > docs/data/mart22_creative_demographics.json
+
+      - name: Export mart23_platform
+        run: |
+          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=json --max_rows=100000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_platform\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC" \
+            > docs/data/mart23_creative_platform.json
+
+      - name: Export mart24_region
+        run: |
+          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=json --max_rows=100000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_region\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC" \
+            > docs/data/mart24_creative_region.json
+
+
           ls -lh docs/data/*.json
 
       - name: Commit generated files
