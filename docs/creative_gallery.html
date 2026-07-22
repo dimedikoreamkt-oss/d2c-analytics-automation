@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>광고 소재 성과 갤러리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mart_common.css">
+<style>
+.gallery-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:20px; margin-top:24px; }
+.creative-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s; }
+.creative-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,80,200,0.12); }
+.creative-thumb { width:100%; height:260px; object-fit:cover; background:#f3f4f6; display:block; }
+.creative-body { padding:14px; }
+.creative-name { font-weight:600; font-size:14px; color:#111827; margin-bottom:6px; line-height:1.4; }
+.creative-campaign { font-size:12px; color:#6b7280; margin-bottom:12px; }
+.creative-kpi { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.kpi-mini { background:#f9fafb; border-radius:6px; padding:6px 8px; }
+.kpi-mini-label { font-size:10px; color:#6b7280; text-transform:uppercase; }
+.kpi-mini-value { font-size:14px; font-weight:600; color:#111827; }
+.roas-good { color:#059669; }
+.roas-bad { color:#dc2626; }
+.status-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; }
+.status-ACTIVE { background:#d1fae5; color:#065f46; }
+.status-PAUSED { background:#fef3c7; color:#92400e; }
+.filter-bar { display:flex; gap:12px; flex-wrap:wrap; margin:20px 0; }
+.filter-bar select, .filter-bar input { padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:13px; }
+.sort-tabs { display:flex; gap:8px; margin:16px 0; }
+.sort-tab { padding:6px 14px; border:1px solid #d1d5db; border-radius:20px; cursor:pointer; font-size:13px; background:#fff; }
+.sort-tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <a href="index.html" class="brand">D2C Analytics</a>
+  <nav><a href="index.html">대시보드</a> · <a href="creative_gallery.html" class="active">소재 갤러리</a></nav>
+</div></header>
+
+<main class="page-container">
+  <div class="page-head">
+    <h1>🎨 광고 소재 성과 갤러리</h1>
+    <p class="desc">Meta에서 현재 운영 중인 광고 소재의 실시간 성과를 한눈에. 카드를 클릭하면 상세 분석 페이지로 이동합니다.</p>
+  </div>
+
+  <div class="filter-bar">
+    <select id="filterCampaign"><option value="">전체 캠페인</option></select>
+    <select id="filterStatus">
+      <option value="">전체 상태</option>
+      <option value="ACTIVE">활성</option>
+      <option value="PAUSED">일시정지</option>
+    </select>
+    <select id="filterDateRange">
+      <option value="7">최근 7일</option>
+      <option value="14">최근 14일</option>
+      <option value="30" selected>최근 30일</option>
+    </select>
+    <input type="text" id="searchName" placeholder="소재명 검색...">
+  </div>
+
+  <div class="sort-tabs">
+    <div class="sort-tab active" data-sort="spend_krw">지출순</div>
+    <div class="sort-tab" data-sort="ga_roas">ROAS순</div>
+    <div class="sort-tab" data-sort="ctr_pct">CTR순</div>
+    <div class="sort-tab" data-sort="ga_purchases">구매순</div>
+    <div class="sort-tab" data-sort="impressions">노출순</div>
+  </div>
+
+  <p id="summary" style="color:#6b7280; font-size:13px;">데이터 로딩 중...</p>
+  <div class="gallery-grid" id="galleryGrid"></div>
+</main>
+
+<script>
+let CREATIVES = [], PERFORMANCE = [], CURRENT_SORT = 'spend_krw';
+
+async function load() {
+  const [c, p] = await Promise.all([
+    fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
+    fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
+  ]);
+  CREATIVES = c;
+  PERFORMANCE = p;
+  initFilters();
+  render();
+}
+
+function aggregatePerformance(days) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const agg = {};
+  PERFORMANCE.filter(r => new Date(r.event_date) >= cutoff).forEach(r => {
+    const k = r.ad_id;
+    if (!agg[k]) agg[k] = { impressions:0, reach:0, spend_krw:0, clicks:0, ga_purchases:0, ga_revenue:0, meta_purchases:0, ga_add_to_cart:0, ga_sessions:0 };
+    agg[k].impressions += +r.impressions || 0;
+    agg[k].reach = Math.max(agg[k].reach, +r.reach || 0);
+    agg[k].spend_krw += +r.spend_krw || 0;
+    agg[k].clicks += +r.clicks || 0;
+    agg[k].ga_purchases += +r.ga_purchases || 0;
+    agg[k].ga_revenue += +r.ga_revenue || 0;
+    agg[k].meta_purchases += +r.meta_purchases || 0;
+    agg[k].ga_add_to_cart += +r.ga_add_to_cart || 0;
+    agg[k].ga_sessions += +r.ga_sessions || 0;
+  });
+  Object.keys(agg).forEach(k => {
+    agg[k].ctr_pct = agg[k].impressions ? (agg[k].clicks / agg[k].impressions * 100) : 0;
+    agg[k].ga_roas = agg[k].spend_krw ? (agg[k].ga_revenue / agg[k].spend_krw) : 0;
+    agg[k].ga_cvr_pct = agg[k].ga_sessions ? (agg[k].ga_purchases / agg[k].ga_sessions * 100) : 0;
+    agg[k].cpc = agg[k].clicks ? (agg[k].spend_krw / agg[k].clicks) : 0;
+  });
+  return agg;
+}
+
+function initFilters() {
+  const camps = [...new Set(CREATIVES.map(c=>c.campaign_name).filter(Boolean))].sort();
+  const sel = document.getElementById('filterCampaign');
+  camps.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+  ['filterCampaign','filterStatus','filterDateRange','searchName'].forEach(id =>
+    document.getElementById(id).addEventListener('change', render));
+  document.getElementById('searchName').addEventListener('input', render);
+  document.querySelectorAll('.sort-tab').forEach(t => t.addEventListener('click', e => {
+    document.querySelectorAll('.sort-tab').forEach(x=>x.classList.remove('active'));
+    e.target.classList.add('active');
+    CURRENT_SORT = e.target.dataset.sort;
+    render();
+  }));
+}
+
+function fmt(n, digit=0) {
+  if (n == null || isNaN(n)) return '-';
+  return Number(n).toLocaleString('ko-KR', { maximumFractionDigits: digit });
+}
+
+function render() {
+  const days = +document.getElementById('filterDateRange').value;
+  const campFilter = document.getElementById('filterCampaign').value;
+  const statusFilter = document.getElementById('filterStatus').value;
+  const searchQ = document.getElementById('searchName').value.toLowerCase();
+
+  const perf = aggregatePerformance(days);
+  let list = CREATIVES.filter(c => {
+    if (campFilter && c.campaign_name !== campFilter) return false;
+    if (statusFilter && c.effective_status !== statusFilter) return false;
+    if (searchQ && !(c.ad_name||'').toLowerCase().includes(searchQ)) return false;
+    return true;
+  });
+
+  list.forEach(c => { c._perf = perf[c.ad_id] || { spend_krw:0, ctr_pct:0, ga_roas:0, ga_purchases:0, impressions:0 }; });
+  list.sort((a,b) => (b._perf[CURRENT_SORT]||0) - (a._perf[CURRENT_SORT]||0));
+
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = '';
+
+  list.forEach(c => {
+    const p = c._perf;
+    const roasClass = p.ga_roas >= 1 ? 'roas-good' : p.ga_roas > 0 ? 'roas-bad' : '';
+    const imgSrc = c.local_image_path ? c.local_image_path : (c.thumbnail_url || 'assets/no-image.png');
+    const card = document.createElement('div');
+    card.className = 'creative-card';
+    card.onclick = () => window.location.href = `creative_detail.html?ad_id=${encodeURIComponent(c.ad_id)}`;
+    card.innerHTML = `
+      <img class="creative-thumb" src="${imgSrc}" onerror="this.src='https://via.placeholder.com/260x260/f3f4f6/9ca3af?text=No+Image'">
+      <div class="creative-body">
+        <div class="creative-name">${c.ad_name || '(이름 없음)'} <span class="status-badge status-${c.effective_status}">${c.effective_status}</span></div>
+        <div class="creative-campaign">${c.campaign_name || ''} · ${c.adset_name || ''}</div>
+        <div class="creative-kpi">
+          <div class="kpi-mini"><div class="kpi-mini-label">지출</div><div class="kpi-mini-value">₩${fmt(p.spend_krw)}</div></div>
+          <div class="kpi-mini"><div class="kpi-mini-label">노출</div><div class="kpi-mini-value">${fmt(p.impressions)}</div></div>
+          <div class="kpi-mini"><div class="kpi-mini-label">CTR</div><div class="kpi-mini-value">${fmt(p.ctr_pct,2)}%</div></div>
+          <div class="kpi-mini"><div class="kpi-mini-label">GA ROAS</div><div class="kpi-mini-value ${roasClass}">${fmt(p.ga_roas,2)}x</div></div>
+          <div class="kpi-mini"><div class="kpi-mini-label">구매</div><div class="kpi-mini-value">${fmt(p.ga_purchases)}건</div></div>
+          <div class="kpi-mini"><div class="kpi-mini-label">CPC</div><div class="kpi-mini-value">₩${fmt(p.cpc)}</div></div>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  document.getElementById('summary').textContent = `총 ${list.length}개 소재 · 최근 ${days}일 기준 · 정렬: ${CURRENT_SORT}`;
+}
+
+load();
+</script>
+</body>
+</html>
