@@ -9,24 +9,54 @@
 <script src="https://unpkg.com/lucide@latest"></script>
 <link rel="stylesheet" href="mart_common.css">
 <style>
-  .tab-bar {
-    display:flex; gap:4px; background:var(--white); border:1px solid var(--border);
-    border-radius:var(--radius); padding:4px; margin-bottom:20px; overflow-x:auto;
-  }
-  .tab-btn {
-    padding:8px 14px; border-radius:8px; background:transparent; border:none;
-    font-size:13px; font-weight:600; color:var(--text-secondary); cursor:pointer;
-    white-space:nowrap; font-family:inherit; transition:all .15s;
-    display:inline-flex; align-items:center; gap:6px;
-  }
+  .tab-bar { display:flex; gap:4px; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:4px; margin-bottom:20px; overflow-x:auto; }
+  .tab-btn { padding:8px 14px; border-radius:8px; background:transparent; border:none; font-size:13px; font-weight:600; color:var(--text-secondary); cursor:pointer; white-space:nowrap; font-family:inherit; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
   .tab-btn:hover { background:var(--bg); color:var(--text); }
   .tab-btn.active { background:var(--primary); color:white; }
-  .tab-btn .tab-num {
-    font-size:10px; opacity:0.7; font-family:'JetBrains Mono',monospace;
-    background:rgba(0,0,0,0.06); padding:1px 5px; border-radius:3px;
-  }
+  .tab-btn .tab-num { font-size:10px; opacity:0.7; font-family:'JetBrains Mono',monospace; background:rgba(0,0,0,0.06); padding:1px 5px; border-radius:3px; }
   .tab-btn.active .tab-num { background:rgba(255,255,255,0.2); opacity:0.9; }
   #root { min-height:400px; }
+
+  /* Funnel */
+  .funnel-wrap { padding: 8px 0; }
+  .funnel-row { display:flex; align-items:center; margin-bottom:12px; gap:14px; }
+  .funnel-label { width:200px; font-size:13px; font-weight:600; color:var(--text); }
+  .funnel-label .sub { display:block; font-size:11px; color:var(--text-muted); font-weight:500; }
+  .funnel-bar-outer { flex:1; height:44px; background:var(--bg); border-radius:10px; border:1px solid var(--border); overflow:hidden; }
+  .funnel-bar-inner { height:100%; background:linear-gradient(90deg, var(--primary), #4d94ff); display:flex; align-items:center; padding:0 16px; color:white; font-weight:700; font-size:13px; transition: width .3s; }
+  .funnel-drop { width:120px; text-align:right; font-size:12px; color:var(--danger); font-weight:600; }
+
+  /* Cohort heatmap */
+  .cohort-table { border-collapse:separate; border-spacing:2px; font-size:11px; }
+  .cohort-table th { padding:6px 8px; background:var(--bg); color:var(--text-muted); font-weight:600; text-align:center; white-space:nowrap; }
+  .cohort-table td { padding:8px; text-align:center; color:white; font-weight:600; border-radius:4px; min-width:48px; }
+
+  /* Day-Hour heatmap */
+  .heatmap-grid { display:grid; grid-template-columns:60px repeat(24, 1fr); gap:2px; font-size:10px; }
+  .heatmap-cell { aspect-ratio:1; border-radius:3px; display:flex; align-items:center; justify-content:center; color:white; font-weight:600; font-size:9px; cursor:pointer; }
+  .heatmap-cell:hover { outline:2px solid var(--primary); }
+  .heatmap-label { color:var(--text-muted); font-weight:600; padding:2px 4px; text-align:right; }
+  .heatmap-hour { text-align:center; padding:4px 0; }
+
+  /* RFM matrix */
+  .rfm-grid { display:grid; grid-template-columns:auto repeat(5, 1fr); gap:2px; font-size:11px; max-width:600px; }
+  .rfm-cell { padding:12px; text-align:center; color:white; font-weight:700; border-radius:4px; cursor:pointer; }
+  .rfm-cell:hover { outline:2px solid var(--primary); }
+  .rfm-label { color:var(--text-muted); font-weight:600; padding:6px; text-align:center; font-size:10px; }
+
+  /* Bubble/matrix common */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:20px; }
+  @media(max-width:1100px){ .grid-2, .grid-3 { grid-template-columns:1fr; } }
+
+  .rank-bar { display:flex; align-items:center; padding:10px 12px; border-radius:8px; margin-bottom:6px; background:var(--white); border:1px solid var(--border); }
+  .rank-bar .rank-name { flex:1; font-size:13px; font-weight:600; }
+  .rank-bar .rank-fill { height:24px; background:linear-gradient(90deg, var(--primary), #4d94ff); border-radius:6px; }
+  .rank-bar .rank-val { font-size:12px; font-weight:700; color:var(--primary); margin-left:12px; min-width:80px; text-align:right; }
+
+  .sub-tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .sub-tab { padding:6px 12px; border-radius:6px; background:var(--bg); font-size:12px; font-weight:600; color:var(--text-secondary); cursor:pointer; border:1px solid var(--border); }
+  .sub-tab.active { background:var(--primary); color:white; border-color:var(--primary); }
 </style>
 </head>
 <body>
@@ -40,10 +70,9 @@
     <div class="page-head">
       <div class="crumb">Dashboard / Data Explorer</div>
       <h1>Data Explorer</h1>
-      <div class="desc">전 영역 데이터를 하나의 시트에서 탐색합니다. 상단 탭으로 데이터셋을 전환하고, 날짜·지표·카테고리 필터로 원하는 뷰를 만드세요.</div>
+      <div class="desc">전 영역 데이터를 하나의 시트에서 탐색합니다. 각 데이터셋은 특성에 맞는 시각화로 표시됩니다.</div>
       <div class="meta-row"><span id="status">데이터 준비 중...</span></div>
     </div>
-
     <div class="tab-bar" id="tabBar"></div>
     <div id="root"></div>
   </main>
@@ -52,23 +81,483 @@
 <script>window.__skipAutoInit = true;</script>
 <script src="mart_common.js"></script>
 <script>
+
+// 파일명 매핑 확정
 const DATASETS = [
-  { id:'1',  file:'data/mart1_daily_kpi.json',      label:'일별 KPI',       icon:'trending-up' },
-  { id:'2',  file:'data/mart2_funnel.json',         label:'퍼널 이탈',       icon:'filter' },
-  { id:'3',  file:'data/mart3_cohort.json',         label:'코호트 리텐션',   icon:'users' },
-  { id:'4',  file:'data/mart4_attribution.json',    label:'어트리뷰션',     icon:'git-branch' },
-  { id:'5',  file:'data/mart5_ltv_rfm.json',        label:'LTV / RFM',      icon:'crown' },
-  { id:'7',  file:'data/mart7_day_hour.json',       label:'요일×시간대',     icon:'calendar-clock' },
-  { id:'8',  file:'data/mart8_engagement.json',     label:'콘텐츠 참여',     icon:'activity' },
-  { id:'9',  file:'data/mart9_dark_social.json',    label:'다크소셜',       icon:'sparkles' },
-  { id:'13', file:'data/mart13_demographics.json',  label:'인구통계',       icon:'user-check' },
-  { id:'14', file:'data/mart14_interest.json',      label:'관심사',         icon:'heart' }
+  { id:'1',  file:'data/mart1_daily_kpi.json',       label:'일별 KPI',      icon:'trending-up',    renderer:'timeseries' },
+  { id:'2',  file:'data/mart2_funnel.json',          label:'퍼널 이탈',      icon:'filter',         renderer:'funnel' },
+  { id:'3',  file:'data/mart3_cohort.json',          label:'코호트 리텐션',   icon:'users',          renderer:'cohort' },
+  { id:'4',  file:'data/mart4_attribution.json',     label:'어트리뷰션',     icon:'git-branch',     renderer:'attribution' },
+  { id:'5',  file:'data/mart5_ltv_rfm.json',         label:'LTV / RFM',    icon:'crown',          renderer:'rfm' },
+  { id:'7',  file:'data/mart7_time_heatmap.json',    label:'요일×시간대',    icon:'calendar-clock', renderer:'heatmap' },
+  { id:'8',  file:'data/mart8_engagement.json',      label:'콘텐츠 참여',    icon:'activity',       renderer:'engagement' },
+  { id:'9',  file:'data/mart9_dark_social_ai.json',  label:'다크소셜',       icon:'sparkles',       renderer:'darksocial' },
+  { id:'13', file:'data/mart13_demographics.json',   label:'인구통계',       icon:'user-check',     renderer:'demographics' },
+  { id:'14', file:'data/mart14_interest.json',       label:'관심사',         icon:'heart',          renderer:'interest' }
 ];
 
+const KRW = n => (n||0).toLocaleString('ko-KR') + '원';
+const NUM = n => (+n||0).toLocaleString('ko-KR');
+const PCT = n => (n==null||isNaN(n)) ? '-' : (+n).toFixed(2)+'%';
+
+// 색상 스케일 (0~1 → 파란색 채도)
+function heatColor(v, max) {
+  if(!max) return '#e2e8f0';
+  const ratio = Math.min(v/max, 1);
+  if(ratio < 0.01) return '#f1f5f9';
+  const alpha = 0.15 + ratio * 0.85;
+  return `rgba(0, 102, 255, ${alpha})`;
+}
+function coolColor(v, max) {
+  if(!max) return '#e2e8f0';
+  const ratio = Math.min(v/max, 1);
+  if(ratio < 0.01) return '#f1f5f9';
+  // 초록(높음) - 노랑(중간) - 빨강(낮음)
+  const alpha = 0.20 + ratio * 0.80;
+  return `rgba(0, 167, 111, ${alpha})`;
+}
+
+let charts = {};
+function killCharts() { Object.values(charts).forEach(c => c && c.destroy && c.destroy()); charts = {}; }
+
+// ==================== RENDERERS ====================
+
+const RENDERERS = {
+
+// ────────────────────────────────
+// M1 · 일별 KPI (시계열)
+// ────────────────────────────────
+timeseries(rows){
+  return typeof render === 'function' ? render(rows) : null;
+},
+
+// ────────────────────────────────
+// M2 · 퍼널
+// ────────────────────────────────
+funnel(rows){
+  const root = document.getElementById('root');
+  const types = [...new Set(rows.map(r=>r.funnel_type).filter(Boolean))];
+  const segments = [...new Set(rows.map(r=>r.segment).filter(Boolean))];
+  const activeType = types[0] || null;
+  const activeSeg = segments[0] || null;
+
+  const render = (typeVal, segVal) => {
+    const filtered = rows.filter(r =>
+      (!typeVal || r.funnel_type===typeVal) &&
+      (!segVal || r.segment===segVal)
+    ).sort((a,b) => (+a.step_number||0)-(+b.step_number||0));
+
+    const funnelHtml = filtered.map(s => {
+      const pct = +s.pct_of_step1 || 0;
+      const drop = +s.dropoff_from_prev_pct || 0;
+      return `<div class="funnel-row">
+        <div class="funnel-label">${s.step_name||'Step '+s.step_number}<span class="sub">Step ${s.step_number} · ${NUM(s.users||s.sessions||0)} 명</span></div>
+        <div class="funnel-bar-outer">
+          <div class="funnel-bar-inner" style="width:${Math.max(pct,3)}%">${pct.toFixed(1)}%</div>
+        </div>
+        <div class="funnel-drop">${drop ? '−'+drop.toFixed(1)+'%' : '기준'}</div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('funnelContent').innerHTML = `<div class="funnel-wrap">${funnelHtml || '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);">데이터 없음</div>'}</div>`;
+  };
+
+  root.innerHTML = `
+    <div class="chart-box">
+      <h3>퍼널 통과율 <span class="chart-en">Funnel Dropoff</span></h3>
+      <div class="h3-sub">각 단계별 유입 대비 도달률 · 오른쪽은 직전 단계 대비 이탈률</div>
+      <div class="sub-tabs" id="funnelTypeTabs">
+        ${types.map((t,i)=>`<span class="sub-tab ${i===0?'active':''}" data-t="${t}">${t}</span>`).join('')}
+      </div>
+      ${segments.length > 1 ? `<div class="sub-tabs" id="funnelSegTabs">
+        ${segments.map((s,i)=>`<span class="sub-tab ${i===0?'active':''}" data-s="${s}">${s}</span>`).join('')}
+      </div>` : ''}
+      <div id="funnelContent"></div>
+    </div>`;
+
+  const state = { type: activeType, seg: activeSeg };
+  document.querySelectorAll('#funnelTypeTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
+    document.querySelectorAll('#funnelTypeTabs .sub-tab').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    state.type = el.dataset.t;
+    render(state.type, state.seg);
+  }));
+  document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
+    document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    state.seg = el.dataset.s;
+    render(state.type, state.seg);
+  }));
+  render(state.type, state.seg);
+},
+
+// ────────────────────────────────
+// M3 · 코호트 리텐션
+// ────────────────────────────────
+cohort(rows){
+  const root = document.getElementById('root');
+  const cohortKey = rows[0].cohort_week ? 'cohort_week' : 'cohort_month';
+  const weekKey = 'weeks_since_signup';
+  const cohorts = [...new Set(rows.map(r=>r[cohortKey]))].sort();
+  const weeks = [...new Set(rows.map(r=>+r[weekKey]))].sort((a,b)=>a-b);
+  const matrix = {};
+  rows.forEach(r => {
+    matrix[r[cohortKey]] = matrix[r[cohortKey]] || {};
+    matrix[r[cohortKey]][r[weekKey]] = +r.retention_pct;
+  });
+
+  const thead = `<tr><th>${cohortKey==='cohort_week'?'가입 주차':'가입 월'}</th>${weeks.map(w=>`<th>W${w}</th>`).join('')}</tr>`;
+  const tbody = cohorts.map(c => `<tr>
+    <th style="text-align:left; padding-left:12px;">${c}</th>
+    ${weeks.map(w => {
+      const v = matrix[c][w];
+      if(v==null) return '<td style="background:#f8fafc;color:#cbd5e1;">-</td>';
+      return `<td style="background:${heatColor(v,100)};" title="${c} W${w}: ${v.toFixed(1)}%">${v.toFixed(0)}%</td>`;
+    }).join('')}
+  </tr>`).join('');
+
+  root.innerHTML = `
+    <div class="chart-box">
+      <h3>코호트 리텐션 매트릭스 <span class="chart-en">Cohort Retention</span></h3>
+      <div class="h3-sub">가입 시점별 사용자가 몇 주차에 재방문했는지 · 색상: 리텐션율 (진할수록 높음)</div>
+      <div style="overflow-x:auto; margin-top:16px;">
+        <table class="cohort-table">${thead}${tbody}</table>
+      </div>
+    </div>`;
+},
+
+// ────────────────────────────────
+// M4 · 어트리뷰션
+// ────────────────────────────────
+attribution(rows){
+  const root = document.getElementById('root');
+  const channels = [...new Set(rows.map(r=>r.channel))];
+  const data = channels.map(ch => {
+    const rs = rows.filter(r => r.channel===ch);
+    return {
+      channel: ch,
+      first: rs.reduce((s,r)=>s+(+r.first_touch_conversions||0),0),
+      last:  rs.reduce((s,r)=>s+(+r.last_touch_conversions||0),0),
+      linear:rs.reduce((s,r)=>s+(+r.linear_conversions||0),0)
+    };
+  }).sort((a,b)=>b.linear-a.linear).slice(0,10);
+
+  root.innerHTML = `
+    <div class="chart-box">
+      <h3>어트리뷰션 모델 비교 <span class="chart-en">Multi-touch Attribution</span></h3>
+      <div class="h3-sub">채널별 first-touch · last-touch · linear 배분 방식 전환 기여 비교</div>
+      <canvas id="attrChart" style="max-height:400px;"></canvas>
+    </div>`;
+  charts.attr = new Chart(document.getElementById('attrChart'), {
+    type:'bar',
+    data:{
+      labels: data.map(d=>d.channel),
+      datasets:[
+        { label:'First-touch', data: data.map(d=>d.first),  backgroundColor:'#93c5fd' },
+        { label:'Last-touch',  data: data.map(d=>d.last),   backgroundColor:'#3b82f6' },
+        { label:'Linear',      data: data.map(d=>d.linear), backgroundColor:'#1d4ed8' }
+      ]
+    },
+    options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}} }
+  });
+},
+
+// ────────────────────────────────
+// M5 · LTV / RFM
+// ────────────────────────────────
+rfm(rows){
+  const root = document.getElementById('root');
+  const segments = {};
+  rows.forEach(r => {
+    const seg = r.rfm_segment || 'unknown';
+    if(!segments[seg]) segments[seg] = { count:0, ltv:0, monetary:0 };
+    segments[seg].count++;
+    segments[seg].ltv += +r.ltv||0;
+    segments[seg].monetary += +r.monetary||0;
+  });
+  const sorted = Object.entries(segments).sort((a,b)=>b[1].ltv-a[1].ltv);
+  const maxCount = Math.max(...sorted.map(([_,v])=>v.count));
+
+  root.innerHTML = `
+    <div class="grid-2">
+      <div class="chart-box">
+        <h3>RFM 세그먼트별 유저 분포 <span class="chart-en">RFM Segments</span></h3>
+        <div class="h3-sub">고객 등급별 인원수 · LTV 합계 · 총 구매액</div>
+        <canvas id="rfmCount" style="max-height:300px;"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>LTV 분포 <span class="chart-en">LTV Distribution</span></h3>
+        <div class="h3-sub">세그먼트별 평균 LTV</div>
+        <canvas id="rfmLtv" style="max-height:300px;"></canvas>
+      </div>
+    </div>
+    <div class="chart-box" style="margin-top:16px;">
+      <h3>세그먼트 상세 <span class="chart-en">Segment Details</span></h3>
+      <table><thead><tr><th>세그먼트</th><th style="text-align:right;">인원</th><th style="text-align:right;">평균 LTV</th><th style="text-align:right;">총 구매액</th></tr></thead><tbody>
+        ${sorted.map(([seg,v]) => `<tr>
+          <td>${seg}</td>
+          <td style="text-align:right;">${NUM(v.count)}</td>
+          <td style="text-align:right;">${KRW(v.ltv/v.count)}</td>
+          <td style="text-align:right;">${KRW(v.monetary)}</td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+
+  charts.rfmCount = new Chart(document.getElementById('rfmCount'), {
+    type:'doughnut',
+    data:{ labels: sorted.map(x=>x[0]), datasets:[{ data: sorted.map(x=>x[1].count), backgroundColor:['#2563eb','#7c3aed','#ec4899','#f59e0b','#10b981','#06b6d4','#64748b','#f43f5e'] }] },
+    options:{ plugins:{legend:{position:'right',labels:{font:{size:11}}}} }
+  });
+  charts.rfmLtv = new Chart(document.getElementById('rfmLtv'), {
+    type:'bar',
+    data:{ labels: sorted.map(x=>x[0]), datasets:[{ label:'평균 LTV', data: sorted.map(x=>x[1].ltv/x[1].count), backgroundColor:'#0066FF' }] },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}} }
+  });
+},
+
+// ────────────────────────────────
+// M7 · 요일×시간대 히트맵
+// ────────────────────────────────
+heatmap(rows){
+  const root = document.getElementById('root');
+  const DAYS = ['일','월','화','수','목','금','토'];
+  const matrix = {};
+  rows.forEach(r => {
+    const d = +r.day_of_week_num;
+    const h = +r.hour_of_day;
+    matrix[d] = matrix[d] || {};
+    matrix[d][h] = (matrix[d][h] || 0) + (+r.sessions || 0);
+  });
+  const allVals = [];
+  for(let d=0; d<7; d++) for(let h=0; h<24; h++) if(matrix[d] && matrix[d][h]) allVals.push(matrix[d][h]);
+  const maxVal = Math.max(...allVals, 1);
+
+  const header = '<div class="heatmap-label"></div>' + Array.from({length:24}, (_,h)=>`<div class="heatmap-hour" style="color:var(--text-muted);">${h}</div>`).join('');
+  const rowsHtml = DAYS.map((day, d) => {
+    return '<div class="heatmap-label" style="align-self:center;">'+day+'</div>' +
+      Array.from({length:24}, (_,h) => {
+        const v = (matrix[d] && matrix[d][h]) || 0;
+        return `<div class="heatmap-cell" style="background:${heatColor(v, maxVal)};" title="${day} ${h}시: ${NUM(v)} 세션">${v>0?v>=100?Math.round(v/10)/10+'K':v:''}</div>`;
+      }).join('');
+  }).join('');
+
+  root.innerHTML = `
+    <div class="chart-box">
+      <h3>요일 × 시간대 히트맵 <span class="chart-en">Day × Hour Heatmap</span></h3>
+      <div class="h3-sub">세션 발생 분포 · 진한 파란색일수록 트래픽 많음</div>
+      <div class="heatmap-grid" style="margin-top:16px;">${header}${rowsHtml}</div>
+    </div>`;
+},
+
+// ────────────────────────────────
+// M8 · 콘텐츠 참여도
+// ────────────────────────────────
+engagement(rows){
+  const root = document.getElementById('root');
+  const tiers = {};
+  rows.forEach(r => {
+    const t = r.engagement_tier || 'unknown';
+    if(!tiers[t]) tiers[t] = { sessions:0, pv:0, sec:0, count:0 };
+    tiers[t].sessions += +r.sessions || 0;
+    tiers[t].pv += (+r.avg_pageviews_per_session||0) * (+r.sessions||0);
+    tiers[t].sec += (+r.avg_engagement_seconds||0) * (+r.sessions||0);
+    tiers[t].count += +r.sessions || 0;
+  });
+  const order = ['high','medium','low','unknown'];
+  const tierData = order.filter(t => tiers[t]).map(t => ({
+    tier: t, ...tiers[t],
+    avgPv: tiers[t].count ? tiers[t].pv/tiers[t].count : 0,
+    avgSec: tiers[t].count ? tiers[t].sec/tiers[t].count : 0
+  }));
+
+  root.innerHTML = `
+    <div class="grid-2">
+      <div class="chart-box">
+        <h3>참여 등급 분포 <span class="chart-en">Engagement Tiers</span></h3>
+        <div class="h3-sub">high / medium / low 세션 비중</div>
+        <canvas id="engDist" style="max-height:280px;"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>등급별 평균 지표 <span class="chart-en">Avg Per Tier</span></h3>
+        <div class="h3-sub">평균 페이지뷰 · 평균 체류시간</div>
+        <canvas id="engMetric" style="max-height:280px;"></canvas>
+      </div>
+    </div>`;
+  charts.engDist = new Chart(document.getElementById('engDist'), {
+    type:'doughnut',
+    data:{ labels: tierData.map(t=>t.tier), datasets:[{ data: tierData.map(t=>t.sessions), backgroundColor:['#10b981','#f59e0b','#ef4444','#64748b'] }] },
+    options:{ plugins:{legend:{position:'right'}} }
+  });
+  charts.engMetric = new Chart(document.getElementById('engMetric'), {
+    type:'bar',
+    data:{
+      labels: tierData.map(t=>t.tier),
+      datasets:[
+        { label:'평균 페이지뷰', data: tierData.map(t=>t.avgPv), backgroundColor:'#3b82f6' },
+        { label:'평균 체류(초)', data: tierData.map(t=>t.avgSec), backgroundColor:'#10b981' }
+      ]
+    },
+    options:{ plugins:{legend:{position:'top'}} }
+  });
+},
+
+// ────────────────────────────────
+// M9 · 다크소셜 / AI 리퍼럴
+// ────────────────────────────────
+darksocial(rows){
+  const root = document.getElementById('root');
+  const bySource = {};
+  rows.forEach(r => {
+    const s = r.traffic_channel || r.source || 'unknown';
+    if(!bySource[s]) bySource[s] = { sessions:0, purchases:0, revenue:0 };
+    bySource[s].sessions += +r.sessions || 0;
+    bySource[s].purchases += +r.purchases || +r.purchase_sessions || 0;
+    bySource[s].revenue += +r.revenue || 0;
+  });
+  const sorted = Object.entries(bySource).sort((a,b)=>b[1].sessions-a[1].sessions).slice(0,10);
+
+  root.innerHTML = `
+    <div class="grid-2">
+      <div class="chart-box">
+        <h3>다크소셜 · AI 리퍼럴 소스 <span class="chart-en">Dark Social Sources</span></h3>
+        <div class="h3-sub">추적 안 되는 유입 소스별 세션 · ChatGPT · Perplexity · 카톡 · 링크 공유 등</div>
+        <canvas id="darkPie" style="max-height:320px;"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>소스별 성과 <span class="chart-en">Source Performance</span></h3>
+        <div class="h3-sub">세션 대비 구매 · 매출</div>
+        <table style="margin-top:8px;"><thead><tr><th>소스</th><th style="text-align:right;">세션</th><th style="text-align:right;">구매</th><th style="text-align:right;">매출</th></tr></thead><tbody>
+          ${sorted.map(([s,v])=>`<tr>
+            <td>${s}</td>
+            <td style="text-align:right;">${NUM(v.sessions)}</td>
+            <td style="text-align:right;">${NUM(v.purchases)}</td>
+            <td style="text-align:right;">${KRW(v.revenue)}</td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>
+    </div>`;
+  charts.darkPie = new Chart(document.getElementById('darkPie'), {
+    type:'doughnut',
+    data:{ labels: sorted.map(x=>x[0]), datasets:[{ data: sorted.map(x=>x[1].sessions), backgroundColor:['#2563eb','#7c3aed','#ec4899','#f59e0b','#10b981','#06b6d4','#64748b','#f43f5e','#3b82f6','#a855f7'] }] },
+    options:{ plugins:{legend:{position:'right',labels:{font:{size:11}}}} }
+  });
+},
+
+// ────────────────────────────────
+// M13 · 인구통계
+// ────────────────────────────────
+demographics(rows){
+  const root = document.getElementById('root');
+  const AGES = ['18-24','25-34','35-44','45-54','55-64','65+','unknown'];
+  const GENDERS = ['female','male','unknown'];
+  const matrix = {};
+  AGES.forEach(a => { matrix[a] = {}; GENDERS.forEach(g => matrix[a][g] = 0); });
+  rows.forEach(r => {
+    const a = r.age_bracket || 'unknown';
+    const g = r.gender || 'unknown';
+    if(!matrix[a]) matrix[a] = { female:0, male:0, unknown:0 };
+    matrix[a][g] = (matrix[a][g] || 0) + (+r.sessions || +r.users || 0);
+  });
+  const regions = {};
+  rows.forEach(r => {
+    const rg = r.region || r.city || 'unknown';
+    regions[rg] = (regions[rg] || 0) + (+r.sessions || +r.users || 0);
+  });
+  const topRegions = Object.entries(regions).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxRegion = topRegions[0] ? topRegions[0][1] : 1;
+
+  root.innerHTML = `
+    <div class="grid-2">
+      <div class="chart-box">
+        <h3>연령 × 성별 분포 <span class="chart-en">Age × Gender</span></h3>
+        <div class="h3-sub">스택 바 차트</div>
+        <canvas id="demoStack" style="max-height:340px;"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>지역 TOP 10 <span class="chart-en">Top Regions</span></h3>
+        <div class="h3-sub">세션 기준</div>
+        <div style="margin-top:12px;">
+          ${topRegions.map(([r,v]) => `
+            <div class="rank-bar">
+              <span class="rank-name">${r}</span>
+              <div style="flex:2; margin:0 12px;"><div class="rank-fill" style="width:${(v/maxRegion*100).toFixed(1)}%;"></div></div>
+              <span class="rank-val">${NUM(v)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+  charts.demoStack = new Chart(document.getElementById('demoStack'), {
+    type:'bar',
+    data:{
+      labels: AGES,
+      datasets:[
+        { label:'여성', data: AGES.map(a=>matrix[a].female||0),  backgroundColor:'#ec4899' },
+        { label:'남성', data: AGES.map(a=>matrix[a].male||0),    backgroundColor:'#3b82f6' },
+        { label:'미상', data: AGES.map(a=>matrix[a].unknown||0), backgroundColor:'#94a3b8' }
+      ]
+    },
+    options:{ plugins:{legend:{position:'top'}}, scales:{ x:{stacked:true}, y:{stacked:true, beginAtZero:true} } }
+  });
+},
+
+// ────────────────────────────────
+// M14 · 관심사 카테고리
+// ────────────────────────────────
+interest(rows){
+  const root = document.getElementById('root');
+  const types = [...new Set(rows.map(r=>r.interest_type).filter(Boolean))];
+
+  const renderType = (typeVal) => {
+    const filtered = rows.filter(r => r.interest_type === typeVal);
+    const agg = {};
+    filtered.forEach(r => {
+      const k = r.interest_value || 'unknown';
+      if(!agg[k]) agg[k] = { sessions:0, purchases:0, revenue:0 };
+      agg[k].sessions += +r.sessions || 0;
+      agg[k].purchases += +r.purchases || 0;
+      agg[k].revenue += +r.revenue || 0;
+    });
+    const sorted = Object.entries(agg).sort((a,b)=>b[1].sessions-a[1].sessions).slice(0,15);
+    const maxSess = sorted[0] ? sorted[0][1].sessions : 1;
+
+    document.getElementById('interestContent').innerHTML = `
+      <div style="margin-top:12px;">
+        ${sorted.map(([k,v]) => `
+          <div class="rank-bar">
+            <span class="rank-name">${k}</span>
+            <div style="flex:2; margin:0 12px;"><div class="rank-fill" style="width:${(v.sessions/maxSess*100).toFixed(1)}%;"></div></div>
+            <span class="rank-val">세션 ${NUM(v.sessions)}</span>
+            <span class="rank-val" style="color:var(--success);">매출 ${KRW(v.revenue)}</span>
+          </div>
+        `).join('')}
+      </div>`;
+  };
+
+  root.innerHTML = `
+    <div class="chart-box">
+      <h3>관심사 카테고리 랭킹 <span class="chart-en">Interest Categories</span></h3>
+      <div class="h3-sub">GA4 affinity · in-market · life event 유형별 상위 15개</div>
+      <div class="sub-tabs" id="interestTabs">
+        ${types.map((t,i)=>`<span class="sub-tab ${i===0?'active':''}" data-t="${t}">${t}</span>`).join('')}
+      </div>
+      <div id="interestContent"></div>
+    </div>`;
+  document.querySelectorAll('#interestTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
+    document.querySelectorAll('#interestTabs .sub-tab').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    renderType(el.dataset.t);
+  }));
+  if(types.length) renderType(types[0]);
+}
+
+}; // end RENDERERS
+
+// ==================== 탭 & 로더 ====================
 function buildTabs(){
   const tabBar = document.getElementById('tabBar');
   tabBar.innerHTML = DATASETS.map((d,i) => `
-    <button class="tab-btn ${i===0?'active':''}" data-file="${d.file}" data-id="${d.id}">
+    <button class="tab-btn ${i===0?'active':''}" data-file="${d.file}" data-id="${d.id}" data-renderer="${d.renderer}">
       <i data-lucide="${d.icon}" style="width:14px;height:14px;"></i>
       ${d.label}
       <span class="tab-num">M${d.id}</span>
@@ -78,16 +567,50 @@ function buildTabs(){
     btn.addEventListener('click', () => {
       tabBar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      initMart(btn.dataset.file);
+      loadAndRender(btn.dataset.file, btn.dataset.renderer);
     });
   });
   lucide.createIcons();
 }
 
+async function loadAndRender(file, rendererName){
+  killCharts();
+  const statusEl = document.getElementById('status');
+  const root = document.getElementById('root');
+  root.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px;">데이터 로드 중...</div>';
+  statusEl.textContent = '로드 중...';
+
+  try {
+    const res = await fetch(file + '?t=' + Date.now());
+    if(!res.ok) throw new Error(`파일 없음 (HTTP ${res.status})`);
+    const rows = await res.json();
+    if(!rows || !rows.length) {
+      root.innerHTML = '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);border:1px dashed var(--border);border-radius:8px;">데이터가 아직 없습니다.</div>';
+      statusEl.textContent = '데이터 없음';
+      return;
+    }
+    statusEl.textContent = `총 ${rows.length.toLocaleString()}행 · ${file.split('/').pop()} · 렌더러: ${rendererName}`;
+
+    const fn = RENDERERS[rendererName];
+    if(fn) {
+      fn(rows);
+    } else {
+      root.innerHTML = `<div style="padding:20px;color:var(--danger);">알 수 없는 렌더러: ${rendererName}</div>`;
+    }
+  } catch(e) {
+    root.innerHTML = `<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);border:1px dashed var(--border);border-radius:8px;">
+      <div style="color:var(--danger);font-weight:600;margin-bottom:8px;">데이터 로드 실패</div>
+      <div style="font-size:12px;">${e.message}</div>
+      <div style="font-size:11px;margin-top:8px;">파일 경로: <code>${file}</code></div>
+    </div>`;
+    statusEl.textContent = '⚠️ ' + e.message;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   buildSidebar();
   buildTabs();
-  initMart(DATASETS[0].file);
+  loadAndRender(DATASETS[0].file, DATASETS[0].renderer);
 });
 </script>
 </body>
