@@ -1,4 +1,5 @@
 name: Daily D2C Marts Refresh
+
 on:
   schedule:
     - cron: '0 10 * * *'
@@ -10,34 +11,53 @@ permissions:
 jobs:
   run-marts:
     runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: d2c-analytics-502304
+      LOCATION: asia-northeast3
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+
       - name: Run 5 mart SQL scripts + export dashboard data
         run: |
           chmod +x run_marts.sh
           ./run_marts.sh
+
+      - name: Refresh Mart 16 (channel deep)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/16_mart_ad_channel_deep.sql
+
+      - name: Export mart16_channels
+        run: |
+          mkdir -p docs/data
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=50000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_channel_deep\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC" \
+            > docs/data/mart16_channels.json
+          ls -lh docs/data/mart16_channels.json
+
       - name: Commit dashboard data
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update dashboard data [skip ci]"
           file_pattern: "docs/data/*.json"
-      - name: Refresh Mart 16 (channel deep)
-        run: |
-          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=none < sql/16_mart_ad_channel_deep.sql
-
-      - name: Export mart16_channels
-        run: |
-          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=json --max_rows=50000 \
-            "SELECT * FROM \`${PROJECT_ID}.marts.mart_channel_deep\`
-             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
-             ORDER BY event_date DESC" \
-            > docs/data/mart16_channels.json
