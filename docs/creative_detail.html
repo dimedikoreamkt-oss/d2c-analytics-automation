@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>소재 상세 분석</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mart_common.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+.detail-layout { display:grid; grid-template-columns:400px 1fr; gap:32px; margin-top:24px; }
+@media(max-width:960px){ .detail-layout{grid-template-columns:1fr;} }
+.creative-preview { position:sticky; top:20px; align-self:start; }
+.creative-preview img { width:100%; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.1); }
+.copy-block { background:#f9fafb; border-radius:8px; padding:12px; margin-top:12px; font-size:13px; line-height:1.5; }
+.copy-block strong { display:block; color:#6b7280; font-size:11px; text-transform:uppercase; margin-bottom:4px; }
+.kpi-section { margin-bottom:32px; }
+.kpi-section-title { font-size:15px; font-weight:700; color:#111827; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #2563eb; display:inline-block; }
+.kpi-grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.kpi-box { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px; }
+.kpi-box-label { font-size:11px; color:#6b7280; text-transform:uppercase; margin-bottom:4px; }
+.kpi-box-value { font-size:22px; font-weight:700; color:#111827; }
+.kpi-box-hint { font-size:11px; color:#6b7280; margin-top:4px; }
+.funnel-mini { display:flex; align-items:center; gap:12px; margin-top:8px; }
+.funnel-step { flex:1; background:#eff6ff; border-radius:6px; padding:8px 10px; text-align:center; font-size:13px; }
+.funnel-arrow { color:#9ca3af; font-size:20px; }
+.chart-box { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-top:16px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <a href="index.html" class="brand">D2C Analytics</a>
+  <nav><a href="creative_gallery.html">← 소재 갤러리</a></nav>
+</div></header>
+
+<main class="page-container">
+  <div id="detailRoot">데이터 로딩 중...</div>
+</main>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const AD_ID = params.get('ad_id');
+let CREATIVE = null, PERF = [];
+
+async function load() {
+  const [c, p] = await Promise.all([
+    fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
+    fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
+  ]);
+  CREATIVE = c.find(x => x.ad_id === AD_ID);
+  PERF = p.filter(x => x.ad_id === AD_ID).sort((a,b)=>a.event_date.localeCompare(b.event_date));
+  if (!CREATIVE) { document.getElementById('detailRoot').innerHTML = '<h2>소재를 찾을 수 없습니다.</h2>'; return; }
+  render();
+}
+
+function fmt(n,d=0){ if(n==null||isNaN(n))return'-'; return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d}); }
+function sum(arr,k){ return arr.reduce((a,r)=>a+(+r[k]||0),0); }
+
+function render() {
+  const c = CREATIVE;
+  const totalSpend = sum(PERF,'spend_krw');
+  const totalImp = sum(PERF,'impressions');
+  const totalReach = Math.max(...PERF.map(r=>+r.reach||0), 0);
+  const avgFreq = sum(PERF,'impressions')/Math.max(totalReach,1);
+  const totalClicks = sum(PERF,'clicks');
+  const totalLinkClicks = sum(PERF,'link_clicks');
+  const ctr = totalImp ? totalClicks/totalImp*100 : 0;
+  const linkCtr = totalImp ? totalLinkClicks/totalImp*100 : 0;
+  const cpc = totalClicks ? totalSpend/totalClicks : 0;
+  const cpm = totalImp ? totalSpend/totalImp*1000 : 0;
+  const metaPurchases = sum(PERF,'meta_purchases');
+  const metaValue = sum(PERF,'meta_purchase_value');
+  const metaRoas = totalSpend ? metaValue/totalSpend : 0;
+  const gaSessions = sum(PERF,'ga_sessions');
+  const gaUsers = sum(PERF,'ga_users');
+  const gaPDP = sum(PERF,'ga_pdp_views');
+  const gaATC = sum(PERF,'ga_add_to_cart');
+  const gaLogins = sum(PERF,'ga_logins');
+  const gaSignups = sum(PERF,'ga_signups');
+  const gaCheckouts = sum(PERF,'ga_checkouts');
+  const gaPurchases = sum(PERF,'ga_purchases');
+  const gaRevenue = sum(PERF,'ga_revenue');
+  const gaRoas = totalSpend ? gaRevenue/totalSpend : 0;
+  const gaCvr = gaSessions ? gaPurchases/gaSessions*100 : 0;
+  const gaCac = gaPurchases ? totalSpend/gaPurchases : 0;
+  const avgEng = PERF.length ? sum(PERF,'ga_avg_engagement_sec')/PERF.length : 0;
+  const avgScroll = PERF.length ? sum(PERF,'ga_avg_scroll_depth_pct')/PERF.length : 0;
+
+  const videoP25 = sum(PERF,'video_p25');
+  const videoP100 = sum(PERF,'video_p100');
+  const holdRate = videoP25 ? videoP100/videoP25*100 : 0;
+
+  const img = c.local_image_path || c.thumbnail_url || 'assets/no-image.png';
+
+  document.getElementById('detailRoot').innerHTML = `
+    <div class="page-head">
+      <h1>${c.ad_name}</h1>
+      <p class="desc">${c.campaign_name || ''} · ${c.adset_name || ''} · <span class="status-badge status-${c.effective_status}">${c.effective_status}</span></p>
+    </div>
+
+    <div class="detail-layout">
+      <div class="creative-preview">
+        <img src="${img}" onerror="this.src='https://via.placeholder.com/400/f3f4f6/9ca3af?text=No+Image'">
+        <div class="copy-block"><strong>제목</strong>${c.title_text || '-'}</div>
+        <div class="copy-block"><strong>본문</strong>${c.body_text || '-'}</div>
+        <div class="copy-block"><strong>CTA</strong>${c.cta_type || '-'}</div>
+        <div class="copy-block"><strong>랜딩 URL</strong><a href="${c.landing_url}" target="_blank" style="color:#2563eb;word-break:break-all;">${c.landing_url || '-'}</a></div>
+        ${c.instagram_permalink ? `<div class="copy-block"><strong>인스타그램</strong><a href="${c.instagram_permalink}" target="_blank" style="color:#2563eb;">게시물 보기 →</a></div>` : ''}
+      </div>
+
+      <div>
+        <div class="kpi-section">
+          <div class="kpi-section-title">📢 Meta 노출 성과</div>
+          <div class="kpi-grid-4">
+            <div class="kpi-box"><div class="kpi-box-label">지출</div><div class="kpi-box-value">₩${fmt(totalSpend)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">노출수</div><div class="kpi-box-value">${fmt(totalImp)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">도달수</div><div class="kpi-box-value">${fmt(totalReach)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">빈도</div><div class="kpi-box-value">${fmt(avgFreq,2)}</div><div class="kpi-box-hint">${avgFreq>3?'⚠️ 피로도 높음':'양호'}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">CPM</div><div class="kpi-box-value">₩${fmt(cpm)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">CPC</div><div class="kpi-box-value">₩${fmt(cpc)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">클릭수</div><div class="kpi-box-value">${fmt(totalClicks)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">CTR (전체)</div><div class="kpi-box-value">${fmt(ctr,2)}%</div><div class="kpi-box-hint">링크 CTR: ${fmt(linkCtr,2)}%</div></div>
+          </div>
+        </div>
+
+        <div class="kpi-section">
+          <div class="kpi-section-title">💰 Meta 전환 성과</div>
+          <div class="kpi-grid-4">
+            <div class="kpi-box"><div class="kpi-box-label">Meta 구매</div><div class="kpi-box-value">${fmt(metaPurchases)}건</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">Meta 매출</div><div class="kpi-box-value">₩${fmt(metaValue)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">Meta ROAS</div><div class="kpi-box-value ${metaRoas>=1?'roas-good':'roas-bad'}">${fmt(metaRoas,2)}x</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">장바구니</div><div class="kpi-box-value">${fmt(sum(PERF,'meta_add_to_cart'))}건</div></div>
+          </div>
+        </div>
+
+        <div class="kpi-section">
+          <div class="kpi-section-title">🛒 GA4 이커머스 성과 (사이트 실측)</div>
+          <div class="kpi-grid-4">
+            <div class="kpi-box"><div class="kpi-box-label">유입 세션</div><div class="kpi-box-value">${fmt(gaSessions)}</div><div class="kpi-box-hint">${fmt(gaUsers)} 유저</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">평균 체류시간</div><div class="kpi-box-value">${fmt(avgEng,1)}초</div><div class="kpi-box-hint">${avgEng<10?'⚠️ 이탈 위험':'양호'}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">평균 스크롤</div><div class="kpi-box-value">${fmt(avgScroll,0)}%</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">세션 전환율</div><div class="kpi-box-value">${fmt(gaCvr,2)}%</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">GA 매출</div><div class="kpi-box-value">₩${fmt(gaRevenue)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">GA ROAS</div><div class="kpi-box-value ${gaRoas>=1?'roas-good':'roas-bad'}">${fmt(gaRoas,2)}x</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">GA CAC</div><div class="kpi-box-value">₩${fmt(gaCac)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">GA 구매</div><div class="kpi-box-value">${fmt(gaPurchases)}건</div></div>
+          </div>
+        </div>
+
+        <div class="kpi-section">
+          <div class="kpi-section-title">🔻 랜딩 후 퍼널 (GA4)</div>
+          <div class="funnel-mini">
+            <div class="funnel-step"><b>${fmt(gaSessions)}</b><br>세션</div>
+            <div class="funnel-arrow">→</div>
+            <div class="funnel-step"><b>${fmt(gaPDP)}</b><br>PDP<br><small>${fmt(gaSessions?gaPDP/gaSessions*100:0,1)}%</small></div>
+            <div class="funnel-arrow">→</div>
+            <div class="funnel-step"><b>${fmt(gaATC)}</b><br>장바구니<br><small>${fmt(gaPDP?gaATC/gaPDP*100:0,1)}%</small></div>
+            <div class="funnel-arrow">→</div>
+            <div class="funnel-step"><b>${fmt(gaCheckouts)}</b><br>결제<br><small>${fmt(gaATC?gaCheckouts/gaATC*100:0,1)}%</small></div>
+            <div class="funnel-arrow">→</div>
+            <div class="funnel-step"><b>${fmt(gaPurchases)}</b><br>구매<br><small>${fmt(gaCheckouts?gaPurchases/gaCheckouts*100:0,1)}%</small></div>
+          </div>
+          <div class="kpi-grid-4" style="margin-top:12px;">
+            <div class="kpi-box"><div class="kpi-box-label">로그인 이벤트</div><div class="kpi-box-value">${fmt(gaLogins)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">회원가입</div><div class="kpi-box-value">${fmt(gaSignups)}</div></div>
+          </div>
+        </div>
+
+        ${videoP25 ? `
+        <div class="kpi-section">
+          <div class="kpi-section-title">🎥 영상 시청 성과</div>
+          <div class="kpi-grid-4">
+            <div class="kpi-box"><div class="kpi-box-label">25% 시청</div><div class="kpi-box-value">${fmt(videoP25)}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">50% 시청</div><div class="kpi-box-value">${fmt(sum(PERF,'video_p50'))}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">75% 시청</div><div class="kpi-box-value">${fmt(sum(PERF,'video_p75'))}</div></div>
+            <div class="kpi-box"><div class="kpi-box-label">100% 시청</div><div class="kpi-box-value">${fmt(videoP100)}</div><div class="kpi-box-hint">Hold Rate: ${fmt(holdRate,1)}%</div></div>
+          </div>
+        </div>` : ''}
+
+        <div class="chart-box">
+          <h3 style="margin-top:0;">📈 일별 성과 추이</h3>
+          <canvas id="trendChart" height="100"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 시계열 차트
+  const labels = PERF.map(r => r.event_date.slice(5));
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'지출(₩)', data:PERF.map(r=>+r.spend_krw||0), borderColor:'#dc2626', yAxisID:'y', tension:0.3},
+        {label:'GA 매출(₩)', data:PERF.map(r=>+r.ga_revenue||0), borderColor:'#059669', yAxisID:'y', tension:0.3},
+        {label:'CTR(%)', data:PERF.map(r=>+r.ctr_pct||0), borderColor:'#2563eb', yAxisID:'y1', tension:0.3},
+      ]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        y:{position:'left', title:{display:true, text:'금액(₩)'}},
+        y1:{position:'right', title:{display:true, text:'CTR(%)'}, grid:{drawOnChartArea:false}}
+      }
+    }
+  });
+}
+load();
+</script>
+</body>
+</html>
