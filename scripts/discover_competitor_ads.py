@@ -71,14 +71,13 @@ def get_dynamic_keywords():
 
 
 def search_ads(keyword, limit=500):
-    """키워드로 광고 검색 (페이지네이션 자동 처리)"""
     ads = []
     params = {
         "access_token": META_TOKEN,
         "search_terms": keyword,
-        "ad_reached_countries": json.dumps([COUNTRY]),
-"ad_type": "ALL",  # 명시적 추가
+        "ad_reached_countries": json.dumps([COUNTRY]),  # JSON 인코딩
         "ad_active_status": "ALL",
+        "ad_type": "ALL",  # 필수
         "fields": (
             "id,page_id,page_name,ad_creation_time,"
             "ad_delivery_start_time,ad_delivery_stop_time,"
@@ -90,22 +89,32 @@ def search_ads(keyword, limit=500):
         "limit": 100
     }
     url = API
-    while url and len(ads) < limit:
+    fetched_pages = 0
+    while url and len(ads) < limit and fetched_pages < 10:  # 최대 10 페이지
         try:
             r = requests.get(url, params=params, timeout=60)
-            r.raise_for_status()
+            print(f"       -> status={r.status_code}")
+            if r.status_code != 200:
+                print(f"       -> ERROR body: {r.text[:500]}")
+                break
             data = r.json()
+            if "error" in data:
+                print(f"       -> API error: {data['error']}")
+                break
             new_ads = data.get("data", [])
+            print(f"       -> page {fetched_pages+1}: {len(new_ads)} ads")
             for ad in new_ads:
                 ad["_search_keyword"] = keyword
             ads.extend(new_ads)
             url = data.get("paging", {}).get("next")
             params = {}
-            time.sleep(0.4)
+            fetched_pages += 1
+            time.sleep(0.5)
         except Exception as e:
             print(f"[WARN] '{keyword}': {e}")
             break
     return ads[:limit]
+
 
 
 def compute_running_days(start, stop):
