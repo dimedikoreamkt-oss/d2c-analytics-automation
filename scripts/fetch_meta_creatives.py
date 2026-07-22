@@ -39,10 +39,13 @@ def fetch_active_ads():
         ),
         "limit": 100,
         "filtering": json.dumps([{
-            "field": "effective_status",
-            "operator": "IN",
-            "value": ["ACTIVE", "PAUSED"]
-        }]),
+    "field": "effective_status",
+    "operator": "IN",
+    "value": ["ACTIVE", "PAUSED", "ARCHIVED", "DELETED",
+              "PENDING_REVIEW", "DISAPPROVED",
+              "CAMPAIGN_PAUSED", "ADSET_PAUSED"]
+}]),
+
     }
     while True:
         data = api_get(url, params)
