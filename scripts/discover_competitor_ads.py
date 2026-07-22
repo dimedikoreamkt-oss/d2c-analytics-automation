@@ -76,7 +76,8 @@ def search_ads(keyword, limit=500):
     params = {
         "access_token": META_TOKEN,
         "search_terms": keyword,
-        "ad_reached_countries": f'["{COUNTRY}"]',
+        "ad_reached_countries": json.dumps([COUNTRY]),
+"ad_type": "ALL",  # 명시적 추가
         "ad_active_status": "ALL",
         "fields": (
             "id,page_id,page_name,ad_creation_time,"
