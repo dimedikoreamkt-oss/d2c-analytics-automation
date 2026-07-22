@@ -103,7 +103,7 @@ const KOREAN_LABELS = {
 const ko = (k) => (KOREAN_LABELS[k] && KOREAN_LABELS[k].ko) || k;
 const koDesc = (k) => (KOREAN_LABELS[k] && KOREAN_LABELS[k].desc) || '';
 
-// ===== SVG 아이콘 =====
+// ===== SVG 아이콘 (Lucide 대체) =====
 const ICONS = {
   trendUp: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
   trendDown: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>',
@@ -116,32 +116,21 @@ const ICONS = {
   bar: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>'
 };
 
-// ===== 사이드바 =====
+// ===== 통합 사이드바 (6줄 구조) =====
 function buildSidebar() {
-  const marts = [
-    ['mart1.html', '1', '일별 이커머스 KPI'],
-    ['mart2.html', '2', '퍼널 이탈 분석'],
-    ['mart3.html', '3', '코호트 리텐션'],
-    ['mart4.html', '4', '멀티터치 어트리뷰션'],
-    ['mart5.html', '5', 'LTV / RFM'],
-    ['mart6.html', '6', '신규 vs 재방문'],
-    ['mart7.html', '7', '요일×시간대 히트맵'],
-    ['mart8.html', '8', '콘텐츠 참여도'],
-    ['mart9.html', '9', '다크소셜 / AI 리퍼럴']
-  ];
-  const growth = [
-    ['mart13.html', '13', '인구통계 분석'],
-    ['mart14.html', '14', '관심사 카테고리'],
-    ['mart16.html', '16', '광고 채널 딥다이브'],
-    ['mart17.html', '17', '광고 CAC / ROAS']
+  const items = [
+    ['index.html',                 'H',  'Overview'],
+    ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
+    ['data_explorer.html',         'DE', '데이터 익스플로러'],
+    ['mart6.html',                 '6',  '신규 vs 재방문'],
+    ['mart16.html',                '16', '채널 딥다이브'],
+    ['mart17.html',                '17', '광고 CAC / ROAS']
   ];
   const sidebar = document.querySelector('.sidebar');
   if (!sidebar) return;
-  const current = location.pathname.split('/').pop();
+  const current = location.pathname.split('/').pop() || 'index.html';
   const link = ([h, tag, name]) => '<a href="' + h + '" class="' + (h === current ? 'active' : '') + '"><span class="num">' + tag + '</span> ' + name + '</a>';
-  sidebar.innerHTML =
-    '<div class="sec-label">기본 분석</div>' + marts.map(link).join('') +
-    '<div class="sec-label" style="margin-top:16px">고급 분석 · Growth</div>' + growth.map(link).join('');
+  sidebar.innerHTML = '<div class="sec-label">Analytics</div>' + items.map(link).join('');
 }
 
 // ===== 유틸 =====
@@ -269,30 +258,21 @@ function buildDateFilter(container, allDates, onChange) {
   return getVals();
 }
 
-// ===== 메인 =====
-(async function() {
-  buildSidebar();
-  const statusEl = document.getElementById('status');
-  const root = document.getElementById('root');
-  try {
-    const res = await fetch(DATA_FILE + '?t=' + Date.now());
-    if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음 (아직 생성 전일 수 있음)');
-    const rows = await res.json();
-    if (!rows || !rows.length) { statusEl.textContent = '아직 데이터가 없습니다.'; return; }
-    statusEl.textContent = '총 ' + rows.length.toLocaleString() + '행 로드됨';
-    render(rows);
-  } catch (e) {
-    statusEl.textContent = '⚠️ ' + e.message;
-  }
-})();
-
+// ===== 메인 렌더러 (재사용 가능) =====
 function render(rows) {
+  const root = document.getElementById('root');
+  root.innerHTML = ''; // 이전 렌더링 클리어
+
+  if (!rows || !rows.length) {
+    root.innerHTML = '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);border:1px dashed var(--border);border-radius:8px;">데이터가 없습니다.</div>';
+    return;
+  }
+
   const keys = Object.keys(rows[0]);
   const dateKey = keys.find(k => k.toLowerCase().includes('date'));
   const categoricalKeys = keys.filter(k => k !== dateKey && !isNumeric(rows[0][k]));
   const numericKeys = keys.filter(k => k !== dateKey && isNumeric(rows[0][k]));
   const allDates = dateKey ? [...new Set(rows.map(r => r[dateKey]))].sort() : [];
-  const root = document.getElementById('root');
   let currentRange = null;
   let filterVal = '__all__';
 
@@ -474,3 +454,35 @@ function render(rows) {
 
   draw();
 }
+
+// ===== 재사용 가능한 초기화 함수 =====
+async function initMart(dataFile) {
+  buildSidebar();
+  const statusEl = document.getElementById('status');
+  const root = document.getElementById('root');
+  if (!root) return;
+  try {
+    const res = await fetch(dataFile + '?t=' + Date.now());
+    if (!res.ok) throw new Error('데이터 파일을 찾을 수 없음 (HTTP ' + res.status + ')');
+    const rows = await res.json();
+    if (!rows || !rows.length) { if (statusEl) statusEl.textContent = '아직 데이터가 없습니다.'; return; }
+    if (statusEl) statusEl.textContent = '총 ' + rows.length.toLocaleString() + '행 로드됨';
+    render(rows);
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '⚠️ ' + e.message;
+    root.innerHTML = '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);border:1px dashed var(--border);border-radius:8px;">' +
+      '<div style="color:var(--danger);font-weight:600;margin-bottom:8px;">데이터 로드 실패</div>' +
+      '<div style="font-size:12px;">' + e.message + '</div>' +
+      '<div style="font-size:11px;margin-top:8px;">파일 경로: <code>' + dataFile + '</code></div>' +
+    '</div>';
+  }
+}
+
+// ===== 하위 호환 자동 실행 (DATA_FILE 전역 변수가 있을 때만) =====
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof DATA_FILE !== 'undefined' && !window.__skipAutoInit) {
+    initMart(DATA_FILE);
+  } else {
+    buildSidebar();
+  }
+});
