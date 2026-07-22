@@ -17,11 +17,11 @@ jobs:
   sync-creatives:
     runs-on: ubuntu-latest
     env:
-      META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+      META_ACCESS_TOKEN:  ${{ secrets.META_ACCESS_TOKEN }}
       META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
-      BACKFILL_DAYS: ${{ github.event.inputs.backfill_days || '7' }}
-      PROJECT_ID: d2c-analytics-502304
-      LOCATION: asia-northeast3
+      BACKFILL_DAYS:      ${{ github.event.inputs.backfill_days || '7' }}
+      PROJECT_ID:         d2c-analytics-502304
+      LOCATION:           asia-northeast3
 
     steps:
       - name: Checkout
@@ -76,51 +76,7 @@ jobs:
             --format=none \
             < sql/21_mart_creative_fatigue.sql
 
-      - name: Export JSON for dashboard
-        run: |
-          mkdir -p docs/data
-
-          echo "=== export meta_creatives ==="
-          bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=json \
-            --max_rows=5000 \
-            "SELECT * FROM \`${PROJECT_ID}.marts.meta_creatives\`" \
-            > docs/data/meta_creatives.json
-
-          echo "=== export mart19_creatives ==="
-          bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=json \
-            --max_rows=50000 \
-            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_performance\` WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) ORDER BY event_date DESC" \
-            > docs/data/mart19_creatives.json
-
-          echo "=== export mart20_appeal ==="
-          bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=json \
-            --max_rows=50000 \
-            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_appeal\` WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) ORDER BY event_date DESC" \
-            > docs/data/mart20_appeal.json
-
-          echo "=== export mart21_fatigue ==="
-          bq query \
-            --project_id="${PROJECT_ID}" \
-            --location="${LOCATION}" \
-            --use_legacy_sql=false \
-            --format=json \
-            --max_rows=5000 \
-            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_fatigue\` ORDER BY fatigue_score DESC" \
-            > docs/data/mart21_fatigue.json
-
-                  - name: Refresh Mart 22 (creative demographics)
+      - name: Refresh Mart 22 (creative demographics)
         run: |
           bq query \
             --project_id="${PROJECT_ID}" \
@@ -147,39 +103,95 @@ jobs:
             --format=none \
             < sql/24_mart_creative_region.sql
 
-      # Export 섹션에 추가
-      - name: Export mart22_demographics
+      - name: Export JSON for dashboard
         run: |
-          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=json --max_rows=100000 \
+          mkdir -p docs/data
+
+          echo "=== export meta_creatives ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=5000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.meta_creatives\`" \
+            > docs/data/meta_creatives.json
+
+          echo "=== export mart19_creatives ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=50000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_performance\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC" \
+            > docs/data/mart19_creatives.json
+
+          echo "=== export mart20_appeal ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=50000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_appeal\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC" \
+            > docs/data/mart20_appeal.json
+
+          echo "=== export mart21_fatigue ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=5000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_fatigue\`
+             ORDER BY fatigue_score DESC" \
+            > docs/data/mart21_fatigue.json
+
+          echo "=== export mart22_demographics ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=100000 \
             "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_demographics\`
              WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
              ORDER BY event_date DESC" \
             > docs/data/mart22_creative_demographics.json
 
-      - name: Export mart23_platform
-        run: |
-          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=json --max_rows=100000 \
+          echo "=== export mart23_platform ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=100000 \
             "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_platform\`
              WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
              ORDER BY event_date DESC" \
             > docs/data/mart23_creative_platform.json
 
-      - name: Export mart24_region
-        run: |
-          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=json --max_rows=100000 \
+          echo "=== export mart24_region ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=100000 \
             "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_region\`
              WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
              ORDER BY event_date DESC" \
             > docs/data/mart24_creative_region.json
-
 
           ls -lh docs/data/*.json
 
       - name: Commit generated files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: sync Meta creatives + images + appeal + fatigue [skip ci]"
+          commit_message: "chore: sync Meta creatives + demographics + platform + region [skip ci]"
           file_pattern: "docs/data/*.json docs/creatives/*.jpg"
