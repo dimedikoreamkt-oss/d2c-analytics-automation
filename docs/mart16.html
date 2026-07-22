@@ -8,13 +8,17 @@
 <link rel="stylesheet" href="mart_common.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
+  .alert-error { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:16px 20px; border-radius:12px; margin:20px 0; font-size:14px; line-height:1.6; }
+  .alert-error code { background:#fff; padding:2px 6px; border-radius:4px; font-size:12px; color:#dc2626; }
   .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:20px 0; }
   .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:20px 0; }
   .card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:20px; box-shadow:var(--shadow-sm); }
   .card h3 { font-size:15px; font-weight:700; margin-bottom:12px; color:var(--text); }
   .kpi { font-size:24px; font-weight:800; color:var(--primary); }
+  .kpi.empty { color:#cbd5e1; }
   .kpi-label { font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; }
   .chart-wrap { position:relative; height:280px; }
+  .chart-empty { display:flex; align-items:center; justify-content:center; height:280px; color:#94a3b8; font-size:13px; background:#f8fafc; border-radius:8px; }
   table.channel-table { width:100%; border-collapse:collapse; font-size:13px; }
   table.channel-table th { background:#f8fafc; padding:10px 12px; text-align:left; font-weight:600; color:var(--text-secondary); border-bottom:1px solid var(--border); position:sticky; top:0; }
   table.channel-table td { padding:10px 12px; border-bottom:1px solid #f1f5f9; }
@@ -36,56 +40,56 @@
   <p class="sub">UTM 소스·매체·캠페인별 <b>유입 품질과 퍼널 통과율</b>을 분해합니다.
      (CAC·ROAS는 <a href="mart17.html">Mart 17</a>에서 확인)</p>
 
+  <!-- 상태 배너 (JSON 없을 때만 표시) -->
+  <div id="statusBanner" style="display:none"></div>
+
   <!-- 기간 선택 -->
   <div class="filter-bar">
     <label>기간</label>
     <input type="date" id="dateFrom">
     <span>~</span>
     <input type="date" id="dateTo">
-    <button class="btn" onclick="setRange(7)">최근 7일</button>
-    <button class="btn" onclick="setRange(14)">최근 14일</button>
-    <button class="btn" onclick="setRange(30)">최근 30일</button>
+    <button class="btn" onclick="setRange(7);loadData()">최근 7일</button>
+    <button class="btn" onclick="setRange(14);loadData()">최근 14일</button>
+    <button class="btn" onclick="setRange(30);loadData()">최근 30일</button>
     <button class="btn primary" onclick="loadData()">적용</button>
   </div>
 
-  <!-- KPI 요약 -->
+  <!-- KPI -->
   <div class="grid-3">
-    <div class="card"><div class="kpi-label">총 세션</div><div class="kpi" id="kSessions">-</div></div>
-    <div class="card"><div class="kpi-label">유입 채널 수</div><div class="kpi" id="kChannels">-</div></div>
-    <div class="card"><div class="kpi-label">평균 세션당 매출</div><div class="kpi" id="kRps">-</div></div>
+    <div class="card"><div class="kpi-label">총 세션</div><div class="kpi empty" id="kSessions">-</div></div>
+    <div class="card"><div class="kpi-label">유입 채널 수</div><div class="kpi empty" id="kChannels">-</div></div>
+    <div class="card"><div class="kpi-label">평균 세션당 매출</div><div class="kpi empty" id="kRps">-</div></div>
   </div>
 
-  <!-- 채널별 세션 & 매출 -->
+  <!-- 차트 영역 -->
   <div class="grid-2">
     <div class="card">
       <h3>📊 채널별 세션 점유율</h3>
-      <div class="chart-wrap"><canvas id="chSessions"></canvas></div>
+      <div id="wrapSessions" class="chart-wrap"><canvas id="chSessions"></canvas></div>
     </div>
     <div class="card">
       <h3>💰 채널별 매출 점유율</h3>
-      <div class="chart-wrap"><canvas id="chRevenue"></canvas></div>
+      <div id="wrapRevenue" class="chart-wrap"><canvas id="chRevenue"></canvas></div>
     </div>
   </div>
 
-  <!-- 퍼널 통과율 -->
   <div class="card">
     <h3>🎯 채널별 퍼널 통과율 (세션 → 장바구니 → 구매)</h3>
-    <div class="chart-wrap" style="height:320px"><canvas id="chFunnel"></canvas></div>
+    <div id="wrapFunnel" class="chart-wrap" style="height:320px"><canvas id="chFunnel"></canvas></div>
   </div>
 
-  <!-- 유입 품질 -->
   <div class="grid-2">
     <div class="card">
       <h3>⏱ 채널별 평균 체류시간 (초)</h3>
-      <div class="chart-wrap"><canvas id="chDuration"></canvas></div>
+      <div id="wrapDuration" class="chart-wrap"><canvas id="chDuration"></canvas></div>
     </div>
     <div class="card">
       <h3>📉 채널별 이탈률 (%)</h3>
-      <div class="chart-wrap"><canvas id="chBounce"></canvas></div>
+      <div id="wrapBounce" class="chart-wrap"><canvas id="chBounce"></canvas></div>
     </div>
   </div>
 
-  <!-- 상세 테이블 -->
   <div class="card">
     <h3>📋 소스 · 매체 · 캠페인별 상세</h3>
     <div style="max-height:600px; overflow:auto;">
@@ -104,7 +108,9 @@
             <th>품질</th>
           </tr>
         </thead>
-        <tbody id="tbody"></tbody>
+        <tbody id="tbody">
+          <tr><td colspan="12" style="padding:24px;text-align:center;color:#94a3b8">데이터를 불러오는 중…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
@@ -116,16 +122,18 @@ const NUM = n => (n||0).toLocaleString('ko-KR');
 const PCT = n => (n==null ? '-' : (n).toFixed(2)+'%');
 
 function setRange(days){
-  const to = new Date();
+  const to = new Date(); to.setHours(0,0,0,0);
   const from = new Date(); from.setDate(to.getDate()-days+1);
-  document.getElementById('dateFrom').valueAsDate = from;
-  document.getElementById('dateTo').valueAsDate = to;
+  const fmt = d => d.toISOString().slice(0,10);
+  document.getElementById('dateFrom').value = fmt(from);
+  document.getElementById('dateTo').value   = fmt(to);
 }
 setRange(7);
 
 let charts = {};
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
 function drawBar(id, labels, data, label, color){
-  if(charts[id]) charts[id].destroy();
+  destroyChart(id);
   charts[id] = new Chart(document.getElementById(id), {
     type:'bar',
     data:{ labels, datasets:[{ label, data, backgroundColor:color, borderRadius:6 }] },
@@ -134,7 +142,7 @@ function drawBar(id, labels, data, label, color){
   });
 }
 function drawPie(id, labels, data){
-  if(charts[id]) charts[id].destroy();
+  destroyChart(id);
   charts[id] = new Chart(document.getElementById(id), {
     type:'doughnut',
     data:{ labels, datasets:[{ data, backgroundColor:['#2563eb','#7c3aed','#ec4899','#f59e0b','#10b981','#06b6d4','#64748b','#f43f5e'] }] },
@@ -142,7 +150,7 @@ function drawPie(id, labels, data){
   });
 }
 function drawFunnel(id, labels, sessions, carts, purchases){
-  if(charts[id]) charts[id].destroy();
+  destroyChart(id);
   charts[id] = new Chart(document.getElementById(id), {
     type:'bar',
     data:{ labels, datasets:[
@@ -158,97 +166,135 @@ function qualityBadge(cvr, dur){
   if(cvr<0.3 || dur<10)   return '<span class="badge-bad">약함</span>';
   return '<span class="badge-warn">보통</span>';
 }
+function showError(msg){
+  const b = document.getElementById('statusBanner');
+  b.className = 'alert-error';
+  b.style.display = 'block';
+  b.innerHTML = msg;
+  ['chSessions','chRevenue','chFunnel','chDuration','chBounce'].forEach(destroyChart);
+  ['wrapSessions','wrapRevenue','wrapFunnel','wrapDuration','wrapBounce'].forEach(id=>{
+    document.getElementById(id).innerHTML = '<div class="chart-empty">데이터 없음</div>';
+  });
+  document.getElementById('tbody').innerHTML =
+    `<tr><td colspan="12" style="padding:24px;text-align:center;color:#94a3b8">데이터 파일이 아직 생성되지 않았습니다</td></tr>`;
+}
 
 async function loadData(){
   const from = document.getElementById('dateFrom').value;
   const to   = document.getElementById('dateTo').value;
+
+  let res, raw;
   try{
-    const res  = await fetch('data/mart16_channels.json');
-    const raw  = await res.json();
-    const rows = raw.filter(r => r.event_date>=from && r.event_date<=to);
-
-    // 채널 집계 (소스/매체)
-    const chMap = {};
-    rows.forEach(r => {
-      const k = `${r.source||'(direct)'} / ${r.medium||'(none)'}`;
-      if(!chMap[k]) chMap[k] = { sessions:0, revenue:0, carts:0, purchases:0, duration:0, bounce:0, cnt:0 };
-      const c = chMap[k];
-      c.sessions += +r.sessions||0;
-      c.revenue  += +r.revenue||0;
-      c.carts    += +r.add_to_carts||0;
-      c.purchases+= +r.purchases||0;
-      c.duration += (+r.avg_session_duration||0) * (+r.sessions||0);
-      c.bounce   += (+r.bounce_rate||0) * (+r.sessions||0);
-      c.cnt      += +r.sessions||0;
-    });
-
-    // KPI
-    const totalSess = Object.values(chMap).reduce((s,c)=>s+c.sessions,0);
-    const totalRev  = Object.values(chMap).reduce((s,c)=>s+c.revenue,0);
-    document.getElementById('kSessions').textContent = NUM(totalSess);
-    document.getElementById('kChannels').textContent = Object.keys(chMap).length;
-    document.getElementById('kRps').textContent      = totalSess ? KRW(Math.round(totalRev/totalSess)) : '-';
-
-    // 정렬 (세션 기준 top 8)
-    const sorted = Object.entries(chMap).sort((a,b)=>b[1].sessions-a[1].sessions);
-    const top    = sorted.slice(0,8);
-    const labels = top.map(x=>x[0]);
-
-    drawPie('chSessions', labels, top.map(x=>x[1].sessions));
-    drawPie('chRevenue',  labels, top.map(x=>x[1].revenue));
-    drawFunnel('chFunnel', labels,
-      top.map(x=>x[1].sessions),
-      top.map(x=>x[1].carts),
-      top.map(x=>x[1].purchases));
-    drawBar('chDuration', labels,
-      top.map(x=>x[1].cnt ? Math.round(x[1].duration/x[1].cnt) : 0),
-      '평균 체류(초)', '#10b981');
-    drawBar('chBounce', labels,
-      top.map(x=>x[1].cnt ? +(x[1].bounce/x[1].cnt).toFixed(1) : 0),
-      '이탈률(%)', '#f43f5e');
-
-    // 상세 테이블 (소스/매체/캠페인)
-    const detail = {};
-    rows.forEach(r => {
-      const k = `${r.source||'(direct)'}|${r.medium||'(none)'}|${r.campaign||'(not set)'}`;
-      if(!detail[k]) detail[k] = { source:r.source||'(direct)', medium:r.medium||'(none)', campaign:r.campaign||'(not set)',
-                                    sessions:0, revenue:0, carts:0, purchases:0, duration:0, bounce:0, cnt:0 };
-      const c = detail[k];
-      c.sessions += +r.sessions||0;
-      c.revenue  += +r.revenue||0;
-      c.carts    += +r.add_to_carts||0;
-      c.purchases+= +r.purchases||0;
-      c.duration += (+r.avg_session_duration||0)*(+r.sessions||0);
-      c.bounce   += (+r.bounce_rate||0)*(+r.sessions||0);
-      c.cnt      += +r.sessions||0;
-    });
-    const tbody = document.getElementById('tbody');
-    tbody.innerHTML = Object.values(detail)
-      .sort((a,b)=>b.revenue-a.revenue)
-      .map(r => {
-        const dur  = r.cnt ? Math.round(r.duration/r.cnt) : 0;
-        const brc  = r.cnt ? +(r.bounce/r.cnt).toFixed(1) : 0;
-        const cvr  = r.sessions ? (r.purchases/r.sessions*100) : 0;
-        const rps  = r.sessions ? Math.round(r.revenue/r.sessions) : 0;
-        return `<tr>
-          <td>${r.source}</td><td>${r.medium}</td><td>${r.campaign}</td>
-          <td class="num">${NUM(r.sessions)}</td>
-          <td class="num">${dur}</td>
-          <td class="num">${brc}%</td>
-          <td class="num">${NUM(r.carts)}</td>
-          <td class="num">${NUM(r.purchases)}</td>
-          <td class="num">${PCT(cvr)}</td>
-          <td class="num">${KRW(r.revenue)}</td>
-          <td class="num">${KRW(rps)}</td>
-          <td>${qualityBadge(cvr,dur)}</td>
-        </tr>`;
-      }).join('');
+    res = await fetch('data/mart16_channels.json', { cache:'no-cache' });
+    if(!res.ok){
+      showError(`
+        <b>⚠ 데이터 파일이 없습니다 (HTTP ${res.status})</b><br>
+        <code>docs/data/mart16_channels.json</code> 파일이 아직 생성되지 않았어요.<br><br>
+        <b>해결 방법:</b><br>
+        1) BigQuery에서 <code>sql/16_mart_ad_channel_deep.sql</code> 실행<br>
+        2) <code>bq query ... > docs/data/mart16_channels.json</code>으로 JSON export<br>
+        3) 커밋 후 GitHub Pages 재배포 (약 1~2분 대기)<br>
+        4) 또는 <b>Daily Marts Sync</b> 워크플로우 수동 실행`);
+      return;
+    }
+    raw = await res.json();
   }catch(e){
-    console.error(e);
-    document.getElementById('tbody').innerHTML =
-      `<tr><td colspan="12" style="padding:24px;text-align:center;color:#b91c1c">
-        data/mart16_channels.json 로딩 실패 - 워크플로우 실행 필요</td></tr>`;
+    showError(`<b>⚠ JSON 파싱 오류</b><br>${e.message}<br><br>서버가 HTML 404 페이지를 반환했을 가능성이 큽니다.`);
+    return;
   }
+
+  // 정상 로드 → 배너 숨기고 empty 클래스 제거
+  document.getElementById('statusBanner').style.display = 'none';
+  document.querySelectorAll('.kpi').forEach(el=>el.classList.remove('empty'));
+
+  const rows = raw.filter(r => r.event_date>=from && r.event_date<=to);
+  if(!rows.length){
+    showError(`선택한 기간 <b>${from} ~ ${to}</b>에 해당하는 데이터가 없습니다. 기간을 넓혀보세요.`);
+    return;
+  }
+
+  // 채널 집계
+  const chMap = {};
+  rows.forEach(r => {
+    const k = `${r.source||'(direct)'} / ${r.medium||'(none)'}`;
+    if(!chMap[k]) chMap[k] = { sessions:0, revenue:0, carts:0, purchases:0, duration:0, bounce:0, cnt:0 };
+    const c = chMap[k];
+    c.sessions += +r.sessions||0;
+    c.revenue  += +r.revenue||0;
+    c.carts    += +r.add_to_carts||0;
+    c.purchases+= +r.purchases||0;
+    c.duration += (+r.avg_session_duration||0) * (+r.sessions||0);
+    c.bounce   += (+r.bounce_rate||0) * (+r.sessions||0);
+    c.cnt      += +r.sessions||0;
+  });
+
+  const totalSess = Object.values(chMap).reduce((s,c)=>s+c.sessions,0);
+  const totalRev  = Object.values(chMap).reduce((s,c)=>s+c.revenue,0);
+  document.getElementById('kSessions').textContent = NUM(totalSess);
+  document.getElementById('kChannels').textContent = Object.keys(chMap).length;
+  document.getElementById('kRps').textContent      = totalSess ? KRW(Math.round(totalRev/totalSess)) : '-';
+
+  // 차트 wrap 초기화 (에러 상태였을 수도 있음)
+  ['wrapSessions','wrapRevenue','wrapFunnel','wrapDuration','wrapBounce'].forEach(id=>{
+    const wrap = document.getElementById(id);
+    if(!wrap.querySelector('canvas')){
+      const cid = id.replace('wrap','ch');
+      wrap.innerHTML = `<canvas id="${cid}"></canvas>`;
+    }
+  });
+
+  const sorted = Object.entries(chMap).sort((a,b)=>b[1].sessions-a[1].sessions);
+  const top    = sorted.slice(0,8);
+  const labels = top.map(x=>x[0]);
+
+  drawPie('chSessions', labels, top.map(x=>x[1].sessions));
+  drawPie('chRevenue',  labels, top.map(x=>x[1].revenue));
+  drawFunnel('chFunnel', labels,
+    top.map(x=>x[1].sessions),
+    top.map(x=>x[1].carts),
+    top.map(x=>x[1].purchases));
+  drawBar('chDuration', labels,
+    top.map(x=>x[1].cnt ? Math.round(x[1].duration/x[1].cnt) : 0),
+    '평균 체류(초)', '#10b981');
+  drawBar('chBounce', labels,
+    top.map(x=>x[1].cnt ? +(x[1].bounce/x[1].cnt).toFixed(1) : 0),
+    '이탈률(%)', '#f43f5e');
+
+  // 상세 테이블
+  const detail = {};
+  rows.forEach(r => {
+    const k = `${r.source||'(direct)'}|${r.medium||'(none)'}|${r.campaign||'(not set)'}`;
+    if(!detail[k]) detail[k] = { source:r.source||'(direct)', medium:r.medium||'(none)', campaign:r.campaign||'(not set)',
+                                  sessions:0, revenue:0, carts:0, purchases:0, duration:0, bounce:0, cnt:0 };
+    const c = detail[k];
+    c.sessions += +r.sessions||0;
+    c.revenue  += +r.revenue||0;
+    c.carts    += +r.add_to_carts||0;
+    c.purchases+= +r.purchases||0;
+    c.duration += (+r.avg_session_duration||0)*(+r.sessions||0);
+    c.bounce   += (+r.bounce_rate||0)*(+r.sessions||0);
+    c.cnt      += +r.sessions||0;
+  });
+  document.getElementById('tbody').innerHTML = Object.values(detail)
+    .sort((a,b)=>b.revenue-a.revenue)
+    .map(r => {
+      const dur = r.cnt ? Math.round(r.duration/r.cnt) : 0;
+      const brc = r.cnt ? +(r.bounce/r.cnt).toFixed(1) : 0;
+      const cvr = r.sessions ? (r.purchases/r.sessions*100) : 0;
+      const rps = r.sessions ? Math.round(r.revenue/r.sessions) : 0;
+      return `<tr>
+        <td>${r.source}</td><td>${r.medium}</td><td>${r.campaign}</td>
+        <td class="num">${NUM(r.sessions)}</td>
+        <td class="num">${dur}</td>
+        <td class="num">${brc}%</td>
+        <td class="num">${NUM(r.carts)}</td>
+        <td class="num">${NUM(r.purchases)}</td>
+        <td class="num">${PCT(cvr)}</td>
+        <td class="num">${KRW(r.revenue)}</td>
+        <td class="num">${KRW(rps)}</td>
+        <td>${qualityBadge(cvr,dur)}</td>
+      </tr>`;
+    }).join('');
 }
 loadData();
 </script>
