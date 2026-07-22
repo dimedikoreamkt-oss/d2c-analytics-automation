@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mart 20 · 소구점 분석</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mart_common.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;color:#111;}
+  .topbar{background:#fff;padding:14px 24px;display:flex;align-items:center;gap:20px;border-bottom:1px solid #e5e7eb;}
+  .topbar .logo{font-weight:700;color:#111;text-decoration:none;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .topbar .logo-mark{background:#2563eb;color:#fff;width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
+  .wrap{max-width:1400px;margin:0 auto;padding:24px;}
+  h1{margin:0 0 6px;font-size:26px;font-weight:700;}
+  .desc{color:#6b7280;font-size:14px;margin:0 0 20px;}
+  .date-control{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .date-control select,.date-control input[type=date]{padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:13px;background:#fff;font-family:inherit;}
+  .apply-btn{padding:7px 20px;background:#2563eb;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;}
+  .apply-btn:hover{background:#1d4ed8;}
+  .top3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+  .top-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;position:relative;overflow:hidden;}
+  .top-card.rank-1{border-color:#10b981;background:linear-gradient(135deg,#f0fdf4,#fff);}
+  .top-card.rank-3{border-color:#ef4444;background:linear-gradient(135deg,#fef2f2,#fff);}
+  .top-card .rank-badge{position:absolute;top:12px;right:12px;font-size:24px;}
+  .top-card .rank-label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;}
+  .top-card .appeal-name{font-size:20px;font-weight:700;margin:6px 0 10px;}
+  .top-card .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;}
+  .top-card .stat-l{color:#6b7280;font-size:10px;text-transform:uppercase;}
+  .top-card .stat-v{font-weight:700;font-size:14px;}
+  .chart-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:20px;}
+  .chart-box h3{margin:0 0 14px;font-size:15px;font-weight:700;}
+  .appeal-table{width:100%;background:#fff;border-radius:12px;border:1px solid #e5e7eb;border-collapse:separate;border-spacing:0;overflow:hidden;font-size:13px;}
+  .appeal-table th{background:#f9fafb;padding:12px 10px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb;font-weight:600;}
+  .appeal-table th:first-child,.appeal-table td:first-child{text-align:left;padding-left:16px;}
+  .appeal-table td{padding:12px 10px;text-align:right;border-bottom:1px solid #f3f4f6;font-weight:600;}
+  .appeal-table tr:hover td{background:#f9fafb;}
+  .appeal-tag{display:inline-block;padding:3px 10px;border-radius:6px;background:#eff6ff;color:#1e40af;font-size:12px;font-weight:700;}
+  .good{color:#059669;}
+  .bad{color:#dc2626;}
+  .insight-box{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-left:4px solid #2563eb;padding:16px 20px;border-radius:8px;margin-bottom:20px;}
+  .insight-box h3{margin:0 0 8px;font-size:14px;color:#1e40af;}
+  .insight-box ul{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#374151;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+</header>
+<div class="wrap">
+  <h1>🎯 Mart 20 · 크리에이티브 소구점 분석</h1>
+  <p class="desc">소재 카피에서 자동 추출한 소구점(할인·후기·전후비교 등)별 실제 성과 비교 · 무엇이 팔리는 메시지인가?</p>
+
+  <div class="date-control">
+    <label style="font-size:12px;color:#6b7280;font-weight:600;">기간</label>
+    <select id="quickPeriod">
+      <option value="7">최근 7일</option>
+      <option value="14">최근 14일</option>
+      <option value="30" selected>최근 30일</option>
+      <option value="60">최근 60일</option>
+      <option value="custom">사용자 지정</option>
+    </select>
+    <input type="date" id="periodStart">
+    <input type="date" id="periodEnd">
+    <label style="font-size:12px;color:#6b7280;font-weight:600;">소재 유형</label>
+    <select id="filterType">
+      <option value="">전체</option>
+      <option value="video">동영상</option>
+      <option value="image">이미지</option>
+    </select>
+    <label style="font-size:12px;color:#6b7280;font-weight:600;">정렬</label>
+    <select id="sortBy">
+      <option value="ga_roas">GA ROAS순</option>
+      <option value="meta_roas">Meta ROAS순</option>
+      <option value="ctr_pct">CTR순</option>
+      <option value="spend_krw">지출순</option>
+      <option value="ga_cvr_pct">전환율순</option>
+    </select>
+    <button class="apply-btn" id="applyBtn">적용</button>
+  </div>
+
+  <div id="content">데이터 로딩 중...</div>
+</div>
+<script>
+let DATA=[];
+let periodStart=null, periodEnd=null;
+
+async function load(){
+  try{
+    const res=await fetch('data/mart20_appeal.json?t='+Date.now());
+    if(!res.ok) throw new Error('데이터 없음 - 워크플로 실행 후 재시도 필요');
+    DATA=await res.json();
+    if(!DATA.length){document.getElementById('content').innerHTML='<div style="background:#fff;padding:40px;text-align:center;border-radius:12px;color:#9ca3af;">아직 소구점 데이터가 없습니다. Meta 광고 카피가 있는 소재가 필요합니다.</div>';return;}
+
+    const dates=[...new Set(DATA.map(r=>r.event_date))].sort();
+    const maxDate=dates[dates.length-1];
+    periodEnd=maxDate;
+    const s=new Date(maxDate);s.setDate(s.getDate()-29);
+    periodStart=s.toISOString().slice(0,10);
+
+    document.getElementById('periodStart').value=periodStart;
+    document.getElementById('periodEnd').value=periodEnd;
+    bindControls();
+    render();
+  }catch(e){
+    document.getElementById('content').innerHTML='<div style="background:#fff;padding:40px;text-align:center;border-radius:12px;color:#ef4444;">⚠️ '+e.message+'</div>';
+  }
+}
+
+function fmt(n,d=0){if(n==null||isNaN(n))return'-';return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});}
+
+function aggregate(){
+  const typeFilter=document.getElementById('filterType').value;
+  const rows=DATA.filter(r=>r.event_date>=periodStart&&r.event_date<=periodEnd&&(!typeFilter||r.creative_type===typeFilter));
+  const byAppeal={};
+  rows.forEach(r=>{
+    const k=r.appeal_tag;
+    if(!byAppeal[k]) byAppeal[k]={appeal:k,creative_count:new Set(),impressions:0,spend_krw:0,clicks:0,meta_purchases:0,meta_purchase_value:0,ga_sessions:0,ga_add_to_cart:0,ga_purchases:0,ga_revenue:0};
+    byAppeal[k].impressions+=+r.impressions||0;
+    byAppeal[k].spend_krw+=+r.spend_krw||0;
+    byAppeal[k].clicks+=+r.clicks||0;
+    byAppeal[k].meta_purchases+=+r.meta_purchases||0;
+    byAppeal[k].meta_purchase_value+=+r.meta_purchase_value||0;
+    byAppeal[k].ga_sessions+=+r.ga_sessions||0;
+    byAppeal[k].ga_add_to_cart+=+r.ga_add_to_cart||0;
+    byAppeal[k].ga_purchases+=+r.ga_purchases||0;
+    byAppeal[k].ga_revenue+=+r.ga_revenue||0;
+    byAppeal[k].creative_count.add(r.appeal_tag);
+  });
+  return Object.values(byAppeal).map(v=>({
+    ...v,
+    creative_count:v.creative_count.size,
+    ctr_pct:v.impressions?v.clicks/v.impressions*100:0,
+    cpc:v.clicks?v.spend_krw/v.clicks:0,
+    cpm:v.impressions?v.spend_krw/v.impressions*1000:0,
+    meta_roas:v.spend_krw?v.meta_purchase_value/v.spend_krw:0,
+    ga_roas:v.spend_krw?v.ga_revenue/v.spend_krw:0,
+    ga_cvr_pct:v.ga_sessions?v.ga_purchases/v.ga_sessions*100:0,
+    ga_cac:v.ga_purchases?v.spend_krw/v.ga_purchases:null
+  }));
+}
+
+function generateInsights(list){
+  const items=[];
+  if(list.length<2) return['소구점이 1개뿐입니다. 더 많은 소구점을 담은 소재를 테스트해보세요.'];
+  const spendable=list.filter(x=>x.spend_krw>10000);
+  if(spendable.length<2) return['지출 데이터가 충분한 소구점이 부족합니다.'];
+  const byRoas=[...spendable].sort((a,b)=>b.ga_roas-a.ga_roas);
+  const byCtr=[...spendable].sort((a,b)=>b.ctr_pct-a.ctr_pct);
+  const byCvr=[...spendable].sort((a,b)=>b.ga_cvr_pct-a.ga_cvr_pct);
+
+  if(byRoas[0].ga_roas>0){
+    items.push(`🏆 최고 매출 소구점: <b>"${byRoas[0].appeal}"</b> (GA ROAS ${fmt(byRoas[0].ga_roas,2)}x, 매출 ₩${fmt(byRoas[0].ga_revenue)})`);
+  }
+  if(byCtr[0].ctr_pct>0){
+    items.push(`👁 최고 주목도 소구점: <b>"${byCtr[0].appeal}"</b> (CTR ${fmt(byCtr[0].ctr_pct,2)}%) — 소구가 클릭을 유발함`);
+  }
+  const highCtrLowRoas=spendable.filter(x=>x.ctr_pct>byCtr[Math.floor(byCtr.length/2)].ctr_pct && x.ga_roas<0.3);
+  if(highCtrLowRoas.length){
+    items.push(`🔻 클릭은 많지만 매출 안 나오는 소구점: ${highCtrLowRoas.map(x=>`"${x.appeal}"`).join(', ')} — 오해 유발 또는 랜딩 미스매치 의심`);
+  }
+  if(byRoas[byRoas.length-1].spend_krw>50000&&byRoas[byRoas.length-1].ga_roas<0.2){
+    items.push(`🚨 즉시 폐기 권장 소구점: <b>"${byRoas[byRoas.length-1].appeal}"</b> (지출 ₩${fmt(byRoas[byRoas.length-1].spend_krw)}, ROAS ${fmt(byRoas[byRoas.length-1].ga_roas,2)}x)`);
+  }
+  const bestCvr=byCvr[0];
+  if(bestCvr.ga_cvr_pct>0){
+    items.push(`💰 최고 전환율 소구점: <b>"${bestCvr.appeal}"</b> (세션 CVR ${fmt(bestCvr.ga_cvr_pct,2)}%) — 이 메시지의 유입은 실제로 구매까지 이어짐`);
+  }
+  return items;
+}
+
+function render(){
+  const list=aggregate().filter(x=>x.creative_count>0);
+  const sortBy=document.getElementById('sortBy').value;
+  list.sort((a,b)=>(b[sortBy]||0)-(a[sortBy]||0));
+
+  const totalSpend=list.reduce((s,x)=>s+x.spend_krw,0);
+  if(!totalSpend){
+    document.getElementById('content').innerHTML='<div style="background:#fff;padding:40px;text-align:center;border-radius:12px;color:#9ca3af;">선택한 기간에 지출 데이터가 없습니다.</div>';
+    return;
+  }
+
+  const withSpend=list.filter(x=>x.spend_krw>10000);
+  const top3=[...withSpend].sort((a,b)=>b.ga_roas-a.ga_roas).slice(0,3);
+  const worst=[...withSpend].sort((a,b)=>a.ga_roas-b.ga_roas)[0];
+
+  const html=`
+    <div class="top3">
+      ${top3[0]?`
+      <div class="top-card rank-1">
+        <div class="rank-badge">🥇</div>
+        <div class="rank-label">GA ROAS 1위</div>
+        <div class="appeal-name">${top3[0].appeal}</div>
+        <div class="stats">
+          <div><div class="stat-l">GA ROAS</div><div class="stat-v good">${fmt(top3[0].ga_roas,2)}x</div></div>
+          <div><div class="stat-l">CTR</div><div class="stat-v">${fmt(top3[0].ctr_pct,2)}%</div></div>
+          <div><div class="stat-l">매출</div><div class="stat-v">₩${fmt(top3[0].ga_revenue)}</div></div>
+          <div><div class="stat-l">지출</div><div class="stat-v">₩${fmt(top3[0].spend_krw)}</div></div>
+        </div>
+      </div>`:'<div></div>'}
+      ${top3[1]?`
+      <div class="top-card">
+        <div class="rank-badge">🥈</div>
+        <div class="rank-label">GA ROAS 2위</div>
+        <div class="appeal-name">${top3[1].appeal}</div>
+        <div class="stats">
+          <div><div class="stat-l">GA ROAS</div><div class="stat-v ${top3[1].ga_roas>=1?'good':top3[1].ga_roas>0?'bad':''}">${fmt(top3[1].ga_roas,2)}x</div></div>
+          <div><div class="stat-l">CTR</div><div class="stat-v">${fmt(top3[1].ctr_pct,2)}%</div></div>
+          <div><div class="stat-l">매출</div><div class="stat-v">₩${fmt(top3[1].ga_revenue)}</div></div>
+          <div><div class="stat-l">지출</div><div class="stat-v">₩${fmt(top3[1].spend_krw)}</div></div>
+        </div>
+      </div>`:'<div></div>'}
+      ${worst?`
+      <div class="top-card rank-3">
+        <div class="rank-badge">🚨</div>
+        <div class="rank-label">즉시 폐기 후보</div>
+        <div class="appeal-name">${worst.appeal}</div>
+        <div class="stats">
+          <div><div class="stat-l">GA ROAS</div><div class="stat-v bad">${fmt(worst.ga_roas,2)}x</div></div>
+          <div><div class="stat-l">CTR</div><div class="stat-v">${fmt(worst.ctr_pct,2)}%</div></div>
+          <div><div class="stat-l">매출</div><div class="stat-v">₩${fmt(worst.ga_revenue)}</div></div>
+          <div><div class="stat-l">지출</div><div class="stat-v">₩${fmt(worst.spend_krw)}</div></div>
+        </div>
+      </div>`:'<div></div>'}
+    </div>
+
+    <div class="insight-box">
+      <h3>💡 자동 인사이트</h3>
+      <ul>${generateInsights(list).map(i=>`<li>${i}</li>`).join('')}</ul>
+    </div>
+
+    <div class="chart-box">
+      <h3>📊 소구점별 성과 정면 비교</h3>
+      <div style="overflow-x:auto;">
+        <table class="appeal-table">
+          <thead><tr>
+            <th>소구점</th><th>소재수</th><th>지출</th><th>노출</th><th>CTR</th><th>CPC</th>
+            <th>Meta 구매</th><th>Meta ROAS</th>
+            <th>세션</th><th>ATC</th><th>구매</th><th>매출</th><th>GA ROAS</th><th>CVR</th><th>CAC</th>
+          </tr></thead>
+          <tbody>
+            ${list.map(x=>`<tr>
+              <td><span class="appeal-tag">${x.appeal}</span></td>
+              <td>${x.creative_count}</td>
+              <td>₩${fmt(x.spend_krw)}</td>
+              <td>${fmt(x.impressions)}</td>
+              <td>${fmt(x.ctr_pct,2)}%</td>
+              <td>₩${fmt(x.cpc)}</td>
+              <td>${fmt(x.meta_purchases)}</td>
+              <td class="${x.meta_roas>=1?'good':x.meta_roas>0?'bad':''}">${fmt(x.meta_roas,2)}x</td>
+              <td>${fmt(x.ga_sessions)}</td>
+              <td>${fmt(x.ga_add_to_cart)}</td>
+              <td>${fmt(x.ga_purchases)}</td>
+              <td>₩${fmt(x.ga_revenue)}</td>
+              <td class="${x.ga_roas>=1?'good':x.ga_roas>0?'bad':''}">${fmt(x.ga_roas,2)}x</td>
+              <td>${fmt(x.ga_cvr_pct,2)}%</td>
+              <td>${x.ga_cac?'₩'+fmt(x.ga_cac):'-'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="chart-box">
+      <h3>🎯 소구점별 CTR vs GA ROAS (버블 크기 = 지출액)</h3>
+      <canvas id="bubbleChart" height="90"></canvas>
+    </div>
+
+    <div class="chart-box">
+      <h3>📈 소구점별 지출 & 매출 비교</h3>
+      <canvas id="barChart" height="90"></canvas>
+    </div>
+  `;
+  document.getElementById('content').innerHTML=html;
+  drawCharts(list);
+}
+
+function drawCharts(list){
+  const palette=['#2563eb','#dc2626','#059669','#f59e0b','#7c3aed','#ec4899','#0891b2','#65a30d','#e11d48','#0284c7','#facc15','#a855f7'];
+  const withSpend=list.filter(x=>x.spend_krw>0);
+
+  const bubbleCtx=document.getElementById('bubbleChart');
+  if(bubbleCtx){
+    new Chart(bubbleCtx,{
+      type:'bubble',
+      data:{
+        datasets:withSpend.map((x,i)=>({
+          label:x.appeal,
+          data:[{x:x.ctr_pct,y:x.ga_roas,r:Math.max(6,Math.sqrt(x.spend_krw)/30)}],
+          backgroundColor:palette[i%palette.length]
+        }))
+      },
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{position:'bottom',labels:{font:{size:11}}},
+          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: CTR ${ctx.parsed.x.toFixed(2)}%, ROAS ${ctx.parsed.y.toFixed(2)}x`}}
+        },
+        scales:{
+          x:{title:{display:true,text:'CTR (%)'}},
+          y:{title:{display:true,text:'GA ROAS'}}
+        }
+      }
+    });
+  }
+
+  const barCtx=document.getElementById('barChart');
+  if(barCtx){
+    new Chart(barCtx,{
+      type:'bar',
+      data:{
+        labels:withSpend.map(x=>x.appeal),
+        datasets:[
+          {label:'지출(₩)',data:withSpend.map(x=>x.spend_krw),backgroundColor:'#dc262699',borderColor:'#dc2626',borderWidth:1},
+          {label:'GA 매출(₩)',data:withSpend.map(x=>x.ga_revenue),backgroundColor:'#05966999',borderColor:'#059669',borderWidth:1}
+        ]
+      },
+      options:{
+        responsive:true,
+        plugins:{legend:{position:'bottom'}},
+        scales:{y:{beginAtZero:true}}
+      }
+    });
+  }
+}
+
+function bindControls(){
+  const qp=document.getElementById('quickPeriod');
+  const ps=document.getElementById('periodStart');
+  const pe=document.getElementById('periodEnd');
+  const ab=document.getElementById('applyBtn');
+
+  qp.addEventListener('change',e=>{
+    if(e.target.value==='custom') return;
+    const days=+e.target.value;
+    const dates=[...new Set(DATA.map(r=>r.event_date))].sort();
+    const maxDate=dates[dates.length-1];
+    const s=new Date(maxDate);s.setDate(s.getDate()-(days-1));
+    ps.value=s.toISOString().slice(0,10);
+    pe.value=maxDate;
+  });
+
+  ab.addEventListener('click',()=>{
+    periodStart=ps.value;
+    periodEnd=pe.value;
+    render();
+  });
+
+  ['filterType','sortBy'].forEach(id=>{
+    document.getElementById(id).addEventListener('change',render);
+  });
+}
+
+load();
+</script>
+</body>
+</html>
