@@ -1,14 +1,18 @@
 name: Daily Meta Creatives Sync
+
 on:
   schedule:
-    - cron: '30 11 * * *'   # KST 20:30
+    - cron: '30 11 * * *'   # KST 20:30 = UTC 11:30
   workflow_dispatch:
     inputs:
       backfill_days:
-        description: '수집 일수'
+        description: '백필 일수'
         default: '7'
+        required: false
+
 permissions:
   contents: write
+
 jobs:
   sync-creatives:
     runs-on: ubuntu-latest
@@ -16,29 +20,72 @@ jobs:
       META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
       META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
       BACKFILL_DAYS: ${{ github.event.inputs.backfill_days || '7' }}
+      PROJECT_ID: d2c-analytics-502304
+      LOCATION: asia-northeast3
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
-      - uses: google-github-actions/auth@v2
-        with: { credentials_json: '${{ secrets.GCP_SA_KEY }}' }
-      - run: pip install -r scripts/requirements.txt
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
       - name: Fetch Meta creatives + insights
         run: python scripts/fetch_meta_creatives.py
+
       - name: Download creative images
         run: python scripts/download_creative_images.py
+
+      - name: Refresh Mart 19 (creative performance)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/19_mart_creative_performance.sql
+
       - name: Export JSON for dashboard
         run: |
           mkdir -p docs/data
-          bq query --project_id=d2c-analytics-502304 --location=asia-northeast3 \
-            --use_legacy_sql=false --format=json \
-            "SELECT * FROM \`d2c-analytics-502304.marts.meta_creatives\`" \
+
+          echo "=== Export meta_creatives ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=5000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.meta_creatives\`" \
             > docs/data/meta_creatives.json
-          bq query --project_id=d2c-analytics-502304 --location=asia-northeast3 \
-            --use_legacy_sql=false --format=json --max_rows=50000 \
-            "SELECT * FROM \`d2c-analytics-502304.marts.mart_creative_performance\` WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) ORDER BY event_date DESC" \
+
+          echo "=== Export mart19_creatives ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=50000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_performance\` WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) ORDER BY event_date DESC" \
             > docs/data/mart19_creatives.json
-      - uses: stefanzweifel/git-auto-commit-action@v5
+
+          ls -lh docs/data/meta_creatives.json docs/data/mart19_creatives.json
+
+      - name: Commit generated files
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: sync Meta creatives + images [skip ci]"
           file_pattern: "docs/data/*.json docs/creatives/*.jpg"
