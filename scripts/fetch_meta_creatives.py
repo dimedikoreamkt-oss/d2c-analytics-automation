@@ -27,24 +27,41 @@ def api_get(endpoint, params=None):
 
 
 def fetch_active_ads():
-    """활성 + 일시중지 광고 목록 (creative 포함)"""
     ads = []
     url = f"act_{AD_ACCOUNT_ID}/ads"
     params = {
         "fields": (
-            "id,name,status,effective_status,campaign_id,campaign{name},"
-            "adset_id,adset{name},"
+            "id,name,status,effective_status,campaign_id,campaign{name,status,effective_status},"
+            "adset_id,adset{name,status,effective_status},"
             "creative{id,name,thumbnail_url,image_url,object_story_spec,"
             "body,title,call_to_action_type,instagram_permalink_url,video_id}"
         ),
         "limit": 100,
+        # 필터 완전 제거 → 계정의 모든 광고 반환
+        # 또는 아래 광범위 필터 사용:
         "filtering": json.dumps([{
-    "field": "effective_status",
-    "operator": "IN",
-    "value": ["ACTIVE", "PAUSED", "ARCHIVED", "DELETED",
-              "PENDING_REVIEW", "DISAPPROVED",
-              "CAMPAIGN_PAUSED", "ADSET_PAUSED"]
-}]),
+            "field": "effective_status",
+            "operator": "IN",
+            "value": [
+                "ACTIVE", "PAUSED",
+                "CAMPAIGN_PAUSED", "ADSET_PAUSED",
+                "ARCHIVED",
+                "PENDING_REVIEW", "DISAPPROVED",
+                "PREAPPROVED", "PENDING_BILLING_INFO",
+                "IN_PROCESS", "WITH_ISSUES"
+            ]
+        }]),
+    }
+    while True:
+        data = api_get(url, params)
+        ads.extend(data.get("data", []))
+        next_url = data.get("paging", {}).get("next")
+        if not next_url:
+            break
+        url = next_url.replace(f"{BASE_URL}/", "")
+        params = {}
+    return ads
+
 
     }
     while True:
