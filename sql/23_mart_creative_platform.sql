@@ -1,3 +1,4 @@
+-- Mart 23: 크리에이티브 × 지면(플랫폼) 성과
 DROP TABLE IF EXISTS `d2c-analytics-502304.marts.mart_creative_platform`;
 
 CREATE TABLE `d2c-analytics-502304.marts.mart_creative_platform`
