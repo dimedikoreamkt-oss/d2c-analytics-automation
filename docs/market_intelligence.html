@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시장 인텔리전스 · 경쟁사 광고 자동 발굴</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mart_common.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;color:#111;}
+  .topbar{background:#fff;padding:14px 24px;display:flex;align-items:center;gap:20px;border-bottom:1px solid #e5e7eb;}
+  .topbar .logo{font-weight:700;color:#111;text-decoration:none;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .topbar .logo-mark{background:#2563eb;color:#fff;width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
+  .wrap{max-width:1400px;margin:0 auto;padding:24px;}
+  h1{margin:0 0 6px;font-size:26px;font-weight:700;}
+  .desc{color:#6b7280;font-size:14px;margin:0 0 20px;}
+
+  .stat-band{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
+  .stat-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;text-align:center;}
+  .stat-card.super{background:linear-gradient(135deg,#fef2f2,#fff);border-color:#ef4444;}
+  .stat-card.winner{background:linear-gradient(135deg,#fff7ed,#fff);border-color:#f97316;}
+  .stat-card.growing{background:linear-gradient(135deg,#fefce8,#fff);border-color:#eab308;}
+  .stat-card.new{background:linear-gradient(135deg,#eff6ff,#fff);border-color:#3b82f6;}
+  .stat-card .emoji{font-size:22px;}
+  .stat-card .v{font-size:22px;font-weight:700;margin:4px 0;}
+  .stat-card .l{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;}
+
+  .insight-box{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-left:4px solid #2563eb;padding:16px 20px;border-radius:8px;margin-bottom:20px;}
+  .insight-box h3{margin:0 0 8px;font-size:14px;color:#1e40af;}
+  .insight-box ul{margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#374151;}
+
+  .gap-table{width:100%;background:#fff;border-radius:12px;border:1px solid #e5e7eb;border-collapse:separate;border-spacing:0;overflow:hidden;font-size:13px;margin-bottom:20px;}
+  .gap-table th{background:#f9fafb;padding:10px;text-align:right;font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;}
+  .gap-table th:first-child,.gap-table td:first-child{text-align:left;padding-left:16px;}
+  .gap-table td{padding:12px 10px;text-align:right;font-weight:600;border-bottom:1px solid #f3f4f6;}
+  .gap-table tr.untouched td{background:linear-gradient(90deg,rgba(239,68,68,0.08),transparent);}
+  .gap-table tr.underused td{background:linear-gradient(90deg,rgba(245,158,11,0.08),transparent);}
+  .gap-status{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
+  .gap-status.UNTOUCHED{background:#ef4444;color:#fff;}
+  .gap-status.UNDERUSED{background:#f59e0b;color:#fff;}
+  .gap-status.BALANCED{background:#10b981;color:#fff;}
+  .gap-status.OVERUSED{background:#3b82f6;color:#fff;}
+
+  .controls{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  .controls select,.controls input{padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:13px;background:#fff;}
+
+  .ad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+  .ad-card{background:#fff;border:2px solid #e5e7eb;border-radius:10px;overflow:hidden;cursor:pointer;transition:all .15s;position:relative;}
+  .ad-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,80,200,0.12);}
+  .ad-card.SUPER_WINNER{border-color:#ef4444;}
+  .ad-card.WINNER{border-color:#f97316;}
+  .ad-card.GROWING{border-color:#eab308;}
+  .grade-badge{position:absolute;top:8px;right:8px;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;z-index:2;}
+  .grade-badge.SUPER_WINNER{background:#ef4444;color:#fff;}
+  .grade-badge.WINNER{background:#f97316;color:#fff;}
+  .grade-badge.GROWING{background:#eab308;color:#fff;}
+  .grade-badge.TESTING{background:#3b82f6;color:#fff;}
+  .grade-badge.CONCLUDED{background:#9ca3af;color:#fff;}
+  .grade-badge.QUICK_KILL{background:#6b7280;color:#fff;}
+  .grade-badge.FAILED{background:#dc2626;color:#fff;}
+  .ad-snapshot{width:100%;height:260px;background:#f3f4f6;position:relative;overflow:hidden;}
+  .ad-snapshot iframe{width:100%;height:100%;border:none;}
+  .ad-body{padding:12px;}
+  .ad-page{font-size:13px;font-weight:700;margin-bottom:4px;}
+  .ad-meta{font-size:11px;color:#6b7280;margin-bottom:8px;}
+  .ad-copy{font-size:12px;color:#374151;line-height:1.4;margin-bottom:8px;max-height:60px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;}
+  .ad-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+  .ad-tag{background:#eff6ff;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;}
+  .ad-stats{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6;}
+  .ad-stat{background:#f9fafb;padding:4px 7px;border-radius:5px;font-size:11px;}
+  .ad-stat .l{color:#6b7280;font-size:9px;text-transform:uppercase;}
+  .ad-stat .v{font-weight:700;}
+  .snapshot-link{display:block;text-align:center;background:#2563eb;color:#fff;padding:8px;font-size:12px;font-weight:600;text-decoration:none;margin-top:8px;border-radius:6px;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+</header>
+<div class="wrap">
+  <h1>🕵️ 시장 인텔리전스 · 경쟁사 광고 자동 발굴</h1>
+  <p class="desc">키워드 기반 자동 발굴 · 러닝 기간으로 성과 검증 · 자사 vs 시장 소구점 갭 분석</p>
+
+  <div id="content">데이터 로딩 중...</div>
+</div>
+<script>
+let WINNERS=[], GAPS=[];
+
+async function load(){
+  try{
+    const [w,g]=await Promise.all([
+      fetch('data/market_winners.json?t='+Date.now()).then(r=>r.json()),
+      fetch('data/appeal_gap.json?t='+Date.now()).then(r=>r.json())
+    ]);
+    WINNERS=w; GAPS=g;
+    render();
+  }catch(e){
+    document.getElementById('content').innerHTML='<div style="background:#fff;padding:40px;text-align:center;border-radius:12px;color:#ef4444;">⚠️ 데이터 로드 실패: '+e.message+'<br><br>워크플로 "Daily Market Intelligence Discovery" 실행 후 재시도 필요</div>';
+  }
+}
+
+function fmt(n,d=0){if(n==null||isNaN(n))return'-';return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});}
+
+function renderStats(){
+  const grades={SUPER_WINNER:0,WINNER:0,GROWING:0,TESTING:0,QUICK_KILL:0,FAILED:0,CONCLUDED:0};
+  let newToday=0, newWeek=0;
+  WINNERS.forEach(w=>{
+    grades[w.winner_grade]=(grades[w.winner_grade]||0)+1;
+    if(w.is_new_today) newToday++;
+    if(w.is_new_this_week) newWeek++;
+  });
+  return `
+    <div class="stat-band">
+      <div class="stat-card super"><div class="emoji">🔥</div><div class="v">${grades.SUPER_WINNER||0}</div><div class="l">SUPER 승자 (60일+)</div></div>
+      <div class="stat-card winner"><div class="emoji">🏆</div><div class="v">${grades.WINNER||0}</div><div class="l">WINNER (30일+)</div></div>
+      <div class="stat-card growing"><div class="emoji">📈</div><div class="v">${grades.GROWING||0}</div><div class="l">성장중 (14일+)</div></div>
+      <div class="stat-card new"><div class="emoji">🆕</div><div class="v">${newToday}</div><div class="l">오늘 신규</div></div>
+      <div class="stat-card new"><div class="emoji">📅</div><div class="v">${newWeek}</div><div class="l">이번주 신규</div></div>
+      <div class="stat-card"><div class="emoji">💀</div><div class="v">${grades.QUICK_KILL||0}</div><div class="l">7일내 종료 (실패)</div></div>
+    </div>
+  `;
+}
+
+function renderGaps(){
+  const untouched=GAPS.filter(g=>g.gap_status==='UNTOUCHED'&&+g.market_share_pct>10).slice(0,5);
+  const underused=GAPS.filter(g=>g.gap_status==='UNDERUSED').slice(0,5);
+
+  const items=[];
+  if(untouched.length){
+    items.push(`🚨 <b>완전 미사용 소구점 ${untouched.length}개</b> (시장에서 자주 쓰지만 우리는 안 씀): ${untouched.map(g=>`"${g.appeal_tag}" (시장 ${g.market_share_pct}%)`).join(', ')}`);
+  }
+  if(underused.length){
+    items.push(`⚠️ <b>과소사용 소구점 ${underused.length}개</b>: ${underused.map(g=>`"${g.appeal_tag}" (시장 ${g.market_share_pct}% vs 우리 ${g.own_share_pct}%)`).join(', ')}`);
+  }
+  const superWinnerAppealCounts={};
+  WINNERS.filter(w=>w.winner_grade==='SUPER_WINNER'||w.winner_grade==='WINNER').forEach(w=>{
+    (w.appeal_tags||[]).forEach(t=>{superWinnerAppealCounts[t]=(superWinnerAppealCounts[t]||0)+1;});
+  });
+  const topAppeal=Object.entries(superWinnerAppealCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  if(topAppeal.length){
+    items.push(`🏆 승자 광고 필수 소구점 TOP3: ${topAppeal.map(([t,c])=>`"${t}" (${c}개 승자에 포함)`).join(', ')}`);
+  }
+  if(!items.length) items.push('아직 갭 분석 데이터가 축적되지 않았습니다.');
+
+  const gapRows=GAPS.slice(0,15).map(g=>`
+    <tr class="${(g.gap_status||'').toLowerCase()}">
+      <td>${g.appeal_tag}</td>
+      <td><span class="gap-status ${g.gap_status}">${g.gap_status}</span></td>
+      <td>${g.market_share_pct||0}%</td>
+      <td>${g.own_share_pct||0}%</td>
+      <td>${g.gap_pct>0?'+':''}${g.gap_pct||0}%p</td>
+      <td>${fmt(g.market_ad_count||0)}</td>
+      <td>${fmt(g.market_advertiser_count||0)}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div class="insight-box">
+      <h3>💡 시장 vs 자사 자동 인사이트</h3>
+      <ul>${items.map(i=>`<li>${i}</li>`).join('')}</ul>
+    </div>
+    <div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:20px;">
+      <h3 style="margin:0 0 12px;font-size:15px;">📊 소구점 갭 분석 (시장 vs 자사)</h3>
+      <table class="gap-table">
+        <thead><tr>
+          <th>소구점</th><th>상태</th><th>시장 비중</th><th>자사 비중</th><th>갭</th><th>시장 광고수</th><th>광고주수</th>
+        </tr></thead>
+        <tbody>${gapRows}</tbody>
+      </table>
+      <div style="margin-top:8px;font-size:11px;color:#6b7280;">🚨 UNTOUCHED: 완전 미사용 · ⚠️ UNDERUSED: 과소사용 · ✅ BALANCED: 균형 · 🔵 OVERUSED: 과다사용</div>
+    </div>
+  `;
+}
+
+function renderControls(){
+  const pages=[...new Set(WINNERS.map(w=>w.page_name).filter(Boolean))].sort();
+  return `
+    <div class="controls">
+      <label style="font-size:12px;color:#6b7280;font-weight:600;">등급</label>
+      <select id="filterGrade">
+        <option value="">전체</option>
+        <option value="SUPER_WINNER">🔥 SUPER (60일+)</option>
+        <option value="WINNER">🏆 WINNER (30일+)</option>
+        <option value="GROWING">📈 GROWING (14일+)</option>
+        <option value="TESTING">🧪 TESTING (7일+)</option>
+        <option value="QUICK_KILL">💀 QUICK KILL</option>
+      </select>
+      <label style="font-size:12px;color:#6b7280;font-weight:600;">광고주</label>
+      <select id="filterPage">
+        <option value="">전체</option>
+        ${pages.map(p=>`<option value="${p}">${p}</option>`).join('')}
+      </select>
+      <label style="font-size:12px;color:#6b7280;font-weight:600;">신규</label>
+      <select id="filterNew">
+        <option value="">전체</option>
+        <option value="today">오늘 시작</option>
+        <option value="week">이번주 시작</option>
+      </select>
+      <label style="font-size:12px;color:#6b7280;font-weight:600;">정렬</label>
+      <select id="sortBy">
+        <option value="running_days">러닝 순</option>
+        <option value="delivery_start">시작일 최신순</option>
+        <option value="impressions_midpoint">노출 규모순</option>
+      </select>
+      <input type="text" id="searchKw" placeholder="카피/광고주 검색...">
+    </div>
+  `;
+}
+
+function renderGrid(){
+  const gradeF=document.getElementById('filterGrade').value;
+  const pageF=document.getElementById('filterPage').value;
+  const newF=document.getElementById('filterNew').value;
+  const sortBy=document.getElementById('sortBy').value;
+  const search=document.getElementById('searchKw').value.toLowerCase();
+
+  let list=WINNERS.filter(w=>{
+    if(gradeF && w.winner_grade!==gradeF) return false;
+    if(pageF && w.page_name!==pageF) return false;
+    if(newF==='today' && !w.is_new_today) return false;
+    if(newF==='week' && !w.is_new_this_week) return false;
+    if(search){
+      const hay=`${w.page_name||''} ${w.body_text||''} ${w.title_text||''}`.toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if(sortBy==='delivery_start'){
+    list.sort((a,b)=>(b.delivery_start||'').localeCompare(a.delivery_start||''));
+  }else{
+    list.sort((a,b)=>(+b[sortBy]||0)-(+a[sortBy]||0));
+  }
+
+  const cards=list.slice(0,200).map(w=>{
+    const tags=(w.appeal_tags||[]).slice(0,5).map(t=>`<span class="ad-tag">${t}</span>`).join('');
+    const impMid=w.impressions_midpoint?fmt(w.impressions_midpoint):'-';
+    const spendRange=w.spend_lower!=null?`₩${fmt(w.spend_lower)}~${fmt(w.spend_upper||w.spend_lower)}`:'-';
+    return `
+      <div class="ad-card ${w.winner_grade}">
+        <div class="grade-badge ${w.winner_grade}">${w.winner_grade}</div>
+        <div class="ad-snapshot">
+          ${w.snapshot_url?`<iframe src="${w.snapshot_url}" loading="lazy"></iframe>`:'<div style="padding:80px;text-align:center;color:#9ca3af;">이미지 없음</div>'}
+        </div>
+        <div class="ad-body">
+          <div class="ad-page">${w.page_name||'-'}</div>
+          <div class="ad-meta">${w.running_days||0}일 러닝 · ${w.delivery_start?w.delivery_start.slice(0,10):'-'} 시작 · ${w.platforms||'-'}</div>
+          <div class="ad-copy">${(w.body_text||w.title_text||'').slice(0,200)}</div>
+          <div class="ad-tags">${tags}</div>
+          <div class="ad-stats">
+            <div class="ad-stat"><div class="l">노출</div><div class="v">${impMid}</div></div>
+            <div class="ad-stat"><div class="l">지출</div><div class="v">${spendRange}</div></div>
+          </div>
+          ${w.snapshot_url?`<a href="${w.snapshot_url}" target="_blank" class="snapshot-link">🔍 Meta 광고 라이브러리에서 보기</a>`:''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div style="color:#6b7280;font-size:13px;margin-bottom:10px;">총 ${list.length}개 · 상위 200개 표시</div>
+    <div class="ad-grid">${cards}</div>
+  `;
+}
+
+function bindControls(){
+  ['filterGrade','filterPage','filterNew','sortBy','searchKw'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change',()=>{document.getElementById('gridWrap').innerHTML=renderGrid();});
+    if(id==='searchKw') el.addEventListener('input',()=>{document.getElementById('gridWrap').innerHTML=renderGrid();});
+  });
+}
+
+function render(){
+  document.getElementById('content').innerHTML=
+    renderStats() +
+    renderGaps() +
+    renderControls() +
+    '<div id="gridWrap">'+renderGrid()+'</div>';
+  bindControls();
+}
+
+load();
+</script>
+</body>
+</html>
