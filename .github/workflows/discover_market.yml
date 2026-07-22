@@ -1,4 +1,4 @@
-name: Daily Market Intelligence Discovery
+name: Daily Market Intelligence Scraper
 
 on:
   schedule:
@@ -9,10 +9,10 @@ permissions:
   contents: write
 
 jobs:
-  discover:
+  scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
-      META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
       PROJECT_ID: d2c-analytics-502304
       LOCATION: asia-northeast3
 
@@ -33,22 +33,23 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Install dependencies
-        run: |
-          pip install -r scripts/requirements.txt
-          pip install playwright
-          playwright install chromium --with-deps
-
       - name: Ensure output directories
         run: |
           mkdir -p docs/data
           mkdir -p docs/landings
           touch docs/landings/.gitkeep
 
-      - name: Discover competitor ads
-        run: python scripts/discover_competitor_ads.py
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+          pip install playwright
+          playwright install chromium --with-deps
 
-      - name: Refresh Mart 22 (market winners)
+      - name: Scrape Meta Ads Library
+        run: python scripts/scrape_ads_library.py
+        continue-on-error: true
+
+      - name: Refresh Mart 22
         run: |
           bq query \
             --project_id="${PROJECT_ID}" \
@@ -57,7 +58,7 @@ jobs:
             --format=none \
             < sql/22_mart_market_winners.sql
 
-      - name: Refresh Mart 23 (appeal gap)
+      - name: Refresh Mart 23
         run: |
           bq query \
             --project_id="${PROJECT_ID}" \
@@ -65,14 +66,11 @@ jobs:
             --use_legacy_sql=false \
             --format=none \
             < sql/23_mart_appeal_gap.sql
-
-      - name: Screenshot winner landing pages
-        run: python scripts/screenshot_landings.py
         continue-on-error: true
 
-      - name: Export JSON for dashboard
+      - name: Export JSON
         run: |
-          echo "=== export market_winners ==="
+          echo "=== market_winners ==="
           bq query \
             --project_id="${PROJECT_ID}" \
             --location="${LOCATION}" \
@@ -82,7 +80,7 @@ jobs:
             "SELECT * FROM \`${PROJECT_ID}.marts.mart_market_winners\` WHERE running_days IS NOT NULL ORDER BY running_days DESC LIMIT 3000" \
             > docs/data/market_winners.json
 
-          echo "=== export appeal_gap ==="
+          echo "=== appeal_gap ==="
           bq query \
             --project_id="${PROJECT_ID}" \
             --location="${LOCATION}" \
@@ -93,14 +91,11 @@ jobs:
             > docs/data/appeal_gap.json
 
           ls -lh docs/data/market_winners.json docs/data/appeal_gap.json
-          echo "=== landings dir ==="
-          ls -la docs/landings/ || echo "no landings"
 
-      - name: Commit generated files
+      - name: Commit files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: sync market intelligence [skip ci]"
+          commit_message: "chore: sync scraped ads library [skip ci]"
           file_pattern: |
             docs/data/*.json
             docs/landings/*
-          skip_dirty_check: false
