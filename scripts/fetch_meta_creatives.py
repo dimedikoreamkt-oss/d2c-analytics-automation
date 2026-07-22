@@ -1,264 +1,380 @@
 #!/usr/bin/env python3
-"""Fetch Meta creatives and insights with demographic breakdowns."""
+"""
+Meta Ad Insights → BigQuery Sync
+- 어드민과 100% 일치하도록 어트리뷰션 창/purchase 필터 명시
+- custom_since / custom_until 로 임의 기간 지정 가능
+- 계정 통화 자동 감지 (KRW면 환율 미적용)
+- Breakdowns: base / age,gender / publisher_platform,platform_position / region
+"""
 import os
+import sys
 import json
 import time
 import requests
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from google.cloud import bigquery
 
-META_ACCESS_TOKEN = os.environ["META_ACCESS_TOKEN"]
-META_AD_ACCOUNT_ID = os.environ["META_AD_ACCOUNT_ID"]
-BACKFILL_DAYS = int(os.environ.get("BACKFILL_DAYS", "7"))
-PROJECT_ID = os.environ.get("PROJECT_ID", "d2c-analytics-502304")
-DATASET = "marts"
-API_VERSION = "v20.0"
-BASE_URL = f"https://graph.facebook.com/{API_VERSION}"
+# ===== 환경변수 =====
+META_ACCESS_TOKEN  = os.getenv("META_ACCESS_TOKEN", "").strip()
+META_AD_ACCOUNT_ID = os.getenv("META_AD_ACCOUNT_ID", "").strip()
+PROJECT_ID         = os.getenv("PROJECT_ID", "d2c-analytics-502304")
+DATASET            = "marts"
+API_VERSION        = "v20.0"
 
-USD_TO_KRW = 1350.0
-ACCOUNT_CURRENCY = "USD"
+if not META_ACCESS_TOKEN:
+    raise SystemExit("[FATAL] META_ACCESS_TOKEN is empty")
+if not META_AD_ACCOUNT_ID:
+    raise SystemExit("[FATAL] META_AD_ACCOUNT_ID is empty")
+if not META_AD_ACCOUNT_ID.startswith("act_"):
+    META_AD_ACCOUNT_ID = "act_" + META_AD_ACCOUNT_ID
 
-BREAKDOWNS = [
-    {
-        "name": "base",
-        "breakdowns": None,
-        "table": "meta_ad_insights",
-        "extra_cols": []
-    },
-    {
-        "name": "age_gender",
-        "breakdowns": "age,gender",
-        "table": "meta_ad_insights_age_gender",
-        "extra_cols": [("age", "STRING"), ("gender", "STRING")]
-    },
-    {
-        "name": "platform",
-        "breakdowns": "publisher_platform,platform_position,device_platform",
-        "table": "meta_ad_insights_platform",
-        "extra_cols": [
-            ("publisher_platform", "STRING"),
-            ("platform_position", "STRING"),
-            ("device_platform", "STRING")
-        ]
-    },
-    {
-        "name": "region",
-        "breakdowns": "region",
-        "table": "meta_ad_insights_region",
-        "extra_cols": [("region", "STRING")]
-    }
-]
+# ===== 날짜 범위 =====
+CUSTOM_SINCE  = os.getenv("CUSTOM_SINCE", "").strip()
+CUSTOM_UNTIL  = os.getenv("CUSTOM_UNTIL", "").strip()
+BACKFILL_DAYS = int(os.getenv("BACKFILL_DAYS", "7"))
 
+if CUSTOM_SINCE and CUSTOM_UNTIL:
+    SINCE = CUSTOM_SINCE
+    UNTIL = CUSTOM_UNTIL
+    print(f"[INFO] Custom date range: {SINCE} ~ {UNTIL}")
+else:
+    today = datetime.utcnow().date()
+    UNTIL = today.strftime("%Y-%m-%d")
+    SINCE = (today - timedelta(days=BACKFILL_DAYS)).strftime("%Y-%m-%d")
+    print(f"[INFO] Backfill range (last {BACKFILL_DAYS} days): {SINCE} ~ {UNTIL}")
+
+# ===== 계정 통화 자동 감지 =====
+def detect_currency():
+    url = f"https://graph.facebook.com/{API_VERSION}/{META_AD_ACCOUNT_ID}"
+    r = requests.get(url, params={
+        "access_token": META_ACCESS_TOKEN,
+        "fields": "name,currency,timezone_name"
+    }, timeout=30)
+    r.raise_for_status()
+    d = r.json()
+    print(f"[INFO] Account: {d.get('name')} / Currency: {d.get('currency')} / TZ: {d.get('timezone_name')}")
+    return d.get("currency", "USD")
+
+ACCOUNT_CURRENCY = detect_currency()
+USD_TO_KRW = 1350.0  # KRW가 아닌 경우에만 사용
+
+# ===== BigQuery =====
 bq = bigquery.Client(project=PROJECT_ID)
 
+# ===== Insight 필드 =====
+INSIGHT_FIELDS = [
+    "ad_id", "ad_name",
+    "adset_id", "adset_name",
+    "campaign_id", "campaign_name",
+    "date_start", "date_stop",
+    "impressions", "reach", "frequency",
+    "clicks", "inline_link_clicks",
+    "spend", "cpc", "cpm", "ctr",
+    "actions", "action_values",
+    "video_p25_watched_actions",
+    "video_p50_watched_actions",
+    "video_p75_watched_actions",
+    "video_p100_watched_actions",
+    "video_avg_time_watched_actions",
+]
 
-def log(msg):
-    print(f"[{datetime.now(timezone.utc).isoformat()}] {msg}", flush=True)
-
-
-def fetch_creatives():
-    log("Fetching creative metadata")
-    all_ads = []
-    url = f"{BASE_URL}/{META_AD_ACCOUNT_ID}/ads"
+# ===== Ad 목록 가져오기 =====
+def fetch_all_ads():
+    ads = []
+    url = f"https://graph.facebook.com/{API_VERSION}/{META_AD_ACCOUNT_ID}/ads"
     params = {
         "access_token": META_ACCESS_TOKEN,
-        "fields": "id,name,status,effective_status,campaign{name},adset{name},creative{id,image_url,thumbnail_url,body,title,video_id}",
-        "limit": 100
+        "fields": "id,name,status,effective_status,adset_id,adset{name},campaign_id,campaign{name},creative{id,image_url,thumbnail_url,video_id,object_story_spec}",
+        "limit": 200,
     }
     while url:
         r = requests.get(url, params=params, timeout=60)
         r.raise_for_status()
-        j = r.json()
-        all_ads.extend(j.get("data", []))
-        url = j.get("paging", {}).get("next")
+        d = r.json()
+        for ad in d.get("data", []):
+            ads.append(ad)
+        url = d.get("paging", {}).get("next")
         params = None
-        time.sleep(0.5)
-    log(f"  fetched {len(all_ads)} creatives total")
-    return all_ads
+    print(f"[OK] fetched {len(ads)} ads")
+    return ads
 
-
-def fetch_insights_for_ad(ad_id, since, until, breakdown_str=None):
-    url = f"{BASE_URL}/{ad_id}/insights"
+# ===== Insights 가져오기 =====
+def fetch_insights_for_ad(ad_id, breakdown=None, retries=3):
+    url = f"https://graph.facebook.com/{API_VERSION}/{ad_id}/insights"
     params = {
         "access_token": META_ACCESS_TOKEN,
-        "time_range": json.dumps({"since": since, "until": until}),
-        "time_increment": 1,   # ← 7 → 1 (일별 aggregate)
-        "level": "ad",
-        "fields": "impressions,reach,clicks,spend,ctr,cpc,cpm,frequency,actions,action_values",
-        "action_attribution_windows": json.dumps(["7d_click", "1d_view"]),  # ← 추가
-        "limit": 500
+        "time_range": json.dumps({"since": SINCE, "until": UNTIL}),
+        "time_increment": 1,
+        # ⚠️ 어드민과 동일한 어트리뷰션 창 명시 (기본값과 다름 → ROAS 3.9배 차이 원인)
+        "action_attribution_windows": json.dumps(["7d_click", "1d_view"]),
+        "use_unified_attribution_setting": "true",
+        "fields": ",".join(INSIGHT_FIELDS),
+        "limit": 500,
     }
-    if breakdown_str:
-        params["breakdowns"] = breakdown_str
-    all_rows = []
-    while url:
+    if breakdown:
+        params["breakdowns"] = breakdown
+
+    for attempt in range(retries):
         try:
-            r = requests.get(url, params=params, timeout=60)
-            if r.status_code == 429 or (r.status_code == 400 and "rate limit" in r.text.lower()):
-                log("    [RATE LIMIT] sleeping 60s")
-                time.sleep(60)
+            r = requests.get(url, params=params, timeout=90)
+            if r.status_code == 200:
+                return r.json().get("data", [])
+            if r.status_code in (429, 500, 502, 503):
+                wait = 60 * (attempt + 1)
+                print(f"[WARN] {ad_id} status {r.status_code}, retry in {wait}s")
+                time.sleep(wait)
                 continue
-            r.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            log(f"    [ERROR] {ad_id}: {e}")
+            print(f"[ERR] {ad_id} status {r.status_code}: {r.text[:200]}")
             return []
-        j = r.json()
-        all_rows.extend(j.get("data", []))
-        url = j.get("paging", {}).get("next")
-        params = None
-        time.sleep(0.5)   # ← 0.3 → 0.5 (rate limit 여유)
-    return all_rows
+        except Exception as e:
+            print(f"[ERR] {ad_id} exception: {e}")
+            time.sleep(10)
+    return []
 
+# ===== Action 파서 (어드민과 정확히 일치) =====
+def parse_purchases(actions):
+    """어드민과 동일하게 offsite_conversion.fb_pixel_purchase만 카운트"""
+    if not actions:
+        return 0
+    for a in actions:
+        if a.get("action_type") == "offsite_conversion.fb_pixel_purchase":
+            return int(float(a.get("value", 0)))
+    for a in actions:
+        if a.get("action_type") == "onsite_web_purchase":
+            return int(float(a.get("value", 0)))
+    return 0
 
+def parse_purchase_value(action_values):
+    if not action_values:
+        return 0.0
+    for a in action_values:
+        if a.get("action_type") == "offsite_conversion.fb_pixel_purchase":
+            return float(a.get("value", 0))
+    for a in action_values:
+        if a.get("action_type") == "onsite_web_purchase":
+            return float(a.get("value", 0))
+    return 0.0
 
-def parse_purchase_actions(row):
-    purchases = 0
-    value = 0.0
-    for a in row.get("actions", []) or []:
-        if a.get("action_type") in ("purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase"):
-            purchases += int(float(a.get("value", 0) or 0))
-    for a in row.get("action_values", []) or []:
-        if a.get("action_type") in ("purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase"):
-            value += float(a.get("value", 0) or 0)
-    return purchases, value
+def parse_action_by_type(actions, action_type):
+    if not actions:
+        return 0
+    for a in actions:
+        if a.get("action_type") == action_type:
+            return int(float(a.get("value", 0)))
+    return 0
 
+def parse_video_metric(video_actions):
+    if not video_actions:
+        return 0
+    total = 0
+    for v in video_actions:
+        total += int(float(v.get("value", 0)))
+    return total
 
-def build_row(insight, ad, bd_cfg):
-    purchases, purchase_value = parse_purchase_actions(insight)
-    spend_raw = float(insight.get("spend", 0) or 0)
-
+# ===== 행 빌드 =====
+def to_krw(amount):
     if ACCOUNT_CURRENCY == "KRW":
-        spend_krw_val = spend_raw
-        purchase_value_krw = purchase_value
-    else:
-        spend_krw_val = spend_raw * USD_TO_KRW
-        purchase_value_krw = purchase_value * USD_TO_KRW
+        return float(amount or 0)
+    return float(amount or 0) * USD_TO_KRW
 
-    row = {
-        "event_date": insight.get("date_start"),
-        "date_end": insight.get("date_stop"),
-        "ad_id": ad["id"],
-        "ad_name": ad.get("name"),
-        "campaign_name": (ad.get("campaign") or {}).get("name"),
-        "adset_name": (ad.get("adset") or {}).get("name"),
-        "impressions": int(insight.get("impressions", 0) or 0),
-        "reach": int(insight.get("reach", 0) or 0),
-        "clicks": int(insight.get("clicks", 0) or 0),
-        "spend_original": spend_raw,
-        "spend_krw": spend_krw_val,
-        "ctr": float(insight.get("ctr", 0) or 0),
-        "cpc": float(insight.get("cpc", 0) or 0),
-        "cpm": float(insight.get("cpm", 0) or 0),
-        "frequency": float(insight.get("frequency", 0) or 0),
-        "meta_purchases": purchases,
-        "meta_purchase_value": purchase_value_krw
+def build_base_row(ins, ad_meta):
+    spend_orig = float(ins.get("spend", 0) or 0)
+    spend_krw  = to_krw(spend_orig)
+    purchases  = parse_purchases(ins.get("actions"))
+    purch_val_orig = parse_purchase_value(ins.get("action_values"))
+    purch_val_krw  = to_krw(purch_val_orig)
+
+    return {
+        "event_date":            ins.get("date_start"),
+        "date_end":              ins.get("date_stop"),
+        "ad_id":                 ins.get("ad_id"),
+        "ad_name":               ins.get("ad_name") or ad_meta.get("name"),
+        "adset_id":              ins.get("adset_id"),
+        "adset_name":            ins.get("adset_name"),
+        "campaign_id":           ins.get("campaign_id"),
+        "campaign_name":         ins.get("campaign_name"),
+        "impressions":           int(float(ins.get("impressions", 0) or 0)),
+        "reach":                 int(float(ins.get("reach", 0) or 0)),
+        "frequency":             float(ins.get("frequency", 0) or 0),
+        "clicks":                int(float(ins.get("clicks", 0) or 0)),
+        "inline_link_clicks":    int(float(ins.get("inline_link_clicks", 0) or 0)),
+        "spend_original":        spend_orig,
+        "spend_krw":             spend_krw,
+        "currency":              ACCOUNT_CURRENCY,
+        "cpc":                   float(ins.get("cpc", 0) or 0),
+        "cpm":                   float(ins.get("cpm", 0) or 0),
+        "ctr":                   float(ins.get("ctr", 0) or 0),
+        "meta_purchases":        purchases,
+        "meta_purchase_value":   purch_val_krw,
+        "meta_add_to_cart":      parse_action_by_type(ins.get("actions"), "add_to_cart"),
+        "meta_initiate_checkout": parse_action_by_type(ins.get("actions"), "initiate_checkout"),
+        "meta_view_content":     parse_action_by_type(ins.get("actions"), "view_content"),
+        "video_p25":             parse_video_metric(ins.get("video_p25_watched_actions")),
+        "video_p50":             parse_video_metric(ins.get("video_p50_watched_actions")),
+        "video_p75":             parse_video_metric(ins.get("video_p75_watched_actions")),
+        "video_p100":            parse_video_metric(ins.get("video_p100_watched_actions")),
+        "video_avg_watch_sec":   parse_video_metric(ins.get("video_avg_time_watched_actions")),
     }
-    for col, _ in bd_cfg["extra_cols"]:
-        row[col] = insight.get(col)
+
+def build_demo_row(ins, ad_meta):
+    row = build_base_row(ins, ad_meta)
+    row["age_bracket"] = ins.get("age")
+    row["gender"]      = ins.get("gender")
     return row
 
+def build_platform_row(ins, ad_meta):
+    row = build_base_row(ins, ad_meta)
+    row["publisher_platform"] = ins.get("publisher_platform")
+    row["platform_position"]  = ins.get("platform_position")
+    return row
 
-def load_to_bq(table_name, rows, extra_cols):
+def build_region_row(ins, ad_meta):
+    row = build_base_row(ins, ad_meta)
+    row["region"]  = ins.get("region")
+    row["country"] = ins.get("country")
+    return row
+
+# ===== Ad 메타 저장 =====
+def build_creatives_row(ad):
+    creative = ad.get("creative") or {}
+    return {
+        "ad_id":            ad.get("id"),
+        "ad_name":          ad.get("name"),
+        "status":           ad.get("status"),
+        "effective_status": ad.get("effective_status"),
+        "adset_id":         ad.get("adset_id"),
+        "adset_name":       (ad.get("adset") or {}).get("name"),
+        "campaign_id":      ad.get("campaign_id"),
+        "campaign_name":    (ad.get("campaign") or {}).get("name"),
+        "creative_id":      creative.get("id"),
+        "image_url":        creative.get("image_url") or creative.get("thumbnail_url"),
+        "thumbnail_url":    creative.get("thumbnail_url"),
+        "video_id":         creative.get("video_id"),
+        "synced_at":        datetime.utcnow().isoformat(),
+    }
+
+# ===== BigQuery Load =====
+def load_to_bq(table, rows, schema):
     if not rows:
-        log(f"  [SKIP] {table_name}: 0 rows")
+        print(f"[SKIP] {table}: 0 rows")
         return
-    schema = [
-        bigquery.SchemaField("event_date", "DATE"),
-        bigquery.SchemaField("date_end", "DATE"),
-        bigquery.SchemaField("ad_id", "STRING"),
-        bigquery.SchemaField("ad_name", "STRING"),
-        bigquery.SchemaField("campaign_name", "STRING"),
-        bigquery.SchemaField("adset_name", "STRING"),
-        bigquery.SchemaField("impressions", "INT64"),
-        bigquery.SchemaField("reach", "INT64"),
-        bigquery.SchemaField("clicks", "INT64"),
-        bigquery.SchemaField("spend_original", "FLOAT64"),
-        bigquery.SchemaField("spend_krw", "FLOAT64"),
-        bigquery.SchemaField("ctr", "FLOAT64"),
-        bigquery.SchemaField("cpc", "FLOAT64"),
-        bigquery.SchemaField("cpm", "FLOAT64"),
-        bigquery.SchemaField("frequency", "FLOAT64"),
-        bigquery.SchemaField("meta_purchases", "INT64"),
-        bigquery.SchemaField("meta_purchase_value", "FLOAT64")
-    ]
-    for col, typ in extra_cols:
-        schema.append(bigquery.SchemaField(col, typ))
-
-    table_id = f"{PROJECT_ID}.{DATASET}.{table_name}"
+    table_ref = f"{PROJECT_ID}.{DATASET}.{table}"
     job_config = bigquery.LoadJobConfig(
         schema=schema,
-        write_disposition="WRITE_TRUNCATE",
-        time_partitioning=bigquery.TimePartitioning(field="event_date")
+        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
     )
-    job = bq.load_table_from_json(rows, table_id, job_config=job_config)
-    job.result()
-    log(f"  [OK] loaded {len(rows)} rows into {table_name}")
+    ndjson = "\n".join(json.dumps(r, default=str) for r in rows)
+    from io import BytesIO
+    load_job = bq.load_table_from_file(
+        BytesIO(ndjson.encode("utf-8")),
+        table_ref,
+        job_config=job_config,
+    )
+    load_job.result()
+    print(f"[OK] loaded {len(rows)} rows into {table}")
 
+# ===== 스키마 =====
+BASE_SCHEMA = [
+    bigquery.SchemaField("event_date", "DATE"),
+    bigquery.SchemaField("date_end", "DATE"),
+    bigquery.SchemaField("ad_id", "STRING"),
+    bigquery.SchemaField("ad_name", "STRING"),
+    bigquery.SchemaField("adset_id", "STRING"),
+    bigquery.SchemaField("adset_name", "STRING"),
+    bigquery.SchemaField("campaign_id", "STRING"),
+    bigquery.SchemaField("campaign_name", "STRING"),
+    bigquery.SchemaField("impressions", "INT64"),
+    bigquery.SchemaField("reach", "INT64"),
+    bigquery.SchemaField("frequency", "FLOAT64"),
+    bigquery.SchemaField("clicks", "INT64"),
+    bigquery.SchemaField("inline_link_clicks", "INT64"),
+    bigquery.SchemaField("spend_original", "FLOAT64"),
+    bigquery.SchemaField("spend_krw", "FLOAT64"),
+    bigquery.SchemaField("currency", "STRING"),
+    bigquery.SchemaField("cpc", "FLOAT64"),
+    bigquery.SchemaField("cpm", "FLOAT64"),
+    bigquery.SchemaField("ctr", "FLOAT64"),
+    bigquery.SchemaField("meta_purchases", "INT64"),
+    bigquery.SchemaField("meta_purchase_value", "FLOAT64"),
+    bigquery.SchemaField("meta_add_to_cart", "INT64"),
+    bigquery.SchemaField("meta_initiate_checkout", "INT64"),
+    bigquery.SchemaField("meta_view_content", "INT64"),
+    bigquery.SchemaField("video_p25", "INT64"),
+    bigquery.SchemaField("video_p50", "INT64"),
+    bigquery.SchemaField("video_p75", "INT64"),
+    bigquery.SchemaField("video_p100", "INT64"),
+    bigquery.SchemaField("video_avg_watch_sec", "INT64"),
+]
 
+DEMO_SCHEMA     = BASE_SCHEMA + [
+    bigquery.SchemaField("age_bracket", "STRING"),
+    bigquery.SchemaField("gender", "STRING"),
+]
+PLATFORM_SCHEMA = BASE_SCHEMA + [
+    bigquery.SchemaField("publisher_platform", "STRING"),
+    bigquery.SchemaField("platform_position", "STRING"),
+]
+REGION_SCHEMA   = BASE_SCHEMA + [
+    bigquery.SchemaField("region", "STRING"),
+    bigquery.SchemaField("country", "STRING"),
+]
+CREATIVES_SCHEMA = [
+    bigquery.SchemaField("ad_id", "STRING"),
+    bigquery.SchemaField("ad_name", "STRING"),
+    bigquery.SchemaField("status", "STRING"),
+    bigquery.SchemaField("effective_status", "STRING"),
+    bigquery.SchemaField("adset_id", "STRING"),
+    bigquery.SchemaField("adset_name", "STRING"),
+    bigquery.SchemaField("campaign_id", "STRING"),
+    bigquery.SchemaField("campaign_name", "STRING"),
+    bigquery.SchemaField("creative_id", "STRING"),
+    bigquery.SchemaField("image_url", "STRING"),
+    bigquery.SchemaField("thumbnail_url", "STRING"),
+    bigquery.SchemaField("video_id", "STRING"),
+    bigquery.SchemaField("synced_at", "TIMESTAMP"),
+]
+
+# ===== Main =====
 def main():
-    global ACCOUNT_CURRENCY
+    ads = fetch_all_ads()
 
-    today = datetime.now(timezone.utc).date()
-    since = (today - timedelta(days=BACKFILL_DAYS)).isoformat()
-    until = today.isoformat()
-    log(f"range: {since} ~ {until}  (backfill_days={BACKFILL_DAYS}, time_increment=7)")
+    creatives_rows = [build_creatives_row(ad) for ad in ads]
+    load_to_bq("meta_creatives", creatives_rows, CREATIVES_SCHEMA)
 
-    r = requests.get(
-        f"{BASE_URL}/{META_AD_ACCOUNT_ID}",
-        params={"access_token": META_ACCESS_TOKEN, "fields": "name,currency,timezone_name"},
-        timeout=30
-    )
-    r.raise_for_status()
-    acct = r.json()
-    ACCOUNT_CURRENCY = acct.get("currency", "USD")
-    log(f"[CONFIG] Account: {acct.get('name')} | Currency: {ACCOUNT_CURRENCY} | TZ: {acct.get('timezone_name')}")
-    if ACCOUNT_CURRENCY == "KRW":
-        log("[CONFIG] Skipping USD->KRW conversion (account already in KRW)")
-    else:
-        log(f"[CONFIG] Applying USD_TO_KRW = {USD_TO_KRW}")
+    base_rows, demo_rows, plat_rows, region_rows = [], [], [], []
 
-    ads = fetch_creatives()
+    for i, ad in enumerate(ads, 1):
+        ad_id = ad.get("id")
+        ad_meta = {"name": ad.get("name")}
+        print(f"[{i}/{len(ads)}] {ad.get('name')[:40]}...")
 
-    creative_rows = []
-    for ad in ads:
-        c = ad.get("creative") or {}
-        creative_rows.append({
-            "ad_id": ad["id"],
-            "ad_name": ad.get("name"),
-            "status": ad.get("status"),
-            "effective_status": ad.get("effective_status"),
-            "campaign_name": (ad.get("campaign") or {}).get("name"),
-            "adset_name": (ad.get("adset") or {}).get("name"),
-            "creative_id": c.get("id"),
-            "image_url": c.get("image_url"),
-            "thumbnail_url": c.get("thumbnail_url"),
-            "body_text": c.get("body"),
-            "title_text": c.get("title"),
-            "video_id": c.get("video_id"),
-            "fetched_at": datetime.now(timezone.utc).isoformat()
-        })
-    creative_schema = [
-        bigquery.SchemaField(n, "STRING")
-        for n in ["ad_id", "ad_name", "status", "effective_status", "campaign_name", "adset_name",
-                  "creative_id", "image_url", "thumbnail_url", "body_text", "title_text", "video_id", "fetched_at"]
-    ]
-    job_config = bigquery.LoadJobConfig(schema=creative_schema, write_disposition="WRITE_TRUNCATE")
-    bq.load_table_from_json(creative_rows, f"{PROJECT_ID}.{DATASET}.meta_creatives", job_config=job_config).result()
-    log(f"[OK] loaded {len(creative_rows)} creatives into meta_creatives")
+        # 1) base
+        for ins in fetch_insights_for_ad(ad_id, breakdown=None):
+            base_rows.append(build_base_row(ins, ad_meta))
+        time.sleep(0.5)
 
-    for bd_cfg in BREAKDOWNS:
-        log(f"\n=== Breakdown: {bd_cfg['name']} ===")
-        all_rows = []
-        for i, ad in enumerate(ads, 1):
-            if i % 20 == 0:
-                log(f"  progress: {i}/{len(ads)}")
-            insights = fetch_insights_for_ad(ad["id"], since, until, bd_cfg["breakdowns"])
-            for ins in insights:
-                all_rows.append(build_row(ins, ad, bd_cfg))
-        load_to_bq(bd_cfg["table"], all_rows, bd_cfg["extra_cols"])
+        # 2) age + gender
+        for ins in fetch_insights_for_ad(ad_id, breakdown="age,gender"):
+            demo_rows.append(build_demo_row(ins, ad_meta))
+        time.sleep(0.5)
 
-    log("\n[DONE] fetch_meta_creatives complete")
+        # 3) publisher_platform + platform_position
+        for ins in fetch_insights_for_ad(ad_id, breakdown="publisher_platform,platform_position"):
+            plat_rows.append(build_platform_row(ins, ad_meta))
+        time.sleep(0.5)
 
+        # 4) region
+        for ins in fetch_insights_for_ad(ad_id, breakdown="region"):
+            region_rows.append(build_region_row(ins, ad_meta))
+        time.sleep(0.5)
+
+    load_to_bq("meta_ad_insights",           base_rows,   BASE_SCHEMA)
+    load_to_bq("meta_ad_insights_demo",      demo_rows,   DEMO_SCHEMA)
+    load_to_bq("meta_ad_insights_platform",  plat_rows,   PLATFORM_SCHEMA)
+    load_to_bq("meta_ad_insights_region",    region_rows, REGION_SCHEMA)
+
+    print("[DONE] fetch_meta_creatives complete")
 
 if __name__ == "__main__":
     main()
