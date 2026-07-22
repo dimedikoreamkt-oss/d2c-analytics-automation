@@ -12,14 +12,26 @@ import os, json, time, sys, requests
 from datetime import datetime, timedelta, timezone
 from google.cloud import bigquery
 
-# ===== Config =====
-META_ACCESS_TOKEN  = os.environ["META_ACCESS_TOKEN"]
-META_AD_ACCOUNT_ID = os.environ["META_AD_ACCOUNT_ID"]
-BACKFILL_DAYS      = int(os.environ.get("BACKFILL_DAYS", "7"))
-PROJECT_ID         = os.environ.get("PROJECT_ID", "d2c-analytics-502304")
-DATASET            = "marts"
-API_VERSION        = "v20.0"
-BASE_URL           = f"https://graph.facebook.com/{API_VERSION}"
+def build_row(insight, ad, bd_cfg):
+    purchases, purchase_value = parse_purchase_actions(insight)
+    spend_raw = float(insight.get("spend", 0) or 0)
+    
+    # 계정 통화에 따라 조건부 변환
+    if ACCOUNT_CURRENCY == "KRW":
+        spend_krw_val = spend_raw
+        purchase_value_krw = purchase_value
+    else:
+        spend_krw_val = spend_raw * USD_TO_KRW
+        purchase_value_krw = purchase_value * USD_TO_KRW
+    
+    row = {
+        ...
+        "spend_original":      spend_raw,
+        "spend_krw":           spend_krw_val,
+        ...
+        "meta_purchase_value": purchase_value_krw
+    }
+
 
 USD_TO_KRW = 1350.0  # override if needed via secret
 
@@ -193,6 +205,19 @@ def main():
     since = (today - timedelta(days=BACKFILL_DAYS)).isoformat()
     until = today.isoformat()
     log(f"range: {since} ~ {until}  (backfill_days={BACKFILL_DAYS}, time_increment=7)")
+
+    # 계정 통화 자동 감지
+    global ACCOUNT_CURRENCY
+    r = requests.get(
+        f"{BASE_URL}/{META_AD_ACCOUNT_ID}",
+        params={"access_token": META_ACCESS_TOKEN, "fields": "name,currency,timezone_name"},
+        timeout=30
+    )
+    r.raise_for_status()
+    acct = r.json()
+    ACCOUNT_CURRENCY = acct.get("currency", "USD")
+    log(f"[CONFIG] Account: {acct.get('name')} | Currency: {ACCOUNT_CURRENCY} | TZ: {acct.get('timezone_name')}")
+
 
     ads = fetch_creatives()
     # save creatives metadata
