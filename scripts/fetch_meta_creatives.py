@@ -2,12 +2,21 @@
 """
 Fetch Meta creatives + insights (with demographic breakdowns).
 Loads data into:
-  - meta_creatives                (creative metadata)
-  - meta_ad_insights              (base metrics, no breakdown)
-  - meta_ad_insights_age_gender   (breakdown: age, gender)
-  - meta_ad_insights_platform     (breakdown: publisher_platform, platform_position, device_platform)
-  - meta_ad_insights_region       (breakdown: region)
-  # ===== Config =====
+  - meta_creatives
+  - meta_ad_insights                 (base metrics)
+  - meta_ad_insights_age_gender      (breakdown: age, gender)
+  - meta_ad_insights_platform        (breakdown: publisher_platform, platform_position, device_platform)
+  - meta_ad_insights_region          (breakdown: region)
+"""
+import os
+import json
+import time
+import sys
+import requests
+from datetime import datetime, timedelta, timezone
+from google.cloud import bigquery
+
+# ===== Config =====
 META_ACCESS_TOKEN  = os.environ["META_ACCESS_TOKEN"]
 META_AD_ACCOUNT_ID = os.environ["META_AD_ACCOUNT_ID"]
 BACKFILL_DAYS      = int(os.environ.get("BACKFILL_DAYS", "7"))
@@ -17,66 +26,13 @@ API_VERSION        = "v20.0"
 BASE_URL           = f"https://graph.facebook.com/{API_VERSION}"
 
 USD_TO_KRW = 1350.0
-ACCOUNT_CURRENCY = "USD"  # main()에서 자동 감지, 기본값
+ACCOUNT_CURRENCY = "USD"  # main() will auto-detect
 
-"""
-import os, json, time, sys, requests
-from datetime import datetime, timedelta, timezone
-from google.cloud import bigquery
-
-def build_row(insight, ad, bd_cfg):
-    purchases, purchase_value = parse_purchase_actions(insight)
-    spend_raw = float(insight.get("spend", 0) or 0)
-    
-    # 계정 통화에 따라 조건부 변환
-    if ACCOUNT_CURRENCY == "KRW":
-        spend_krw_val = spend_raw
-        purchase_value_krw = purchase_value
-    else:
-        spend_krw_val = spend_raw * USD_TO_KRW
-        purchase_value_krw = purchase_value * USD_TO_KRW
-    
-    row = {
-        ...
-        "spend_original":      spend_raw,
-        "spend_krw":           spend_krw_val,
-        ...
-        "meta_purchase_value": purchase_value_krw
-    }
-
-
-USD_TO_KRW = 1350.0  # override if needed via secret
-
-# ===== Breakdown configurations =====
 BREAKDOWNS = [
-    {
-        "name": "base",
-        "breakdowns": None,
-        "table": "meta_ad_insights",
-        "extra_cols": []
-    },
-    {
-        "name": "age_gender",
-        "breakdowns": "age,gender",
-        "table": "meta_ad_insights_age_gender",
-        "extra_cols": [("age", "STRING"), ("gender", "STRING")]
-    },
-    {
-        "name": "platform",
-        "breakdowns": "publisher_platform,platform_position,device_platform",
-        "table": "meta_ad_insights_platform",
-        "extra_cols": [
-            ("publisher_platform", "STRING"),
-            ("platform_position",  "STRING"),
-            ("device_platform",    "STRING")
-        ]
-    },
-    {
-        "name": "region",
-        "breakdowns": "region",
-        "table": "meta_ad_insights_region",
-        "extra_cols": [("region", "STRING")]
-    }
+    {"name": "base",       "breakdowns": None,                                                 "table": "meta_ad_insights",              "extra_cols": []},
+    {"name": "age_gender", "breakdowns": "age,gender",                                         "table": "meta_ad_insights_age_gender",   "extra_cols": [("age","STRING"),("gender","STRING")]},
+    {"name": "platform",   "breakdowns": "publisher_platform,platform_position,device_platform","table": "meta_ad_insights_platform",     "extra_cols": [("publisher_platform","STRING"),("platform_position","STRING"),("device_platform","STRING")]},
+    {"name": "region",     "breakdowns": "region",                                             "table": "meta_ad_insights_region",       "extra_cols": [("region","STRING")]}
 ]
 
 bq = bigquery.Client(project=PROJECT_ID)
@@ -84,7 +40,7 @@ bq = bigquery.Client(project=PROJECT_ID)
 def log(msg):
     print(f"[{datetime.now(timezone.utc).isoformat()}] {msg}", flush=True)
 
-# ===== Fetch creative metadata =====
+
 def fetch_creatives():
     log("Fetching creative metadata...")
     all_ads = []
@@ -100,18 +56,18 @@ def fetch_creatives():
         j = r.json()
         all_ads.extend(j.get("data", []))
         url = j.get("paging", {}).get("next")
-        params = None  # next URL already has params
+        params = None
         time.sleep(0.5)
     log(f"  fetched {len(all_ads)} creatives total")
     return all_ads
 
-# ===== Fetch insights with breakdown =====
+
 def fetch_insights_for_ad(ad_id, since, until, breakdown_str=None):
     url = f"{BASE_URL}/{ad_id}/insights"
     params = {
         "access_token":   META_ACCESS_TOKEN,
         "time_range":     json.dumps({"since": since, "until": until}),
-        "time_increment": 7,  # weekly aggregate to reduce API calls
+        "time_increment": 7,
         "level":          "ad",
         "fields":         "impressions,reach,clicks,spend,ctr,cpc,cpm,frequency,actions,action_values",
         "limit":          500
@@ -137,9 +93,10 @@ def fetch_insights_for_ad(ad_id, since, until, breakdown_str=None):
         time.sleep(0.3)
     return all_rows
 
-# ===== Transform Meta insight row → BQ row =====
+
 def parse_purchase_actions(row):
-    purchases, value = 0, 0.0
+    purchases = 0
+    value = 0.0
     for a in row.get("actions", []) or []:
         if a.get("action_type") in ("purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase"):
             purchases += int(float(a.get("value", 0) or 0))
@@ -148,9 +105,18 @@ def parse_purchase_actions(row):
             value += float(a.get("value", 0) or 0)
     return purchases, value
 
+
 def build_row(insight, ad, bd_cfg):
     purchases, purchase_value = parse_purchase_actions(insight)
-    spend_usd = float(insight.get("spend", 0) or 0)
+    spend_raw = float(insight.get("spend", 0) or 0)
+
+    if ACCOUNT_CURRENCY == "KRW":
+        spend_krw_val = spend_raw
+        purchase_value_krw = purchase_value
+    else:
+        spend_krw_val = spend_raw * USD_TO_KRW
+        purchase_value_krw = purchase_value * USD_TO_KRW
+
     row = {
         "event_date":          insight.get("date_start"),
         "date_end":            insight.get("date_stop"),
@@ -161,20 +127,20 @@ def build_row(insight, ad, bd_cfg):
         "impressions":         int(insight.get("impressions", 0) or 0),
         "reach":               int(insight.get("reach", 0) or 0),
         "clicks":              int(insight.get("clicks", 0) or 0),
-        "spend_original":      spend_usd,
-        "spend_krw":           spend_usd * USD_TO_KRW,
+        "spend_original":      spend_raw,
+        "spend_krw":           spend_krw_val,
         "ctr":                 float(insight.get("ctr", 0) or 0),
         "cpc":                 float(insight.get("cpc", 0) or 0),
         "cpm":                 float(insight.get("cpm", 0) or 0),
         "frequency":           float(insight.get("frequency", 0) or 0),
         "meta_purchases":      purchases,
-        "meta_purchase_value": purchase_value * USD_TO_KRW
+        "meta_purchase_value": purchase_value_krw
     }
     for col, _ in bd_cfg["extra_cols"]:
         row[col] = insight.get(col)
     return row
 
-# ===== Load rows into staging table then merge =====
+
 def load_to_bq(table_name, rows, extra_cols):
     if not rows:
         log(f"  [SKIP] {table_name}: 0 rows")
@@ -211,15 +177,16 @@ def load_to_bq(table_name, rows, extra_cols):
     job.result()
     log(f"  [OK] loaded {len(rows)} rows into {table_name}")
 
-# ===== Main =====
+
 def main():
+    global ACCOUNT_CURRENCY
+
     today = datetime.now(timezone.utc).date()
     since = (today - timedelta(days=BACKFILL_DAYS)).isoformat()
     until = today.isoformat()
     log(f"range: {since} ~ {until}  (backfill_days={BACKFILL_DAYS}, time_increment=7)")
 
     # 계정 통화 자동 감지
-    global ACCOUNT_CURRENCY
     r = requests.get(
         f"{BASE_URL}/{META_AD_ACCOUNT_ID}",
         params={"access_token": META_ACCESS_TOKEN, "fields": "name,currency,timezone_name"},
@@ -229,10 +196,13 @@ def main():
     acct = r.json()
     ACCOUNT_CURRENCY = acct.get("currency", "USD")
     log(f"[CONFIG] Account: {acct.get('name')} | Currency: {ACCOUNT_CURRENCY} | TZ: {acct.get('timezone_name')}")
-
+    if ACCOUNT_CURRENCY == "KRW":
+        log(f"[CONFIG] Skipping USD->KRW conversion (account already in KRW)")
+    else:
+        log(f"[CONFIG] Applying USD_TO_KRW = {USD_TO_KRW}")
 
     ads = fetch_creatives()
-    # save creatives metadata
+
     creative_rows = []
     for ad in ads:
         c = ad.get("creative") or {}
@@ -260,7 +230,6 @@ def main():
     bq.load_table_from_json(creative_rows, f"{PROJECT_ID}.{DATASET}.meta_creatives", job_config=job_config).result()
     log(f"[OK] loaded {len(creative_rows)} creatives into meta_creatives")
 
-    # Fetch insights for each breakdown
     for bd_cfg in BREAKDOWNS:
         log(f"\n=== Breakdown: {bd_cfg['name']} ===")
         all_rows = []
@@ -273,6 +242,7 @@ def main():
         load_to_bq(bd_cfg["table"], all_rows, bd_cfg["extra_cols"])
 
     log("\n[DONE] fetch_meta_creatives complete")
+
 
 if __name__ == "__main__":
     main()
