@@ -136,6 +136,16 @@ WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
 ORDER BY event_date DESC, spend_krw DESC NULLS LAST
 LIMIT 5000"
 
+echo "=== export mart20_appeal ==="
+bq query \
+  --project_id="${PROJECT_ID}" \
+  --location="${LOCATION}" \
+  --use_legacy_sql=false \
+  --format=json \
+  --max_rows=50000 \
+  "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_appeal\` WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) ORDER BY event_date DESC" \
+  > docs/data/mart20_appeal.json
+
 
 
 echo "=== Dashboard data export done: $(date) ==="
