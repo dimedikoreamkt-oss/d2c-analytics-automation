@@ -82,9 +82,10 @@ def fetch_insights_for_ad(ad_id, since, until, breakdown_str=None):
     params = {
         "access_token": META_ACCESS_TOKEN,
         "time_range": json.dumps({"since": since, "until": until}),
-        "time_increment": 7,
+        "time_increment": 1,   # ← 7 → 1 (일별 aggregate)
         "level": "ad",
         "fields": "impressions,reach,clicks,spend,ctr,cpc,cpm,frequency,actions,action_values",
+        "action_attribution_windows": json.dumps(["7d_click", "1d_view"]),  # ← 추가
         "limit": 500
     }
     if breakdown_str:
@@ -105,8 +106,9 @@ def fetch_insights_for_ad(ad_id, since, until, breakdown_str=None):
         all_rows.extend(j.get("data", []))
         url = j.get("paging", {}).get("next")
         params = None
-        time.sleep(0.3)
+        time.sleep(0.5)   # ← 0.3 → 0.5 (rate limit 여유)
     return all_rows
+
 
 
 def parse_purchase_actions(row):
