@@ -1,0 +1,97 @@
+name: Daily Market Intelligence Discovery
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # KST 21:00 = UTC 12:00
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    env:
+      META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+      PROJECT_ID: d2c-analytics-502304
+      LOCATION: asia-northeast3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Discover competitor ads
+        run: python scripts/discover_competitor_ads.py
+
+      - name: Refresh Mart 22 (market winners)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/22_mart_market_winners.sql
+
+      - name: Refresh Mart 23 (appeal gap)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/23_mart_appeal_gap.sql
+
+      - name: Screenshot winner landing pages
+        run: python scripts/screenshot_landings.py
+        continue-on-error: true
+
+      - name: Export JSON for dashboard
+        run: |
+          mkdir -p docs/data
+
+          echo "=== export market_winners ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=10000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_market_winners\` WHERE running_days IS NOT NULL ORDER BY running_days DESC LIMIT 3000" \
+            > docs/data/market_winners.json
+
+          echo "=== export appeal_gap ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=100 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_appeal_gap\` ORDER BY gap_pct DESC" \
+            > docs/data/appeal_gap.json
+
+          ls -lh docs/data/market_winners.json docs/data/appeal_gap.json
+
+      - name: Commit generated files
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: sync market intelligence [skip ci]"
+          file_pattern: "docs/data/*.json docs/landings/*.png"
