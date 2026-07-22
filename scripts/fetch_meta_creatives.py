@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch Meta creatives and insights (with demographic breakdowns)."""
+"""Fetch Meta creatives and insights with demographic breakdowns."""
 import os
 import json
 import time
