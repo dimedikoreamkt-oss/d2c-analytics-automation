@@ -2,56 +2,101 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>광고 소재 성과 갤러리</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="mart_common.css">
 <style>
-  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;}
+  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;color:#111;}
   .wrap{max-width:1400px;margin:0 auto;padding:24px;}
-  .head{margin-bottom:24px;}
-  .head h1{font-size:26px;font-weight:700;margin:0 0 6px;color:#111;}
+  .head{margin-bottom:16px;}
+  .head h1{font-size:26px;font-weight:700;margin:0 0 6px;}
   .head .desc{color:#6b7280;font-size:14px;margin:0;}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0;background:#fff;padding:14px;border-radius:12px;border:1px solid #e5e7eb;}
+
+  .date-control{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-bottom:14px;}
+  .date-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .date-row:last-child{margin-bottom:0;}
+  .date-row label{font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+  .date-row select,.date-row input[type=date]{padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:13px;background:#fff;font-family:inherit;}
+  .date-row input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+  .date-row .compare-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600;color:#2563eb;}
+  .apply-btn{padding:7px 20px;background:#2563eb;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;}
+  .apply-btn:hover{background:#1d4ed8;}
+  .compare-row{display:none;padding-top:10px;border-top:1px dashed #e5e7eb;margin-top:10px;}
+  .compare-row.show{display:flex;}
+  .period-label{background:#eff6ff;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;background:#fff;padding:14px;border-radius:12px;border:1px solid #e5e7eb;align-items:center;}
   .controls select,.controls input{padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:#fff;}
   .view-toggle{margin-left:auto;display:flex;gap:6px;}
   .view-toggle button{padding:8px 14px;border:1px solid #d1d5db;background:#fff;border-radius:8px;font-size:13px;cursor:pointer;}
   .view-toggle button.active{background:#2563eb;color:#fff;border-color:#2563eb;}
+
+  .global-summary{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #dbeafe;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+  .gs-item{text-align:center;}
+  .gs-item .v{font-size:20px;font-weight:700;}
+  .gs-item .v.good{color:#059669;}
+  .gs-item .v.bad{color:#dc2626;}
+  .gs-item .l{font-size:11px;color:#6b7280;text-transform:uppercase;margin-top:2px;letter-spacing:0.4px;}
+  .gs-item .delta{font-size:11px;font-weight:700;margin-top:3px;padding:1px 6px;border-radius:4px;display:inline-block;}
+  .delta-up{background:#d1fae5;color:#065f46;}
+  .delta-down{background:#fee2e2;color:#991b1b;}
+  .delta-neutral{background:#f3f4f6;color:#6b7280;}
+  .prev-val{font-size:10px;color:#9ca3af;margin-top:2px;}
+
   .adset-group{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:16px;overflow:hidden;}
-  .adset-header{padding:16px 20px;background:linear-gradient(90deg,#f8fafc,#fff);border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:14px;cursor:pointer;}
-  .adset-header:hover{background:#f1f5f9;}
-  .adset-icon{font-size:22px;}
-  .adset-title{flex:1;}
-  .adset-title h3{margin:0 0 4px;font-size:15px;font-weight:700;color:#111;}
-  .adset-title .path{font-size:12px;color:#6b7280;}
-  .adset-stats{display:flex;gap:16px;font-size:12px;color:#374151;}
+  .adset-header{padding:16px 20px;background:linear-gradient(90deg,#f8fafc,#fff);border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:14px;}
+  .adset-header .toggle-btn{cursor:pointer;font-size:22px;user-select:none;}
+  .adset-title{flex:1;min-width:0;}
+  .adset-title h3{margin:0 0 4px;font-size:15px;font-weight:700;}
+  .adset-title h3 a{color:inherit;text-decoration:none;}
+  .adset-title h3 a:hover{color:#2563eb;}
+  .adset-title .path{font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .adset-title .detail-link{font-size:11px;color:#2563eb;margin-left:6px;font-weight:500;}
+  .adset-stats{display:flex;gap:16px;font-size:12px;}
   .adset-stat{text-align:right;}
-  .adset-stat .v{font-weight:700;color:#111;font-size:14px;}
+  .adset-stat .v{font-weight:700;font-size:14px;}
   .adset-stat .l{color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;}
-  .adset-body{padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+  .adset-stat .v.good{color:#059669;}
+  .adset-stat .v.bad{color:#dc2626;}
+  .adset-stat .delta-inline{font-size:10px;font-weight:600;margin-left:3px;padding:1px 4px;border-radius:3px;}
+  .adset-body{padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
   .adset-body.collapsed{display:none;}
   .c-card{background:#fff;border:2px solid #e5e7eb;border-radius:10px;overflow:hidden;cursor:pointer;transition:all .15s;position:relative;}
   .c-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,80,200,0.12);}
   .c-card.winner{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.15);}
   .c-card.loser{border-color:#ef4444;opacity:0.75;}
+  .c-card.rebound{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.15);}
+  .c-card.declining{border-color:#f97316;}
   .c-badge{position:absolute;top:8px;right:8px;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;z-index:2;}
   .c-badge.winner{background:#10b981;color:#fff;}
   .c-badge.loser{background:#ef4444;color:#fff;}
   .c-badge.monitor{background:#f59e0b;color:#fff;}
-  .c-thumb{width:100%;height:240px;object-fit:cover;background:#f3f4f6;display:block;}
-  .c-body{padding:12px;}
-  .c-name{font-size:13px;font-weight:600;color:#111;margin-bottom:8px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .c-kpi{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-  .k{background:#f9fafb;padding:6px 8px;border-radius:5px;}
+  .c-badge.rebound{background:#3b82f6;color:#fff;}
+  .c-badge.declining{background:#f97316;color:#fff;}
+  .c-thumb{width:100%;height:220px;object-fit:cover;background:#f3f4f6;display:block;}
+  .c-body{padding:10px 12px;}
+  .c-name{font-size:12px;font-weight:600;margin-bottom:8px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .c-kpi{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+  .k{background:#f9fafb;padding:5px 7px;border-radius:5px;}
   .k .l{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;}
-  .k .v{font-size:13px;font-weight:700;color:#111;}
+  .k .v{font-size:12px;font-weight:700;}
   .k .v.good{color:#059669;}
   .k .v.bad{color:#dc2626;}
-  .status-badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:6px;}
+  .k .d{font-size:9px;font-weight:600;margin-left:3px;padding:0 3px;border-radius:2px;}
+  .status-badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:6px;vertical-align:middle;}
   .status-ACTIVE{background:#d1fae5;color:#065f46;}
   .status-PAUSED{background:#fef3c7;color:#92400e;}
   .status-ARCHIVED{background:#e5e7eb;color:#4b5563;}
   .status-CAMPAIGN_PAUSED,.status-ADSET_PAUSED{background:#fee2e2;color:#991b1b;}
+  .status-WITH_ISSUES{background:#fed7aa;color:#9a3412;}
   .empty{text-align:center;padding:60px;color:#9ca3af;background:#fff;border-radius:12px;}
+  .topbar{background:#fff;padding:14px 24px;display:flex;align-items:center;gap:20px;border-bottom:1px solid #e5e7eb;}
+  .topbar .logo{font-weight:700;color:#111;text-decoration:none;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .topbar .logo-mark{background:#2563eb;color:#fff;width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
+  .topbar nav{color:#6b7280;font-size:13px;}
+  .topbar nav a{color:#6b7280;text-decoration:none;margin:0 4px;}
+  .topbar nav a.active{color:#2563eb;font-weight:600;}
 </style>
 </head>
 <body>
@@ -63,8 +108,42 @@
 <div class="wrap">
   <div class="head">
     <h1>🎨 광고 소재 성과 갤러리</h1>
-    <p class="desc">광고세트별로 소재를 묶어서 A/B 비교 · 자동 승자·패자 판정 · Meta+GA 통합 성과</p>
+    <p class="desc">기간 선택 · 비교 기간 · 광고세트별 그룹 · 자동 승자·패자 판정 · Meta + GA 통합</p>
   </div>
+
+  <div class="date-control">
+    <div class="date-row">
+      <label>기간</label>
+      <select id="quickPeriod">
+        <option value="7" selected>최근 7일</option>
+        <option value="14">최근 14일</option>
+        <option value="30">최근 30일</option>
+        <option value="90">최근 90일</option>
+        <option value="custom">사용자 지정</option>
+      </select>
+      <span style="color:#6b7280;">|</span>
+      <label>시작</label>
+      <input type="date" id="periodStart">
+      <label>종료</label>
+      <input type="date" id="periodEnd">
+      <span class="period-label">현재 기간</span>
+      <label class="compare-toggle" style="margin-left:auto;">
+        <input type="checkbox" id="compareEnable">
+        🔀 비교 기간
+      </label>
+      <button class="apply-btn" id="applyBtn">적용</button>
+    </div>
+    <div class="compare-row" id="compareRow">
+      <label>비교 시작</label>
+      <input type="date" id="compareStart">
+      <label>비교 종료</label>
+      <input type="date" id="compareEnd">
+      <span class="period-label" style="background:#fef3c7;color:#92400e;">비교 기간</span>
+      <span style="font-size:11px;color:#6b7280;">기본: 선택 기간의 바로 이전 동일 길이</span>
+    </div>
+  </div>
+
+  <div id="globalSummary"></div>
 
   <div class="controls">
     <select id="filterCampaign"><option value="">전체 캠페인</option></select>
@@ -73,22 +152,20 @@
       <option value="ACTIVE">활성만</option>
       <option value="PAUSED">일시정지</option>
       <option value="ARCHIVED">아카이브</option>
-    </select>
-    <select id="filterDateRange">
-      <option value="7">최근 7일</option>
-      <option value="14">최근 14일</option>
-      <option value="30" selected>최근 30일</option>
+      <option value="CAMPAIGN_PAUSED">캠페인 정지</option>
     </select>
     <select id="sortBy">
       <option value="spend_krw">지출순</option>
       <option value="ga_roas">GA ROAS순</option>
       <option value="ctr_pct">CTR순</option>
       <option value="ga_purchases">구매순</option>
+      <option value="impressions">노출순</option>
     </select>
     <input type="text" id="searchName" placeholder="소재명 검색...">
     <div class="view-toggle">
-      <button data-view="grouped" class="active">📁 그룹 뷰</button>
-      <button data-view="flat">▦ 평면 뷰</button>
+      <button data-view="grouped" class="active">📁 그룹</button>
+      <button data-view="flat">▦ 평면</button>
+      <button data-view="active">🟢 활성만</button>
     </div>
   </div>
 
@@ -98,6 +175,8 @@
 
 <script>
 let CREATIVES=[], PERF=[], VIEW='grouped', SORT='spend_krw';
+let periodStart=null, periodEnd=null;
+let compareEnabled=false, compareStart=null, compareEnd=null;
 
 async function load(){
   try{
@@ -106,6 +185,21 @@ async function load(){
       fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
     ]);
     CREATIVES=c; PERF=p;
+
+    const dates=[...new Set(PERF.map(r=>r.event_date))].sort();
+    const maxDate=dates.length?dates[dates.length-1]:new Date().toISOString().slice(0,10);
+    const minDate=dates.length?dates[0]:maxDate;
+    periodEnd=maxDate;
+    const s=new Date(maxDate);s.setDate(s.getDate()-6);
+    periodStart=s.toISOString().slice(0,10);
+    if(periodStart<minDate) periodStart=minDate;
+    setCompareAuto();
+
+    document.getElementById('periodStart').value=periodStart;
+    document.getElementById('periodEnd').value=periodEnd;
+    document.getElementById('compareStart').value=compareStart;
+    document.getElementById('compareEnd').value=compareEnd;
+
     initControls();
     render();
   }catch(e){
@@ -113,13 +207,24 @@ async function load(){
   }
 }
 
-function aggregate(days){
-  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-days);
+function setCompareAuto(){
+  const s=new Date(periodStart), e=new Date(periodEnd);
+  const days=Math.round((e-s)/86400000)+1;
+  const ce=new Date(s); ce.setDate(ce.getDate()-1);
+  const cs=new Date(ce); cs.setDate(cs.getDate()-(days-1));
+  compareStart=cs.toISOString().slice(0,10);
+  compareEnd=ce.toISOString().slice(0,10);
+}
+
+function inRange(date,s,e){return date>=s&&date<=e;}
+
+function aggregate(start,end){
   const agg={};
-  PERF.filter(r=>new Date(r.event_date)>=cutoff).forEach(r=>{
+  PERF.filter(r=>inRange(r.event_date,start,end)).forEach(r=>{
     const k=r.ad_id;
-    if(!agg[k]) agg[k]={impressions:0,reach:0,spend_krw:0,clicks:0,ga_purchases:0,ga_revenue:0,meta_purchases:0,ga_add_to_cart:0,ga_sessions:0};
-    agg[k].impressions+=+r.impressions||0;
+    if(!agg[k]) agg[k]={impressions:0,reach:0,spend_krw:0,clicks:0,ga_purchases:0,ga_revenue:0,meta_purchases:0,ga_add_to_cart:0,ga_sessions:0,freq_weighted_sum:0};
+    const imp=+r.impressions||0;
+    agg[k].impressions+=imp;
     agg[k].reach=Math.max(agg[k].reach,+r.reach||0);
     agg[k].spend_krw+=+r.spend_krw||0;
     agg[k].clicks+=+r.clicks||0;
@@ -128,11 +233,13 @@ function aggregate(days){
     agg[k].meta_purchases+=+r.meta_purchases||0;
     agg[k].ga_add_to_cart+=+r.ga_add_to_cart||0;
     agg[k].ga_sessions+=+r.ga_sessions||0;
+    agg[k].freq_weighted_sum+=(+r.frequency||0)*imp;
   });
   Object.values(agg).forEach(v=>{
     v.ctr_pct=v.impressions?v.clicks/v.impressions*100:0;
     v.ga_roas=v.spend_krw?v.ga_revenue/v.spend_krw:0;
     v.cpc=v.clicks?v.spend_krw/v.clicks:0;
+    v.frequency=v.impressions?v.freq_weighted_sum/v.impressions:0;
   });
   return agg;
 }
@@ -141,10 +248,12 @@ function initControls(){
   const camps=[...new Set(CREATIVES.map(c=>c.campaign_name).filter(Boolean))].sort();
   const sel=document.getElementById('filterCampaign');
   camps.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
-  ['filterCampaign','filterStatus','filterDateRange','searchName','sortBy'].forEach(id=>{
+
+  ['filterCampaign','filterStatus','searchName','sortBy'].forEach(id=>{
     document.getElementById(id).addEventListener('change',render);
     if(id==='searchName') document.getElementById(id).addEventListener('input',render);
   });
+
   document.querySelectorAll('.view-toggle button').forEach(b=>{
     b.addEventListener('click',e=>{
       document.querySelectorAll('.view-toggle button').forEach(x=>x.classList.remove('active'));
@@ -153,55 +262,187 @@ function initControls(){
       render();
     });
   });
+
+  const qp=document.getElementById('quickPeriod');
+  const ps=document.getElementById('periodStart');
+  const pe=document.getElementById('periodEnd');
+  const ce=document.getElementById('compareEnable');
+  const cs=document.getElementById('compareStart');
+  const cend=document.getElementById('compareEnd');
+  const ab=document.getElementById('applyBtn');
+  const cr=document.getElementById('compareRow');
+
+  qp.addEventListener('change',e=>{
+    if(e.target.value==='custom') return;
+    const days=+e.target.value;
+    const dates=[...new Set(PERF.map(r=>r.event_date))].sort();
+    const maxDate=dates.length?dates[dates.length-1]:new Date().toISOString().slice(0,10);
+    const s=new Date(maxDate);s.setDate(s.getDate()-(days-1));
+    ps.value=s.toISOString().slice(0,10);
+    pe.value=maxDate;
+  });
+
+  ce.addEventListener('change',e=>{
+    compareEnabled=e.target.checked;
+    cr.classList.toggle('show',compareEnabled);
+  });
+
+  ab.addEventListener('click',()=>{
+    periodStart=ps.value; periodEnd=pe.value;
+    compareEnabled=ce.checked;
+    if(compareEnabled){
+      compareStart=cs.value; compareEnd=cend.value;
+    }else{
+      setCompareAuto();
+    }
+    render();
+  });
+
+  [ps,pe].forEach(el=>{
+    el.addEventListener('change',()=>{
+      periodStart=ps.value; periodEnd=pe.value;
+      setCompareAuto();
+      cs.value=compareStart; cend.value=compareEnd;
+    });
+  });
 }
 
 function fmt(n,d=0){if(n==null||isNaN(n))return'-';return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});}
 
-function classifyCreative(perf, allInAdset){
-  // adset 내 상대적 순위 기반 자동 판정
-  if(perf.spend_krw<10000) return null; // 지출 너무 적음 = 판정 보류
-  const roasList=allInAdset.map(x=>x.ga_roas).filter(x=>x>0);
-  const spendList=allInAdset.map(x=>x.spend_krw);
-  if(allInAdset.length<2) return null; // A/B 하려면 최소 2개 필요
-  const maxRoas=Math.max(...roasList,0);
-  if(perf.ga_roas>=maxRoas && perf.ga_roas>=0.5) return {tag:'winner',label:'🏆 승자'};
-  if(perf.spend_krw>50000 && perf.ga_roas<0.2) return {tag:'loser',label:'🚨 정지 권장'};
+function delta(cur,prev){
+  if(prev==null||cur==null) return null;
+  if(prev===0){return cur===0?{pct:0,dir:'neutral'}:{pct:null,dir:'up',special:'신규'};}
+  const pct=(cur-prev)/prev*100;
+  return {pct,dir:pct>0.5?'up':pct<-0.5?'down':'neutral'};
+}
+
+function deltaBadge(cur,prev){
+  if(!compareEnabled||prev==null) return '';
+  const d=delta(cur,prev);
+  if(!d) return '';
+  const arrow=d.dir==='up'?'▲':d.dir==='down'?'▼':'─';
+  const txt=d.special||(d.pct!=null?`${d.pct>0?'+':''}${d.pct.toFixed(0)}%`:'-');
+  return `<span class="d delta-${d.dir}">${arrow}${txt}</span>`;
+}
+
+function summaryDelta(cur,prev,digit=0,unit=''){
+  if(!compareEnabled||prev==null) return '';
+  const d=delta(cur,prev);
+  if(!d) return '';
+  const arrow=d.dir==='up'?'▲':d.dir==='down'?'▼':'─';
+  const txt=d.special||(d.pct!=null?`${d.pct>0?'+':''}${d.pct.toFixed(1)}%`:'-');
+  return `<div class="delta delta-${d.dir}">${arrow} ${txt}</div>
+          <div class="prev-val">이전: ${unit}${fmt(prev,digit)}</div>`;
+}
+
+function classify(perf, allInAdset, prevPerf, allPrevInAdset){
+  if(perf.spend_krw<10000) return null;
+  if(allInAdset.length<2) return null;
+  const maxRoas=Math.max(...allInAdset.map(x=>x.ga_roas));
+  const isWinner=perf.ga_roas>=maxRoas && perf.ga_roas>=0.5;
+  const isLoser=perf.spend_krw>50000 && perf.ga_roas<0.2;
+
+  if(compareEnabled && prevPerf && allPrevInAdset && allPrevInAdset.length>=2){
+    const prevMax=Math.max(...allPrevInAdset.map(x=>x.ga_roas));
+    const wasWinner=prevPerf.spend_krw>=10000 && prevPerf.ga_roas>=prevMax && prevPerf.ga_roas>=0.5;
+    const wasLoser=prevPerf.spend_krw>50000 && prevPerf.ga_roas<0.2;
+    if(!wasWinner && isWinner) return {tag:'rebound',label:'📈 반등'};
+    if(wasWinner && !isWinner && perf.ga_roas<0.3) return {tag:'declining',label:'🔻 하락'};
+  }
+
+  if(isWinner) return {tag:'winner',label:'🏆 승자'};
+  if(isLoser) return {tag:'loser',label:'🚨 정지 권장'};
   return {tag:'monitor',label:'👀 관찰'};
 }
 
 function render(){
-  const days=+document.getElementById('filterDateRange').value;
+  SORT=document.getElementById('sortBy').value;
   const campFilter=document.getElementById('filterCampaign').value;
   const statusFilter=document.getElementById('filterStatus').value;
   const searchQ=document.getElementById('searchName').value.toLowerCase();
-  SORT=document.getElementById('sortBy').value;
 
-  const perf=aggregate(days);
+  const perf=aggregate(periodStart,periodEnd);
+  const prevPerf=compareEnabled?aggregate(compareStart,compareEnd):null;
+
+  // 전체 요약
+  const allCurr=Object.values(perf);
+  const allPrev=prevPerf?Object.values(prevPerf):[];
+  const totalSpend=allCurr.reduce((s,p)=>s+p.spend_krw,0);
+  const totalImps=allCurr.reduce((s,p)=>s+p.impressions,0);
+  const totalClicks=allCurr.reduce((s,p)=>s+p.clicks,0);
+  const totalPurchases=allCurr.reduce((s,p)=>s+p.ga_purchases,0);
+  const totalRev=allCurr.reduce((s,p)=>s+p.ga_revenue,0);
+  const avgCtr=totalImps?totalClicks/totalImps*100:0;
+  const avgRoas=totalSpend?totalRev/totalSpend:0;
+
+  const prevSpend=allPrev.reduce((s,p)=>s+p.spend_krw,0);
+  const prevImps=allPrev.reduce((s,p)=>s+p.impressions,0);
+  const prevClicks=allPrev.reduce((s,p)=>s+p.clicks,0);
+  const prevPurchases=allPrev.reduce((s,p)=>s+p.ga_purchases,0);
+  const prevRev=allPrev.reduce((s,p)=>s+p.ga_revenue,0);
+  const prevCtr=prevImps?prevClicks/prevImps*100:0;
+  const prevRoas=prevSpend?prevRev/prevSpend:0;
+
+  document.getElementById('globalSummary').innerHTML=`
+    <div class="global-summary">
+      <div class="gs-item">
+        <div class="v">₩${fmt(totalSpend)}</div>
+        <div class="l">총 지출</div>
+        ${summaryDelta(totalSpend,prevSpend,0,'₩')}
+      </div>
+      <div class="gs-item">
+        <div class="v">${fmt(totalImps)}</div>
+        <div class="l">총 노출</div>
+        ${summaryDelta(totalImps,prevImps,0)}
+      </div>
+      <div class="gs-item">
+        <div class="v">${fmt(avgCtr,2)}%</div>
+        <div class="l">평균 CTR</div>
+        ${summaryDelta(avgCtr,prevCtr,2)}
+      </div>
+      <div class="gs-item">
+        <div class="v">${totalPurchases}건</div>
+        <div class="l">총 구매</div>
+        ${summaryDelta(totalPurchases,prevPurchases,0)}
+      </div>
+      <div class="gs-item">
+        <div class="v ${avgRoas>=1?'good':avgRoas>0?'bad':''}">${fmt(avgRoas,2)}x</div>
+        <div class="l">평균 GA ROAS</div>
+        ${summaryDelta(avgRoas,prevRoas,2)}
+      </div>
+    </div>
+  `;
 
   let list=CREATIVES.filter(c=>{
     if(campFilter && c.campaign_name!==campFilter) return false;
     if(statusFilter && c.effective_status!==statusFilter) return false;
+    if(VIEW==='active' && c.effective_status!=='ACTIVE') return false;
     if(searchQ && !(c.ad_name||'').toLowerCase().includes(searchQ)) return false;
     return true;
-  }).map(c=>({...c, _perf: perf[c.ad_id]||{spend_krw:0,ctr_pct:0,ga_roas:0,ga_purchases:0,impressions:0,cpc:0}}));
+  }).map(c=>({
+    ...c,
+    _perf: perf[c.ad_id]||{spend_krw:0,ctr_pct:0,ga_roas:0,ga_purchases:0,impressions:0,cpc:0,ga_revenue:0,clicks:0,frequency:0},
+    _prev: prevPerf?prevPerf[c.ad_id]:null
+  }));
 
-  document.getElementById('summary').textContent=`총 ${list.length}개 소재 · 최근 ${days}일 · ${VIEW==='grouped'?'광고세트별 그룹':'평면'} 뷰`;
+  const periodLabel=compareEnabled?`${periodStart}~${periodEnd} vs ${compareStart}~${compareEnd}`:`${periodStart} ~ ${periodEnd}`;
+  document.getElementById('summary').textContent=`총 ${list.length}개 소재 · ${periodLabel} · ${VIEW==='grouped'?'광고세트별 그룹':VIEW==='active'?'활성 소재만':'평면'} 뷰`;
 
   const content=document.getElementById('content');
   content.innerHTML='';
 
   if(!list.length){content.innerHTML='<div class="empty">표시할 소재가 없습니다.</div>';return;}
 
-  if(VIEW==='flat'){
+  if(VIEW==='flat' || VIEW==='active'){
     const grid=document.createElement('div');
-    grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;';
+    grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;';
     list.sort((a,b)=>(b._perf[SORT]||0)-(a._perf[SORT]||0));
-    list.forEach(c=>grid.appendChild(makeCard(c,null)));
+    list.forEach(c=>grid.appendChild(makeCard(c,null,null)));
     content.appendChild(grid);
     return;
   }
 
-  // grouped view: campaign > adset > creatives
+  // grouped view
   const groups={};
   list.forEach(c=>{
     const key=`${c.campaign_name||'(unknown)'}||${c.adset_name||'(unknown)'}`;
@@ -209,61 +450,78 @@ function render(){
     groups[key].creatives.push(c);
   });
 
-  Object.values(groups).forEach(g=>{
-    // 광고세트 통합 지표
-    const totalSpend=g.creatives.reduce((s,c)=>s+c._perf.spend_krw,0);
-    const totalRev=g.creatives.reduce((s,c)=>s+(c._perf.ga_revenue||0),0);
+  const sortedGroups=Object.values(groups).map(g=>{
+    g.totalSpend=g.creatives.reduce((s,c)=>s+c._perf.spend_krw,0);
+    return g;
+  }).sort((a,b)=>b.totalSpend-a.totalSpend);
+
+  sortedGroups.forEach(g=>{
+    const curPerfs=g.creatives.map(c=>c._perf);
+    const prevPerfs=g.creatives.map(c=>c._prev).filter(x=>x);
+    const totalSpend=g.totalSpend;
+    const totalRev=curPerfs.reduce((s,c)=>s+c.ga_revenue,0);
     const avgRoas=totalSpend?totalRev/totalSpend:0;
-    const totalImps=g.creatives.reduce((s,c)=>s+c._perf.impressions,0);
-    const totalClicks=g.creatives.reduce((s,c)=>s+c._perf.clicks,0);
+    const totalImps=curPerfs.reduce((s,c)=>s+c.impressions,0);
+    const totalClicks=curPerfs.reduce((s,c)=>s+c.clicks,0);
     const avgCtr=totalImps?totalClicks/totalImps*100:0;
+    const totalPurchases=curPerfs.reduce((s,c)=>s+c.ga_purchases,0);
+
+    const prevSpend=prevPerfs.reduce((s,c)=>s+c.spend_krw,0);
+    const prevRev=prevPerfs.reduce((s,c)=>s+c.ga_revenue,0);
+    const prevAvgRoas=prevSpend?prevRev/prevSpend:0;
+    const prevImps=prevPerfs.reduce((s,c)=>s+c.impressions,0);
+    const prevClicks=prevPerfs.reduce((s,c)=>s+c.clicks,0);
+    const prevAvgCtr=prevImps?prevClicks/prevImps*100:0;
+    const prevPurchases=prevPerfs.reduce((s,c)=>s+c.ga_purchases,0);
 
     const box=document.createElement('div');
     box.className='adset-group';
-    const perfList=g.creatives.map(c=>c._perf);
+    const detailUrl=`adset_detail.html?campaign=${encodeURIComponent(g.campaign||'')}&adset=${encodeURIComponent(g.adset||'')}`;
 
     box.innerHTML=`
-      <div class="adset-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">
-        <div class="adset-icon">📁</div>
+      <div class="adset-header">
+        <div class="toggle-btn" onclick="this.closest('.adset-group').querySelector('.adset-body').classList.toggle('collapsed')">📁</div>
         <div class="adset-title">
-          <h3>${g.adset||'(광고세트 없음)'}</h3>
+          <h3><a href="${detailUrl}">${g.adset||'(광고세트 없음)'}</a><span class="detail-link">→ A/B 상세 분석</span></h3>
           <div class="path">${g.campaign||'(캠페인 없음)'}</div>
         </div>
         <div class="adset-stats">
           <div class="adset-stat"><div class="v">${g.creatives.length}</div><div class="l">소재</div></div>
-          <div class="adset-stat"><div class="v">₩${fmt(totalSpend)}</div><div class="l">지출</div></div>
-          <div class="adset-stat"><div class="v">${fmt(avgCtr,2)}%</div><div class="l">평균 CTR</div></div>
-          <div class="adset-stat"><div class="v ${avgRoas>=1?'good':avgRoas>0?'bad':''}">${fmt(avgRoas,2)}x</div><div class="l">평균 ROAS</div></div>
+          <div class="adset-stat"><div class="v">₩${fmt(totalSpend)}${deltaBadge(totalSpend,compareEnabled?prevSpend:null).replace(/class="d /,'class="delta-inline ')}</div><div class="l">지출</div></div>
+          <div class="adset-stat"><div class="v">${fmt(avgCtr,2)}%${deltaBadge(avgCtr,compareEnabled?prevAvgCtr:null).replace(/class="d /,'class="delta-inline ')}</div><div class="l">평균 CTR</div></div>
+          <div class="adset-stat"><div class="v">${totalPurchases}${deltaBadge(totalPurchases,compareEnabled?prevPurchases:null).replace(/class="d /,'class="delta-inline ')}</div><div class="l">구매</div></div>
+          <div class="adset-stat"><div class="v ${avgRoas>=1?'good':avgRoas>0?'bad':''}">${fmt(avgRoas,2)}x${deltaBadge(avgRoas,compareEnabled?prevAvgRoas:null).replace(/class="d /,'class="delta-inline ')}</div><div class="l">평균 ROAS</div></div>
         </div>
       </div>
-      <div class="adset-body"></div>
+      <div class="adset-body ${totalSpend===0?'collapsed':''}"></div>
     `;
     const body=box.querySelector('.adset-body');
     g.creatives.sort((a,b)=>(b._perf[SORT]||0)-(a._perf[SORT]||0));
-    g.creatives.forEach(c=>body.appendChild(makeCard(c,perfList)));
+    g.creatives.forEach(c=>body.appendChild(makeCard(c,curPerfs,prevPerfs)));
     content.appendChild(box);
   });
 }
 
-function makeCard(c,adsetPerfList){
+function makeCard(c,adsetPerfList,adsetPrevList){
   const p=c._perf;
-  const verdict=adsetPerfList?classifyCreative(p,adsetPerfList):null;
+  const prev=c._prev;
+  const verdict=adsetPerfList?classify(p,adsetPerfList,prev,adsetPrevList):null;
   const card=document.createElement('div');
   card.className='c-card'+(verdict?' '+verdict.tag:'');
   card.onclick=()=>window.location.href=`creative_detail.html?ad_id=${encodeURIComponent(c.ad_id)}`;
   const img=c.local_image_path||c.thumbnail_url||'';
   card.innerHTML=`
     ${verdict?`<div class="c-badge ${verdict.tag}">${verdict.label}</div>`:''}
-    <img class="c-thumb" src="${img}" onerror="this.src='https://via.placeholder.com/260x240/f3f4f6/9ca3af?text=No+Image'">
+    <img class="c-thumb" src="${img}" onerror="this.src='https://via.placeholder.com/240x220/f3f4f6/9ca3af?text=No+Image'">
     <div class="c-body">
-      <div class="c-name">${c.ad_name||'(이름 없음)'}<span class="status-badge status-${c.effective_status}">${c.effective_status||''}</span></div>
+      <div class="c-name" title="${c.ad_name||''}">${c.ad_name||'(이름 없음)'}<span class="status-badge status-${c.effective_status}">${c.effective_status||''}</span></div>
       <div class="c-kpi">
-        <div class="k"><div class="l">지출</div><div class="v">₩${fmt(p.spend_krw)}</div></div>
-        <div class="k"><div class="l">노출</div><div class="v">${fmt(p.impressions)}</div></div>
-        <div class="k"><div class="l">CTR</div><div class="v">${fmt(p.ctr_pct,2)}%</div></div>
-        <div class="k"><div class="l">GA ROAS</div><div class="v ${p.ga_roas>=1?'good':p.ga_roas>0?'bad':''}">${fmt(p.ga_roas,2)}x</div></div>
-        <div class="k"><div class="l">구매</div><div class="v">${fmt(p.ga_purchases)}건</div></div>
-        <div class="k"><div class="l">CPC</div><div class="v">₩${fmt(p.cpc)}</div></div>
+        <div class="k"><div class="l">지출</div><div class="v">₩${fmt(p.spend_krw)}${deltaBadge(p.spend_krw,prev?.spend_krw)}</div></div>
+        <div class="k"><div class="l">노출</div><div class="v">${fmt(p.impressions)}${deltaBadge(p.impressions,prev?.impressions)}</div></div>
+        <div class="k"><div class="l">CTR</div><div class="v">${fmt(p.ctr_pct,2)}%${deltaBadge(p.ctr_pct,prev?.ctr_pct)}</div></div>
+        <div class="k"><div class="l">GA ROAS</div><div class="v ${p.ga_roas>=1?'good':p.ga_roas>0?'bad':''}">${fmt(p.ga_roas,2)}x${deltaBadge(p.ga_roas,prev?.ga_roas)}</div></div>
+        <div class="k"><div class="l">구매</div><div class="v">${fmt(p.ga_purchases)}건${deltaBadge(p.ga_purchases,prev?.ga_purchases)}</div></div>
+        <div class="k"><div class="l">CPC</div><div class="v">₩${fmt(p.cpc)}${deltaBadge(p.cpc,prev?.cpc)}</div></div>
       </div>
     </div>`;
   return card;
