@@ -1,36 +1,77 @@
 """
-경쟁사 특정 없이 키워드 기반으로 광고 자동 발굴
-- 자사 소구점에서 키워드 자동 추출
-- Meta Ads Library API로 카테고리 광고 대량 수집
+경쟁사 특정 없이 키워드 기반 광고 자동 발굴
+- 자사 소구점(mart_creative_appeal)에서 검색 키워드 자동 추출
+- Meta Ads Library API로 대량 검색
 - 러닝 기간 기반 자동 등급 판정
 """
-import os, json, requests, time
-from datetime import date, datetime, timezone, timedelta
+import os
+import json
+import time
+import requests
+from datetime import date, datetime, timezone
 from google.cloud import bigquery
 
 META_TOKEN = os.environ["META_ACCESS_TOKEN"]
 PROJECT_ID = "d2c-analytics-502304"
-API = "https://graph.facebook.com/v20.0/ads_archive"
+DATASET = "marts"
+LOCATION = "asia-northeast3"
+API_VERSION = "v20.0"
+API = f"https://graph.facebook.com/{API_VERSION}/ads_archive"
 COUNTRY = "KR"
 
-
-# 📌 자동 발굴 키워드 (자사 카테고리 기준)
-DISCOVERY_KEYWORDS = [
-    # 카테고리
-    "안면윤곽", "V라인", "리프팅", "홈케어 마사지기", "홈리프팅",
-    # 고민
-    "이중턱", "볼살 빼기", "얼굴 붓기", "처진 볼", "팔자주름",
-    # 기술
-    "EMS 마사지기", "LED 마스크", "저주파", "미세전류", "초음파 마사지",
-    # 브랜드 카테고리 (특정 브랜드 아님)
-    "홈뷰티 디바이스", "안면 마사지기", "탄력 관리",
+# 카테고리 기본 키워드 (자사 소구점에 상관없이 항상 검색)
+BASE_KEYWORDS = [
+    # 안면 관리 카테고리
+    "안면윤곽", "V라인", "리프팅", "탄력", "턱선",
+    "이중턱", "볼살", "처진볼", "팔자주름", "광대",
+    # 홈케어 기기
+    "홈케어 마사지기", "얼굴 마사지기", "안면 마사지기",
+    "EMS 마사지기", "LED 마스크", "저주파 마사지",
+    "미세전류", "초음파 마사지",
     # 시술 대체
-    "울쎄라 대체", "인모드 대체", "시술없이 리프팅",
+    "울쎄라", "인모드", "리쥬란", "시술없이",
+    # 홈뷰티 카테고리
+    "홈뷰티 디바이스", "홈리프팅", "얼굴 탄력",
 ]
 
 
+def get_dynamic_keywords():
+    """자사 소구점에서 상위 키워드 자동 추출"""
+    try:
+        client = bigquery.Client(project=PROJECT_ID)
+        q = f"""
+        SELECT appeal_tag, SUM(spend_krw) AS total_spend
+        FROM `{PROJECT_ID}.marts.mart_creative_appeal`
+        WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+          AND appeal_tag NOT IN ('미분류')
+        GROUP BY appeal_tag
+        ORDER BY total_spend DESC
+        LIMIT 8
+        """
+        rows = list(client.query(q).result())
+        # 소구점 이름 자체가 이미 좋은 키워드
+        dynamic = []
+        for r in rows:
+            tag = r["appeal_tag"]
+            # 소구점명에서 검색 키워드 유도
+            if "얼굴형" in tag or "윤곽" in tag:
+                dynamic.extend(["안면윤곽", "V라인", "얼굴형"])
+            elif "리프팅" in tag or "탄력" in tag:
+                dynamic.extend(["리프팅", "탄력"])
+            elif "홈케어" in tag:
+                dynamic.extend(["홈케어", "셀프케어"])
+            elif "시술대체" in tag:
+                dynamic.extend(["시술없이", "울쎄라 대체"])
+            elif "디바이스" in tag:
+                dynamic.extend(["홈뷰티 기기", "마사지기"])
+        return list(set(dynamic))
+    except Exception as e:
+        print(f"[WARN] dynamic keyword extract failed: {e}")
+        return []
+
+
 def search_ads(keyword, limit=500):
-    """키워드 하나로 광고 검색"""
+    """키워드로 광고 검색 (페이지네이션 자동 처리)"""
     ads = []
     params = {
         "access_token": META_TOKEN,
@@ -59,9 +100,9 @@ def search_ads(keyword, limit=500):
             ads.extend(new_ads)
             url = data.get("paging", {}).get("next")
             params = {}
-            time.sleep(0.5)  # rate limit 대응
+            time.sleep(0.4)
         except Exception as e:
-            print(f"[WARN] keyword '{keyword}': {e}")
+            print(f"[WARN] '{keyword}': {e}")
             break
     return ads[:limit]
 
@@ -71,27 +112,33 @@ def compute_running_days(start, stop):
         return None
     try:
         s = datetime.fromisoformat(start.replace("Z", "+00:00"))
-    except:
+    except Exception:
         return None
     e = datetime.fromisoformat(stop.replace("Z", "+00:00")) if stop else datetime.now(timezone.utc)
     return max(0, (e - s).days)
 
 
 def main():
-    print(f"[INFO] discovering ads for {len(DISCOVERY_KEYWORDS)} keywords")
+    # 기본 키워드 + 동적 키워드
+    dynamic_kws = get_dynamic_keywords()
+    keywords = list(set(BASE_KEYWORDS + dynamic_kws))
+    print(f"[INFO] total keywords: {len(keywords)}")
+    print(f"[INFO] dynamic from own data: {dynamic_kws}")
+
     all_ads = {}  # ad_id로 중복 제거
 
-    for kw in DISCOVERY_KEYWORDS:
+    for kw in keywords:
         print(f"[INFO] searching '{kw}'")
-        ads = search_ads(kw)
-        print(f"       -> {len(ads)} ads found")
+        ads = search_ads(kw, limit=300)
+        print(f"       -> {len(ads)} ads")
         for ad in ads:
             aid = ad["id"]
             if aid not in all_ads:
                 all_ads[aid] = ad
                 all_ads[aid]["_matched_keywords"] = [kw]
             else:
-                all_ads[aid]["_matched_keywords"].append(kw)
+                if kw not in all_ads[aid]["_matched_keywords"]:
+                    all_ads[aid]["_matched_keywords"].append(kw)
 
     print(f"[INFO] total unique ads: {len(all_ads)}")
 
@@ -112,6 +159,7 @@ def main():
             "page_id": ad.get("page_id"),
             "page_name": ad.get("page_name"),
             "matched_keywords": ",".join(ad.get("_matched_keywords", [])),
+            "keyword_count": len(ad.get("_matched_keywords", [])),
             "ad_creation_time": ad.get("ad_creation_time"),
             "delivery_start": ad.get("ad_delivery_start_time"),
             "delivery_stop": ad.get("ad_delivery_stop_time"),
@@ -138,13 +186,14 @@ def main():
         })
 
     client = bigquery.Client(project=PROJECT_ID)
-    table_id = f"{PROJECT_ID}.marts.discovered_ads"
+    table_id = f"{PROJECT_ID}.{DATASET}.discovered_ads"
 
     schema = [
         bigquery.SchemaField("ad_id", "STRING"),
         bigquery.SchemaField("page_id", "STRING"),
         bigquery.SchemaField("page_name", "STRING"),
         bigquery.SchemaField("matched_keywords", "STRING"),
+        bigquery.SchemaField("keyword_count", "INT64"),
         bigquery.SchemaField("ad_creation_time", "STRING"),
         bigquery.SchemaField("delivery_start", "STRING"),
         bigquery.SchemaField("delivery_stop", "STRING"),
