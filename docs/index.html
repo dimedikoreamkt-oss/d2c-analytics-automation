@@ -3,74 +3,277 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>D2C Analytics · 데이터 대시보드</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>D2C Analytics · Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 <link rel="stylesheet" href="mart_common.css">
 <style>
-  .hero-wrap { background: linear-gradient(135deg, #0066FF 0%, #4d94ff 100%); color: white; padding: 80px 40px 100px; text-align: center; }
-  .hero-wrap h1 { font-size: 42px; font-weight: 800; letter-spacing: -1.2px; margin-bottom: 12px; }
-  .hero-wrap p { font-size: 16px; opacity: 0.9; max-width: 560px; margin: 0 auto; }
-  .badge-row { display: inline-flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
-  .badge-row .b { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; }
-  .cards-wrap { max-width: 1200px; margin: -50px auto 60px; padding: 0 20px; }
-  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-  .m-card {
-    background: white; border-radius: 16px; padding: 24px; text-decoration: none; color: var(--text);
-    border: 1px solid var(--border); box-shadow: var(--shadow-md);
-    transition: transform .18s, box-shadow .18s, border-color .18s;
-    display: block;
-  }
-  .m-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--primary); }
-  .m-card .tag { display: inline-block; font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-light); padding: 4px 10px; border-radius: 6px; letter-spacing: 0.6px; }
-  .m-card h3 { font-size: 17px; font-weight: 700; margin: 12px 0 6px; }
-  .m-card .d { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .overview-hero { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:24px; }
+  @media (max-width:1100px){ .overview-hero{ grid-template-columns:repeat(2,1fr);} }
+  .oh-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
+  .oh-card .oh-lbl { font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .oh-card .oh-val { font-size:26px; font-weight:700; margin:8px 0 4px; letter-spacing:-.5px; }
+  .oh-card .oh-delta { font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:3px; }
+  .oh-card .oh-delta.up   { color:var(--success); }
+  .oh-card .oh-delta.down { color:var(--danger); }
+  .oh-card .oh-delta.flat { color:var(--text-muted); }
+  .section-title { font-size:15px; font-weight:700; color:var(--text); margin:32px 0 12px; display:flex; align-items:center; gap:8px; }
+  .section-title svg { color:var(--text-muted); width:18px; height:18px; }
+  .active-ads { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+  .ad-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; cursor:pointer; transition:all .15s; text-decoration:none; color:var(--text); }
+  .ad-card:hover { border-color:var(--primary); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .ad-card .ad-img { width:100%; aspect-ratio:1/1; background:var(--bg); object-fit:cover; display:block; }
+  .ad-card .ad-body { padding:14px 16px; }
+  .ad-card .ad-name { font-size:13px; font-weight:600; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ad-card .ad-meta { font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ad-card .ad-metrics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .ad-card .ad-m-lbl { font-size:10px; color:var(--text-muted); text-transform:uppercase; font-weight:600; }
+  .ad-card .ad-m-val { font-size:14px; font-weight:700; margin-top:2px; }
+  .status-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; }
+  .status-active { background:var(--success); }
+  .action-list { display:flex; flex-direction:column; gap:8px; }
+  .action-item { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:14px 18px; display:flex; align-items:flex-start; gap:12px; }
+  .action-item .a-ico { width:36px; height:36px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .action-item.warn .a-ico { background:var(--warning-light); color:var(--warning); }
+  .action-item.bad  .a-ico { background:var(--danger-light);  color:var(--danger); }
+  .action-item.good .a-ico { background:var(--success-light); color:var(--success); }
+  .action-item .a-body { flex:1; }
+  .action-item .a-title { font-size:13.5px; font-weight:600; margin-bottom:4px; }
+  .action-item .a-desc  { font-size:12.5px; color:var(--text-secondary); line-height:1.5; }
+  .action-item .a-link  { font-size:12px; color:var(--primary); text-decoration:none; margin-top:6px; display:inline-flex; align-items:center; gap:4px; }
+  .trend-wrap { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-lg); padding:22px 24px; }
+  .trend-wrap h3 { font-size:14px; font-weight:700; margin-bottom:4px; }
+  .trend-wrap .h3-sub { font-size:12px; color:var(--text-muted); margin-bottom:16px; }
+  .trend-wrap canvas { max-height:280px; }
+  .empty-state { padding:40px 24px; text-align:center; color:var(--text-muted); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
 </style>
 </head>
 <body>
 <header class="topbar">
   <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
-  <div class="meta">매일 KST 19:00 자동 갱신</div>
+  <div class="meta" id="lastUpdated">Loading…</div>
 </header>
-<div class="hero-wrap">
-  <h1>D2C Analytics 대시보드</h1>
-  <p>BigQuery · GitHub Actions · 자체 웹 대시보드로 구축한 완전 자동화 데이터 파이프라인. 매일 아홉 개의 실무 마트가 자동으로 갱신됩니다.</p>
-  <div class="badge-row">
-    <span class="b">🔄 매일 자동 갱신</span>
-    <span class="b">📊 9개 실무 마트</span>
-    <span class="b">🤖 3개 ML 예측 모델</span>
-  </div>
-</div>
-<div class="cards-wrap">
-  <!-- ⭐ 소재 갤러리 강조 배너 -->
-  <a class="feature-card" href="creative_gallery.html" style="background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; padding:32px; border-radius:16px; margin-bottom:24px; display:block; text-decoration:none; box-shadow: var(--shadow-lg);">
-    <div style="display:flex; align-items:center; gap:24px;">
-      <div style="font-size:48px;">🎨</div>
-      <div>
-        <div style="font-size:12px; opacity:0.8; text-transform:uppercase; letter-spacing:2px;">NEW · CREATIVE INTELLIGENCE</div>
-        <h2 style="margin:6px 0; font-size:26px; color:#fff;">Meta 광고 소재 갤러리</h2>
-        <p style="margin:0; opacity:0.95;">현재 운영 중인 소재를 이미지로 보고, 클릭 한 번으로 Meta + GA 통합 성과 확인</p>
-      </div>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard</div>
+      <h1>Overview</h1>
+      <div class="desc">최근 7일 광고 성과 요약과 집행 중인 광고, 개선 액션 제안입니다. 소재 카드를 클릭하면 상세 성과와 개선 제안으로 이동합니다.</div>
     </div>
-  </a>
-  <div class="cards-grid">
-    <a href="mart1.html" class="m-card"><span class="tag">MART 1</span><h3>일별 이커머스 핵심 KPI</h3><div class="d">매출, 세션, 전환율, AOV 등 일자별 추이를 한눈에 확인</div></a>
-    <a href="mart2.html" class="m-card"><span class="tag">MART 2</span><h3>퍼널 이탈 분석</h3><div class="d">상품조회→장바구니→결제→구매 각 단계 이탈률 추적</div></a>
-    <a href="mart3.html" class="m-card"><span class="tag">MART 3</span><h3>코호트 리텐션</h3><div class="d">가입 시점별 사용자 재방문·재구매 유지율</div></a>
-    <a href="mart4.html" class="m-card"><span class="tag">MART 4</span><h3>멀티터치 어트리뷰션</h3><div class="d">first · last · linear 방식 채널 기여도</div></a>
-    <a href="mart5.html" class="m-card"><span class="tag">MART 5</span><h3>LTV / RFM</h3><div class="d">고객 생애가치 · Recency Frequency Monetary 등급</div></a>
-    <a href="mart6.html" class="m-card"><span class="tag">MART 6</span><h3>신규 vs 재방문</h3><div class="d">유저 타입별 세션·전환 비교</div></a>
-    <a href="mart7.html" class="m-card"><span class="tag">MART 7</span><h3>요일×시간대 히트맵</h3><div class="d">7일 × 24시간 트래픽·전환 분포</div></a>
-    <a href="mart8.html" class="m-card"><span class="tag">MART 8</span><h3>콘텐츠 참여도</h3><div class="d">스크롤·비디오·다운로드 기반 참여 등급</div></a>
-    <a href="mart9.html" class="m-card"><span class="tag">MART 9</span><h3>다크소셜 / AI 리퍼럴</h3><div class="d">ChatGPT · Perplexity 등 AI 검색 유입</div></a>
-    <a href="mart13.html" class="m-card"><span class="tag">MART 13</span><h3>인구통계 분석</h3><div class="d">연령 × 성별 × 지역별 CVR·AOV·매출 매트릭스</div></a>
-    <a href="mart14.html" class="m-card"><span class="tag">MART 14</span><h3>관심사 카테고리 분석</h3><div class="d">GA4 affinity·in-market·life event 세그먼트 성과</div></a>
-    <a href="mart16.html" class="m-card"><span class="tag">MART 16</span><h3>광고 채널 딥다이브</h3><div class="d">UTM 소스·매체·캠페인별 <b>유입 품질과 퍼널 통과율</b> — 어느 채널이 좋은 손님을 데려오나</div></a>
-    <a href="mart17.html" class="m-card"><span class="tag">MART 17</span><h3>광고 CAC / ROAS</h3><div class="d">Meta·Google Ads 광고비 연동 — <b>얼마 써서 얼마 벌었나 (실제 CAC·ROAS·LTV/CAC)</b></div></a>
-    <a href="appeal_analysis.html" class="m-card"> <span class="tag">MART 20</span><h3>크리에이티브 소구점 분석</h3><div class="d">할인·후기·전후비교 등 카피 소구점별 CTR·ROAS·CVR 비교</div></a>
-    <a href="fatigue_dashboard.html" class="m-card"><span class="tag">MART 21</span><h3>소재 피로도 대시보드</h3><div class="d">빈도·CTR·CPC 트렌드 자동 감지 · 교체 타이밍 판정</div></a>
-    <a href="market_intelligence.html" class="m-card"><span class="tag">MART 22-23</span><h3>🕵️ 시장 인텔리전스</h3><div class="d">경쟁사 광고 자동 발굴 · 러닝 기간 승자 판정 · 자사 vs 시장 갭</div></a>
 
-  </div>
+    <div class="overview-hero" id="heroGrid"></div>
+
+    <div class="trend-wrap">
+      <h3>일별 지출 vs 매출 (최근 7일)</h3>
+      <div class="h3-sub">Meta 데이터 기준</div>
+      <canvas id="trendChart"></canvas>
+    </div>
+
+    <div class="section-title">
+      <i data-lucide="play-circle"></i> 현재 집행 중인 광고
+      <span id="activeCount" style="font-size:12px;font-weight:400;color:var(--text-muted);"></span>
+    </div>
+    <div class="active-ads" id="activeAds"></div>
+
+    <div class="section-title">
+      <i data-lucide="alert-triangle"></i> 개선 액션
+      <span id="actionCount" style="font-size:12px;font-weight:400;color:var(--text-muted);"></span>
+    </div>
+    <div class="action-list" id="actionList"></div>
+  </main>
 </div>
+
+<script>
+const KRW = n => (n||0).toLocaleString('ko-KR') + '원';
+const NUM = n => (n||0).toLocaleString('ko-KR');
+const XN  = n => Math.abs(n||0) >= 1000000 ? ((n/1000000).toFixed(1)+'M') : Math.abs(n||0) >= 1000 ? ((n/1000).toFixed(1)+'K') : (n||0).toString();
+
+function deltaBadge(cur, prev){
+  if(!isFinite(cur)||!isFinite(prev)||prev===0) return '<span class="oh-delta flat">–</span>';
+  const d = (cur-prev)/Math.abs(prev)*100;
+  const cls = d > 0.5 ? 'up' : d < -0.5 ? 'down' : 'flat';
+  const arrow = d > 0.5 ? '↑' : d < -0.5 ? '↓' : '–';
+  return `<span class="oh-delta ${cls}">${arrow} ${(d>=0?'+':'')}${d.toFixed(1)}%</span>`;
+}
+
+function buildSidebar(){
+  const marts = [
+    ['index.html',                 'H',  'Overview'],
+    ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
+    ['data_explorer.html',         'DE', '데이터 익스플로러'],
+    ['mart6.html',                 '6',  '신규 vs 재방문'],
+    ['mart16.html',                '16', '채널 딥다이브'],
+    ['mart17.html',                '17', '광고 CAC / ROAS']
+  ];
+  const sidebar = document.querySelector('.sidebar');
+  if(!sidebar) return;
+  const cur = location.pathname.split('/').pop() || 'index.html';
+  sidebar.innerHTML =
+    '<div class="sec-label">Analytics</div>' +
+    marts.map(([h,t,n]) => `<a href="${h}" class="${h===cur?'active':''}"><span class="num">${t}</span> ${n}</a>`).join('');
+}
+
+async function loadData(){
+  buildSidebar();
+  try {
+    const [mart19, meta] = await Promise.all([
+      fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.ok?r.json():[]),
+      fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.ok?r.json():[])
+    ]);
+
+    const today = new Date(); today.setUTCHours(0,0,0,0);
+    const d7 = new Date(today);  d7.setUTCDate(today.getUTCDate()-7);
+    const d14 = new Date(today); d14.setUTCDate(today.getUTCDate()-14);
+    const fmt = d => d.toISOString().slice(0,10);
+    const now7  = mart19.filter(r => r.event_date >= fmt(d7)  && r.event_date <  fmt(today));
+    const prev7 = mart19.filter(r => r.event_date >= fmt(d14) && r.event_date <  fmt(d7));
+
+    const agg = rows => ({
+      spend:  rows.reduce((s,r)=>s+(+r.spend_krw||0),0),
+      imp:    rows.reduce((s,r)=>s+(+r.impressions||0),0),
+      clicks: rows.reduce((s,r)=>s+(+r.clicks||0),0),
+      purc:   rows.reduce((s,r)=>s+(+r.meta_purchases||0),0),
+      rev:    rows.reduce((s,r)=>s+(+r.meta_purchase_value||0),0)
+    });
+    const cur = agg(now7), pv = agg(prev7);
+    const curRoas = cur.spend ? cur.rev/cur.spend : 0;
+    const pvRoas  = pv.spend  ? pv.rev/pv.spend  : 0;
+    const curCtr  = cur.imp ? cur.clicks/cur.imp*100 : 0;
+    const pvCtr   = pv.imp  ? pv.clicks/pv.imp*100  : 0;
+
+    const heroData = [
+      ['지출',  KRW(cur.spend), deltaBadge(cur.spend, pv.spend)],
+      ['노출',  XN(cur.imp),    deltaBadge(cur.imp,   pv.imp)],
+      ['CTR',   curCtr.toFixed(2)+'%', deltaBadge(curCtr, pvCtr)],
+      ['구매',  NUM(cur.purc),  deltaBadge(cur.purc,  pv.purc)],
+      ['ROAS',  curRoas.toFixed(2)+'x', deltaBadge(curRoas, pvRoas)]
+    ];
+    document.getElementById('heroGrid').innerHTML = heroData.map(([lbl,val,delta])=>`
+      <div class="oh-card">
+        <div class="oh-lbl">${lbl}</div>
+        <div class="oh-val">${val}</div>
+        ${delta}
+      </div>
+    `).join('');
+
+    const daily = {};
+    now7.forEach(r => {
+      const d = r.event_date;
+      if(!daily[d]) daily[d] = { spend:0, rev:0 };
+      daily[d].spend += +r.spend_krw||0;
+      daily[d].rev   += +r.meta_purchase_value||0;
+    });
+    const dates = Object.keys(daily).sort();
+    new Chart(document.getElementById('trendChart'), {
+      type:'line',
+      data:{
+        labels: dates.map(d=>d.slice(5)),
+        datasets:[
+          { label:'지출', data: dates.map(d=>daily[d].spend), borderColor:'#0066FF', backgroundColor:'rgba(0,102,255,0.10)', tension:0.35, fill:true, yAxisID:'y' },
+          { label:'매출', data: dates.map(d=>daily[d].rev),   borderColor:'#00A76F', backgroundColor:'rgba(0,167,111,0.10)', tension:0.35, fill:false, yAxisID:'y' }
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'top', labels:{font:{size:11}} } },
+        scales:{ y:{ beginAtZero:true, ticks:{color:'#8892A6'} }, x:{ ticks:{color:'#8892A6'} } }
+      }
+    });
+
+    const activeAds = meta.filter(m => m.effective_status === 'ACTIVE');
+    document.getElementById('activeCount').textContent = ` · ${activeAds.length}개`;
+    const perfByAd = {};
+    now7.forEach(r => {
+      const id = r.ad_id;
+      if(!perfByAd[id]) perfByAd[id] = { spend:0, imp:0, clicks:0, purc:0, rev:0 };
+      const p = perfByAd[id];
+      p.spend  += +r.spend_krw||0;
+      p.imp    += +r.impressions||0;
+      p.clicks += +r.clicks||0;
+      p.purc   += +r.meta_purchases||0;
+      p.rev    += +r.meta_purchase_value||0;
+    });
+    document.getElementById('activeAds').innerHTML = activeAds.length ? activeAds.map(ad => {
+      const p = perfByAd[ad.ad_id] || {spend:0,imp:0,clicks:0,purc:0,rev:0};
+      const roas = p.spend ? (p.rev/p.spend).toFixed(2)+'x' : '-';
+      const ctr  = p.imp ? (p.clicks/p.imp*100).toFixed(2)+'%' : '-';
+      const img  = ad.image_url || `creatives/${ad.ad_id}.jpg`;
+      return `<a class="ad-card" href="creative_detail.html?ad_id=${ad.ad_id}">
+        <img class="ad-img" src="${img}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YxZjVmOSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjODg5MkE2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMCI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'">
+        <div class="ad-body">
+          <div class="ad-name">${ad.ad_name||ad.ad_id}</div>
+          <div class="ad-meta"><span class="status-dot status-active"></span>${ad.campaign_name||''}</div>
+          <div class="ad-metrics">
+            <div class="ad-m"><div class="ad-m-lbl">ROAS</div><div class="ad-m-val">${roas}</div></div>
+            <div class="ad-m"><div class="ad-m-lbl">CTR</div><div class="ad-m-val">${ctr}</div></div>
+          </div>
+        </div>
+      </a>`;
+    }).join('') : '<div class="empty-state" style="grid-column:1/-1;">현재 활성 상태인 광고가 없습니다.</div>';
+
+    const actions = [];
+    activeAds.forEach(ad => {
+      const p = perfByAd[ad.ad_id];
+      if(!p) return;
+      const roas = p.spend ? p.rev/p.spend : 0;
+      const ctr  = p.imp ? p.clicks/p.imp*100 : 0;
+      if(p.spend >= 100000 && ctr < 1.0) {
+        actions.push({tone:'bad', ico:'trending-down',
+          title:`${ad.ad_name||ad.ad_id}: CTR ${ctr.toFixed(2)}% (기준 1% 미달)`,
+          desc:'훅(첫 3초) 강화 · 카피 재작성 · 썸네일 A/B 테스트 권장',
+          href:`creative_detail.html?ad_id=${ad.ad_id}`});
+      }
+      if(p.spend >= 100000 && roas < 1.0) {
+        actions.push({tone:'bad', ico:'circle-x',
+          title:`${ad.ad_name||ad.ad_id}: ROAS ${roas.toFixed(2)}x (손실 구간)`,
+          desc:'3일 이상 지속되면 일시 정지 검토 · 랜딩 페이지 CVR 점검',
+          href:`creative_detail.html?ad_id=${ad.ad_id}`});
+      }
+      if(roas >= 3.0 && p.spend >= 50000) {
+        actions.push({tone:'good', ico:'trending-up',
+          title:`${ad.ad_name||ad.ad_id}: ROAS ${roas.toFixed(2)}x (Winner)`,
+          desc:'예산 20~30% 증액 후보 · 유사 소재 확장 제작 권장',
+          href:`creative_detail.html?ad_id=${ad.ad_id}`});
+      }
+    });
+
+    try {
+      const fatigue = await fetch('data/mart21_fatigue.json?t='+Date.now()).then(r=>r.ok?r.json():[]);
+      const highFatigue = fatigue.filter(f => (+f.frequency||0) >= 3.0 && f.event_date >= fmt(d7));
+      const seen = new Set();
+      highFatigue.forEach(f => {
+        if(seen.has(f.ad_id)) return; seen.add(f.ad_id);
+        if(seen.size > 3) return;
+        actions.push({tone:'warn', ico:'refresh-cw',
+          title:`${f.ad_name||f.ad_id}: 피로도 ${(+f.frequency).toFixed(2)} (임계 3.0 초과)`,
+          desc:'동일 유저에 반복 노출 중 · 새 소재 로테이션 필요',
+          href:`creative_detail.html?ad_id=${f.ad_id}`});
+      });
+    } catch(e) {}
+
+    document.getElementById('actionCount').textContent = ` · ${actions.length}건`;
+    document.getElementById('actionList').innerHTML = actions.length ? actions.map(a=>`
+      <div class="action-item ${a.tone}">
+        <div class="a-ico"><i data-lucide="${a.ico}" style="width:18px;height:18px;"></i></div>
+        <div class="a-body">
+          <div class="a-title">${a.title}</div>
+          <div class="a-desc">${a.desc}</div>
+          <a class="a-link" href="${a.href}">상세 분석 <i data-lucide="arrow-right" style="width:12px;height:12px;"></i></a>
+        </div>
+      </div>
+    `).join('') : '<div class="empty-state">현재 조치가 필요한 항목이 없습니다.</div>';
+
+    document.getElementById('lastUpdated').textContent = 'Last updated: 2026-07-22';
+    lucide.createIcons();
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('heroGrid').innerHTML = `<div style="grid-column:1/-1;color:var(--danger);padding:20px;">데이터 로드 실패: ${e.message}</div>`;
+  }
+}
+loadData();
+</script>
 </body>
 </html>
