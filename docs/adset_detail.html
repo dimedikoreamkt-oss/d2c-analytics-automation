@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>광고세트 상세 · A/B 비교</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mart_common.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body{font-family:'Inter','Noto Sans KR',sans-serif;background:#f5f7fa;margin:0;}
+  .wrap{max-width:1400px;margin:0 auto;padding:24px;}
+  .breadcrumb{font-size:13px;color:#6b7280;margin-bottom:8px;}
+  .breadcrumb a{color:#2563eb;text-decoration:none;}
+  h1{margin:0 0 18px;font-size:24px;font-weight:700;}
+  .adset-summary{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px;display:grid;grid-template-columns:repeat(6,1fr);gap:16px;}
+  .summary-item{text-align:center;}
+  .summary-item .v{font-size:22px;font-weight:700;color:#111;}
+  .summary-item .l{font-size:11px;color:#6b7280;text-transform:uppercase;margin-top:4px;}
+  .compare-table{width:100%;background:#fff;border-radius:12px;border:1px solid #e5e7eb;border-collapse:separate;border-spacing:0;overflow:hidden;margin-bottom:24px;}
+  .compare-table th{background:#f9fafb;padding:12px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb;}
+  .compare-table th:first-child,.compare-table td:first-child{text-align:left;padding-left:20px;}
+  .compare-table td{padding:14px 12px;text-align:right;font-size:13px;border-bottom:1px solid #f3f4f6;font-weight:600;}
+  .compare-table tr.winner td{background:linear-gradient(90deg,rgba(16,185,129,0.08),transparent);}
+  .compare-table tr.loser td{background:linear-gradient(90deg,rgba(239,68,68,0.06),transparent);opacity:0.75;}
+  .creative-thumb-small{width:60px;height:60px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:12px;}
+  .verdict-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;}
+  .verdict-tag.winner{background:#10b981;color:#fff;}
+  .verdict-tag.loser{background:#ef4444;color:#fff;}
+  .verdict-tag.monitor{background:#f59e0b;color:#fff;}
+  .chart-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px;}
+  .chart-box h3{margin:0 0 16px;font-size:15px;font-weight:700;}
+  .insight-box{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-left:4px solid #2563eb;padding:16px 20px;border-radius:8px;margin-bottom:24px;}
+  .insight-box h3{margin:0 0 8px;font-size:14px;color:#1e40af;}
+  .insight-box ul{margin:0;padding-left:20px;font-size:13px;line-height:1.7;color:#374151;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+</header>
+<div class="wrap">
+  <div class="breadcrumb"><a href="creative_gallery.html">← 소재 갤러리</a> · 광고세트 상세</div>
+  <h1 id="pageTitle">로딩 중...</h1>
+  <div id="content">데이터 로딩 중...</div>
+</div>
+<script>
+const params=new URLSearchParams(window.location.search);
+const CAMP=params.get('campaign');
+const ADSET=params.get('adset');
+let CREATIVES=[],PERF=[];
+
+async function load(){
+  const [c,p]=await Promise.all([
+    fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
+    fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
+  ]);
+  CREATIVES=c.filter(x=>x.campaign_name===CAMP&&x.adset_name===ADSET);
+  const adIds=new Set(CREATIVES.map(x=>x.ad_id));
+  PERF=p.filter(x=>adIds.has(x.ad_id));
+  render();
+}
+
+function fmt(n,d=0){if(n==null||isNaN(n))return'-';return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});}
+
+function aggPerAd(){
+  const agg={};
+  PERF.forEach(r=>{
+    const k=r.ad_id;
+    if(!agg[k]) agg[k]={impressions:0,reach:0,spend_krw:0,clicks:0,ga_purchases:0,ga_revenue:0,meta_purchases:0,ga_add_to_cart:0,ga_sessions:0,ga_checkouts:0,frequency:0,ga_avg_engagement_sec:0,cnt:0};
+    agg[k].impressions+=+r.impressions||0;
+    agg[k].reach=Math.max(agg[k].reach,+r.reach||0);
+    agg[k].spend_krw+=+r.spend_krw||0;
+    agg[k].clicks+=+r.clicks||0;
+    agg[k].ga_purchases+=+r.ga_purchases||0;
+    agg[k].ga_revenue+=+r.ga_revenue||0;
+    agg[k].meta_purchases+=+r.meta_purchases||0;
+    agg[k].ga_add_to_cart+=+r.ga_add_to_cart||0;
+    agg[k].ga_sessions+=+r.ga_sessions||0;
+    agg[k].ga_checkouts+=+r.ga_checkouts||0;
+    agg[k].frequency+=+r.frequency||0;
+    agg[k].ga_avg_engagement_sec+=+r.ga_avg_engagement_sec||0;
+    agg[k].cnt++;
+  });
+  Object.values(agg).forEach(v=>{
+    v.ctr_pct=v.impressions?v.clicks/v.impressions*100:0;
+    v.ga_roas=v.spend_krw?v.ga_revenue/v.spend_krw:0;
+    v.cpc=v.clicks?v.spend_krw/v.clicks:0;
+    v.cpm=v.impressions?v.spend_krw/v.impressions*1000:0;
+    v.frequency=v.cnt?v.frequency/v.cnt:0;
+    v.ga_avg_engagement_sec=v.cnt?v.ga_avg_engagement_sec/v.cnt:0;
+    v.ga_cvr_pct=v.ga_sessions?v.ga_purchases/v.ga_sessions*100:0;
+    v.ga_cac_krw=v.ga_purchases?v.spend_krw/v.ga_purchases:null;
+  });
+  return agg;
+}
+
+function verdict(p,allP){
+  if(p.spend_krw<10000) return null;
+  if(allP.length<2) return null;
+  const maxRoas=Math.max(...allP.map(x=>x.ga_roas));
+  if(p.ga_roas>=maxRoas && p.ga_roas>=0.5) return{tag:'winner',label:'🏆 승자'};
+  if(p.spend_krw>50000 && p.ga_roas<0.2) return{tag:'loser',label:'🚨 정지 권장'};
+  return{tag:'monitor',label:'👀 관찰'};
+}
+
+function insights(perAd,creatives){
+  const items=[];
+  const arr=Object.entries(perAd).map(([id,p])=>({id,...p,name:creatives.find(c=>c.ad_id===id)?.ad_name}));
+  if(arr.length<2) return['소재가 1개뿐입니다. A/B 테스트를 위해 추가 소재를 광고세트에 넣어보세요.'];
+  arr.sort((a,b)=>b.ga_roas-a.ga_roas);
+  const best=arr[0], worst=arr[arr.length-1];
+  if(best.ga_roas>0&&worst.ga_roas>=0){
+    const ratio=worst.ga_roas?best.ga_roas/worst.ga_roas:'∞';
+    items.push(`ROAS 격차: 최고 소재 "${best.name}" (${fmt(best.ga_roas,2)}x) vs 최저 소재 "${worst.name}" (${fmt(worst.ga_roas,2)}x) → ${typeof ratio==='number'?fmt(ratio,1)+'배':ratio} 차이`);
+  }
+  const highSpendLowRoas=arr.filter(x=>x.spend_krw>50000&&x.ga_roas<0.2);
+  if(highSpendLowRoas.length){
+    items.push(`즉시 정지 권장: ${highSpendLowRoas.map(x=>`"${x.name}" (지출 ₩${fmt(x.spend_krw)}, ROAS ${fmt(x.ga_roas,2)}x)`).join(', ')}`);
+  }
+  const highCtrLowRoas=arr.filter(x=>x.ctr_pct>3&&x.ga_roas<0.3&&x.spend_krw>30000);
+  if(highCtrLowRoas.length){
+    items.push(`퍼널 이탈 의심: ${highCtrLowRoas.map(x=>`"${x.name}"`).join(', ')} — CTR은 높은데 GA ROAS가 낮음. 랜딩 페이지 최적화 필요`);
+  }
+  const totalSpend=arr.reduce((s,x)=>s+x.spend_krw,0);
+  const bestSpendShare=totalSpend?best.spend_krw/totalSpend*100:0;
+  if(best.ga_roas>0.5&&bestSpendShare<40){
+    items.push(`예산 재배분: 승자 소재 "${best.name}"에 예산이 ${fmt(bestSpendShare,0)}%만 배정됨 → 60% 이상으로 이관 권장`);
+  }
+  return items.length?items:['현재까지는 명확한 승자·패자 판정 불가. 지출 축적 후 재분석 필요.'];
+}
+
+function render(){
+  const perAd=aggPerAd();
+  const allPerf=Object.values(perAd);
+  const totalSpend=allPerf.reduce((s,p)=>s+p.spend_krw,0);
+  const totalRev=allPerf.reduce((s,p)=>s+p.ga_revenue,0);
+  const totalImps=allPerf.reduce((s,p)=>s+p.impressions,0);
+  const totalClicks=allPerf.reduce((s,p)=>s+p.clicks,0);
+  const totalPurchases=allPerf.reduce((s,p)=>s+p.ga_purchases,0);
+
+  document.getElementById('pageTitle').textContent=`${ADSET}`;
+  const html=`
+    <div class="breadcrumb">캠페인: ${CAMP}</div>
+
+    <div class="adset-summary">
+      <div class="summary-item"><div class="v">${CREATIVES.length}</div><div class="l">소재 개수</div></div>
+      <div class="summary-item"><div class="v">₩${fmt(totalSpend)}</div><div class="l">총 지출</div></div>
+      <div class="summary-item"><div class="v">${fmt(totalImps)}</div><div class="l">총 노출</div></div>
+      <div class="summary-item"><div class="v">${fmt(totalImps?totalClicks/totalImps*100:0,2)}%</div><div class="l">평균 CTR</div></div>
+      <div class="summary-item"><div class="v">${totalPurchases}건</div><div class="l">총 구매</div></div>
+      <div class="summary-item"><div class="v">${fmt(totalSpend?totalRev/totalSpend:0,2)}x</div><div class="l">평균 GA ROAS</div></div>
+    </div>
+
+    <div class="insight-box">
+      <h3>💡 자동 인사이트</h3>
+      <ul>${insights(perAd,CREATIVES).map(i=>`<li>${i}</li>`).join('')}</ul>
+    </div>
+
+    <div class="chart-box">
+      <h3>📊 소재 간 정면 비교</h3>
+      <table class="compare-table">
+        <thead><tr>
+          <th>소재</th><th>상태</th><th>지출</th><th>노출</th><th>CTR</th><th>CPC</th>
+          <th>세션</th><th>체류(초)</th><th>ATC</th><th>구매</th><th>매출</th><th>GA ROAS</th><th>CAC</th>
+        </tr></thead>
+        <tbody>
+          ${CREATIVES.map(c=>{
+            const p=perAd[c.ad_id]||{};
+            const v=verdict(p,allPerf);
+            return `<tr class="${v?v.tag:''}">
+              <td><img class="creative-thumb-small" src="${c.local_image_path||c.thumbnail_url||''}" onerror="this.style.display='none'">${c.ad_name}${v?`<span class="verdict-tag ${v.tag}">${v.label}</span>`:''}</td>
+              <td>${c.effective_status||'-'}</td>
+              <td>₩${fmt(p.spend_krw||0)}</td>
+              <td>${fmt(p.impressions||0)}</td>
+              <td>${fmt(p.ctr_pct||0,2)}%</td>
+              <td>₩${fmt(p.cpc||0)}</td>
+              <td>${fmt(p.ga_sessions||0)}</td>
+              <td>${fmt(p.ga_avg_engagement_sec||0,1)}</td>
+              <td>${fmt(p.ga_add_to_cart||0)}</td>
+              <td>${fmt(p.ga_purchases||0)}</td>
+              <td>₩${fmt(p.ga_revenue||0)}</td>
+              <td>${fmt(p.ga_roas||0,2)}x</td>
+              <td>${p.ga_cac_krw?'₩'+fmt(p.ga_cac_krw):'-'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart-box">
+      <h3>📈 소재별 일별 지출 · 매출 추이</h3>
+      <canvas id="trendChart" height="90"></canvas>
+    </div>
+
+    <div class="chart-box">
+      <h3>🎯 소재별 CTR vs ROAS 산점도</h3>
+      <canvas id="scatterChart" height="90"></canvas>
+    </div>
+  `;
+  document.getElementById('content').innerHTML=html;
+
+  // 시계열 차트
+  const dates=[...new Set(PERF.map(r=>r.event_date))].sort();
+  const palette=['#2563eb','#dc2626','#059669','#f59e0b','#7c3aed','#ec4899','#0891b2','#65a30d'];
+  const spendDatasets=CREATIVES.map((c,i)=>({
+    label:(c.ad_name||'').slice(0,20),
+    data:dates.map(d=>{
+      const r=PERF.find(x=>x.ad_id===c.ad_id&&x.event_date===d);
+      return r?+r.spend_krw:0;
+    }),
+    borderColor:palette[i%palette.length],
+    backgroundColor:palette[i%palette.length]+'22',
+    tension:0.3,
+    yAxisID:'y'
+  }));
+  new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels:dates.map(d=>d.slice(5)),datasets:spendDatasets},
+    options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{title:{display:true,text:'지출(₩)'}}}}
+  });
+
+  // 산점도
+  const scatterData=CREATIVES.map((c,i)=>{
+    const p=perAd[c.ad_id]||{};
+    return {label:(c.ad_name||'').slice(0,20),data:[{x:p.ctr_pct||0,y:p.ga_roas||0,r:Math.max(5,Math.sqrt(p.spend_krw||1)/30)}],backgroundColor:palette[i%palette.length]};
+  });
+  new Chart(document.getElementById('scatterChart'),{
+    type:'bubble',
+    data:{datasets:scatterData},
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'bottom'},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: CTR ${ctx.parsed.x.toFixed(2)}%, ROAS ${ctx.parsed.y.toFixed(2)}x`}}
+      },
+      scales:{
+        x:{title:{display:true,text:'CTR (%)'}},
+        y:{title:{display:true,text:'GA ROAS'}}
+      }
+    }
+  });
+}
+load();
+</script>
+</body>
+</html>
