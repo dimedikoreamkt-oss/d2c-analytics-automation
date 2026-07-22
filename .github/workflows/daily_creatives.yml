@@ -67,6 +67,16 @@ jobs:
             --format=none \
             < sql/20_mart_creative_appeal.sql
 
+                  - name: Refresh Mart 21 (creative fatigue)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=none \
+            < sql/21_mart_creative_fatigue.sql
+
+
       - name: Export JSON for dashboard
         run: |
           mkdir -p docs/data
@@ -100,6 +110,17 @@ jobs:
             --max_rows=50000 \
             "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_appeal\` WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) ORDER BY event_date DESC" \
             > docs/data/mart20_appeal.json
+          echo "=== export mart21_fatigue ==="
+          bq query \
+            --project_id="${PROJECT_ID}" \
+            --location="${LOCATION}" \
+            --use_legacy_sql=false \
+            --format=json \
+            --max_rows=5000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_creative_fatigue\` ORDER BY fatigue_score DESC" \
+            > docs/data/mart21_fatigue.json
+
+            
 
           ls -lh docs/data/*.json
 
