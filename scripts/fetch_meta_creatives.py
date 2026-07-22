@@ -5,6 +5,7 @@ Meta Ad Insights → BigQuery Sync
 - custom_since / custom_until 로 임의 기간 지정 가능
 - 계정 통화 자동 감지 (KRW면 환율 미적용)
 - Breakdowns: base / age,gender / publisher_platform,platform_position / region
+- 크리에이티브 텍스트/CTA/랜딩URL 수집 (Mart 20 어필 분석용)
 """
 import os
 import sys
@@ -12,6 +13,7 @@ import json
 import time
 import requests
 from datetime import datetime, timedelta
+from io import BytesIO
 from google.cloud import bigquery
 
 # ===== 환경변수 =====
@@ -56,7 +58,7 @@ def detect_currency():
     return d.get("currency", "USD")
 
 ACCOUNT_CURRENCY = detect_currency()
-USD_TO_KRW = 1350.0  # KRW가 아닌 경우에만 사용
+USD_TO_KRW = 1350.0
 
 # ===== BigQuery =====
 bq = bigquery.Client(project=PROJECT_ID)
@@ -78,13 +80,30 @@ INSIGHT_FIELDS = [
     "video_avg_time_watched_actions",
 ]
 
-# ===== Ad 목록 가져오기 =====
+# ===== Ad 목록 (텍스트/CTA/랜딩URL 포함) =====
+AD_FIELDS = (
+    "id,name,status,effective_status,"
+    "adset_id,adset{name},"
+    "campaign_id,campaign{name},"
+    "creative{"
+        "id,image_url,thumbnail_url,video_id,"
+        "body,title,object_type,"
+        "object_story_spec{"
+            "link_data{message,name,description,link,call_to_action{type,value{link}},image_hash},"
+            "video_data{message,title,link_description,call_to_action{type,value{link}},image_url}"
+        "},"
+        "asset_feed_spec{"
+            "bodies{text},titles{text},descriptions{text},call_to_action_types,link_urls{website_url}"
+        "}"
+    "}"
+)
+
 def fetch_all_ads():
     ads = []
     url = f"https://graph.facebook.com/{API_VERSION}/{META_AD_ACCOUNT_ID}/ads"
     params = {
         "access_token": META_ACCESS_TOKEN,
-        "fields": "id,name,status,effective_status,adset_id,adset{name},campaign_id,campaign{name},creative{id,image_url,thumbnail_url,video_id,object_story_spec}",
+        "fields": AD_FIELDS,
         "limit": 200,
     }
     while url:
@@ -105,7 +124,6 @@ def fetch_insights_for_ad(ad_id, breakdown=None, retries=3):
         "access_token": META_ACCESS_TOKEN,
         "time_range": json.dumps({"since": SINCE, "until": UNTIL}),
         "time_increment": 1,
-        # ⚠️ 어드민과 동일한 어트리뷰션 창 명시 (기본값과 다름 → ROAS 3.9배 차이 원인)
         "action_attribution_windows": json.dumps(["7d_click", "1d_view"]),
         "use_unified_attribution_setting": "true",
         "fields": ",".join(INSIGHT_FIELDS),
@@ -131,9 +149,8 @@ def fetch_insights_for_ad(ad_id, breakdown=None, retries=3):
             time.sleep(10)
     return []
 
-# ===== Action 파서 (어드민과 정확히 일치) =====
+# ===== Action 파서 =====
 def parse_purchases(actions):
-    """어드민과 동일하게 offsite_conversion.fb_pixel_purchase만 카운트"""
     if not actions:
         return 0
     for a in actions:
@@ -170,6 +187,79 @@ def parse_video_metric(video_actions):
     for v in video_actions:
         total += int(float(v.get("value", 0)))
     return total
+
+# ===== 크리에이티브 텍스트/CTA 추출 =====
+def extract_creative_content(creative):
+    """object_story_spec 또는 asset_feed_spec에서 텍스트/CTA/랜딩URL 추출"""
+    if not creative:
+        return {
+            "body_text": None, "title_text": None, "description_text": None,
+            "call_to_action_type": None, "landing_url": None, "object_type": None,
+        }
+
+    body_text = creative.get("body")
+    title_text = creative.get("title")
+    description_text = None
+    cta_type = None
+    landing_url = None
+    object_type = creative.get("object_type")
+
+    # 1) object_story_spec 우선
+    story = creative.get("object_story_spec") or {}
+    link_data  = story.get("link_data")  or {}
+    video_data = story.get("video_data") or {}
+
+    if link_data:
+        body_text        = body_text        or link_data.get("message")
+        title_text       = title_text       or link_data.get("name")
+        description_text = description_text or link_data.get("description")
+        landing_url      = landing_url      or link_data.get("link")
+        cta = link_data.get("call_to_action") or {}
+        cta_type = cta_type or cta.get("type")
+        if not landing_url:
+            landing_url = ((cta.get("value") or {}).get("link"))
+
+    if video_data:
+        body_text        = body_text        or video_data.get("message")
+        title_text       = title_text       or video_data.get("title")
+        description_text = description_text or video_data.get("link_description")
+        cta = video_data.get("call_to_action") or {}
+        cta_type = cta_type or cta.get("type")
+        if not landing_url:
+            landing_url = ((cta.get("value") or {}).get("link"))
+
+    # 2) asset_feed_spec fallback (Advantage+ / dynamic creative)
+    afs = creative.get("asset_feed_spec") or {}
+    if afs:
+        if not body_text:
+            bodies = afs.get("bodies") or []
+            if bodies:
+                body_text = bodies[0].get("text")
+        if not title_text:
+            titles = afs.get("titles") or []
+            if titles:
+                title_text = titles[0].get("text")
+        if not description_text:
+            descs = afs.get("descriptions") or []
+            if descs:
+                description_text = descs[0].get("text")
+        if not cta_type:
+            ctas = afs.get("call_to_action_types") or []
+            if ctas:
+                cta_type = ctas[0]
+        if not landing_url:
+            urls = afs.get("link_urls") or []
+            if urls:
+                landing_url = urls[0].get("website_url")
+
+    return {
+        "body_text": body_text,
+        "title_text": title_text,
+        "description_text": description_text,
+        "call_to_action_type": cta_type,
+        "landing_url": landing_url,
+        "object_type": object_type,
+    }
 
 # ===== 행 빌드 =====
 def to_krw(amount):
@@ -234,23 +324,30 @@ def build_region_row(ins, ad_meta):
     row["country"] = ins.get("country")
     return row
 
-# ===== Ad 메타 저장 =====
+# ===== Ad 메타 저장 (텍스트/CTA/랜딩URL 포함) =====
 def build_creatives_row(ad):
     creative = ad.get("creative") or {}
+    content = extract_creative_content(creative)
     return {
-        "ad_id":            ad.get("id"),
-        "ad_name":          ad.get("name"),
-        "status":           ad.get("status"),
-        "effective_status": ad.get("effective_status"),
-        "adset_id":         ad.get("adset_id"),
-        "adset_name":       (ad.get("adset") or {}).get("name"),
-        "campaign_id":      ad.get("campaign_id"),
-        "campaign_name":    (ad.get("campaign") or {}).get("name"),
-        "creative_id":      creative.get("id"),
-        "image_url":        creative.get("image_url") or creative.get("thumbnail_url"),
-        "thumbnail_url":    creative.get("thumbnail_url"),
-        "video_id":         creative.get("video_id"),
-        "synced_at":        datetime.utcnow().isoformat(),
+        "ad_id":               ad.get("id"),
+        "ad_name":             ad.get("name"),
+        "status":              ad.get("status"),
+        "effective_status":    ad.get("effective_status"),
+        "adset_id":            ad.get("adset_id"),
+        "adset_name":          (ad.get("adset") or {}).get("name"),
+        "campaign_id":         ad.get("campaign_id"),
+        "campaign_name":       (ad.get("campaign") or {}).get("name"),
+        "creative_id":         creative.get("id"),
+        "image_url":           creative.get("image_url") or creative.get("thumbnail_url"),
+        "thumbnail_url":       creative.get("thumbnail_url"),
+        "video_id":            creative.get("video_id"),
+        "object_type":         content["object_type"],
+        "body_text":           content["body_text"],
+        "title_text":          content["title_text"],
+        "description_text":    content["description_text"],
+        "call_to_action_type": content["call_to_action_type"],
+        "landing_url":         content["landing_url"],
+        "synced_at":           datetime.utcnow().isoformat(),
     }
 
 # ===== BigQuery Load =====
@@ -265,7 +362,6 @@ def load_to_bq(table, rows, schema):
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
     )
     ndjson = "\n".join(json.dumps(r, default=str) for r in rows)
-    from io import BytesIO
     load_job = bq.load_table_from_file(
         BytesIO(ndjson.encode("utf-8")),
         table_ref,
@@ -332,6 +428,12 @@ CREATIVES_SCHEMA = [
     bigquery.SchemaField("image_url", "STRING"),
     bigquery.SchemaField("thumbnail_url", "STRING"),
     bigquery.SchemaField("video_id", "STRING"),
+    bigquery.SchemaField("object_type", "STRING"),
+    bigquery.SchemaField("body_text", "STRING"),
+    bigquery.SchemaField("title_text", "STRING"),
+    bigquery.SchemaField("description_text", "STRING"),
+    bigquery.SchemaField("call_to_action_type", "STRING"),
+    bigquery.SchemaField("landing_url", "STRING"),
     bigquery.SchemaField("synced_at", "TIMESTAMP"),
 ]
 
@@ -342,29 +444,33 @@ def main():
     creatives_rows = [build_creatives_row(ad) for ad in ads]
     load_to_bq("meta_creatives", creatives_rows, CREATIVES_SCHEMA)
 
+    # 텍스트 수집 통계
+    with_body  = sum(1 for r in creatives_rows if r.get("body_text"))
+    with_title = sum(1 for r in creatives_rows if r.get("title_text"))
+    with_cta   = sum(1 for r in creatives_rows if r.get("call_to_action_type"))
+    print(f"[STATS] body_text: {with_body}/{len(creatives_rows)}, "
+          f"title_text: {with_title}/{len(creatives_rows)}, "
+          f"cta: {with_cta}/{len(creatives_rows)}")
+
     base_rows, demo_rows, plat_rows, region_rows = [], [], [], []
 
     for i, ad in enumerate(ads, 1):
         ad_id = ad.get("id")
         ad_meta = {"name": ad.get("name")}
-        print(f"[{i}/{len(ads)}] {ad.get('name')[:40]}...")
+        print(f"[{i}/{len(ads)}] {(ad.get('name') or '')[:40]}...")
 
-        # 1) base
         for ins in fetch_insights_for_ad(ad_id, breakdown=None):
             base_rows.append(build_base_row(ins, ad_meta))
         time.sleep(0.5)
 
-        # 2) age + gender
         for ins in fetch_insights_for_ad(ad_id, breakdown="age,gender"):
             demo_rows.append(build_demo_row(ins, ad_meta))
         time.sleep(0.5)
 
-        # 3) publisher_platform + platform_position
         for ins in fetch_insights_for_ad(ad_id, breakdown="publisher_platform,platform_position"):
             plat_rows.append(build_platform_row(ins, ad_meta))
         time.sleep(0.5)
 
-        # 4) region
         for ins in fetch_insights_for_ad(ad_id, breakdown="region"):
             region_rows.append(build_region_row(ins, ad_meta))
         time.sleep(0.5)
