@@ -62,6 +62,27 @@
   .funnel-step{flex:1;min-width:100px;background:#eff6ff;border-radius:6px;padding:8px;text-align:center;font-size:11px;}
   .funnel-arrow{color:#9ca3af;font-size:16px;}
   .chart-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;margin-top:16px;}
+
+  /* 인구통계 매트릭스 */
+  .demo-tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap;}
+  .demo-tab{padding:6px 12px;border-radius:6px;background:#f3f4f6;font-size:12px;font-weight:600;color:#4b5563;cursor:pointer;border:1px solid #e5e7eb;}
+  .demo-tab.active{background:#2563eb;color:#fff;border-color:#2563eb;}
+  .demo-matrix{width:100%;border-collapse:separate;border-spacing:3px;margin-top:12px;font-size:12px;}
+  .demo-matrix th{padding:8px;background:#f9fafb;color:#6b7280;font-weight:600;text-align:center;}
+  .demo-matrix td{padding:12px 8px;text-align:center;color:#fff;font-weight:700;border-radius:4px;font-size:13px;}
+  .demo-matrix td.header{background:#f3f4f6;color:#374151;}
+  .demo-matrix td.empty{background:#f9fafb;color:#d1d5db;}
+
+  /* 지역/게재위치 랭킹 */
+  .rank-list{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+  .rank-item{display:flex;align-items:center;padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;}
+  .rank-item .rank-num{font-weight:700;color:#9ca3af;width:24px;text-align:center;font-family:monospace;}
+  .rank-item .rank-name{flex:1;font-weight:600;margin-left:8px;}
+  .rank-item .rank-bar-wrap{flex:2;height:8px;background:#f3f4f6;border-radius:4px;margin:0 12px;overflow:hidden;}
+  .rank-item .rank-bar{height:100%;background:linear-gradient(90deg,#2563eb,#4d94ff);border-radius:4px;}
+  .rank-item .rank-metric{font-size:12px;color:#6b7280;font-weight:600;min-width:120px;text-align:right;}
+  .rank-item .rank-badge{background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;}
+  .rank-item .rank-badge.bad{background:#fee2e2;color:#991b1b;}
 </style>
 </head>
 <body>
@@ -77,24 +98,29 @@
 <script>
 const params=new URLSearchParams(window.location.search);
 const AD_ID=params.get('ad_id');
-let CREATIVE=null, PERF=[];
+let CREATIVE=null, PERF=[], DEMO=[], PLATFORM=[], REGION=[];
 
-// 기간 상태
 let periodStart=null, periodEnd=null;
 let compareEnabled=false, compareStart=null, compareEnd=null;
+let demoMetric='impressions'; // 인구통계 표시 지표
 
 async function load(){
   try{
-    const [c,p]=await Promise.all([
+    const [c,p,d,pf,rg]=await Promise.all([
       fetch('data/meta_creatives.json?t='+Date.now()).then(r=>r.json()),
-      fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json())
+      fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.json()),
+      fetch('data/mart22_creative_demographics.json?t='+Date.now()).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch('data/mart23_creative_platform.json?t='+Date.now()).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch('data/mart24_creative_region.json?t='+Date.now()).then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
     CREATIVE=c.find(x=>x.ad_id===AD_ID);
     PERF=p.filter(x=>x.ad_id===AD_ID).sort((a,b)=>a.event_date.localeCompare(b.event_date));
+    DEMO=d.filter(x=>x.ad_id===AD_ID);
+    PLATFORM=pf.filter(x=>x.ad_id===AD_ID);
+    REGION=rg.filter(x=>x.ad_id===AD_ID);
 
     if(!CREATIVE){document.getElementById('detailRoot').innerHTML='<h2>소재를 찾을 수 없습니다.</h2>';return;}
 
-    // 기본 기간: 데이터 최근 7일
     const maxDate=PERF.length?PERF[PERF.length-1].event_date:new Date().toISOString().slice(0,10);
     const minDate=PERF.length?PERF[0].event_date:maxDate;
     periodEnd=maxDate;
@@ -111,7 +137,6 @@ async function load(){
 }
 
 function setCompareAuto(){
-  // 비교 기간: 선택 기간 바로 이전 동일 길이
   const s=new Date(periodStart), e=new Date(periodEnd);
   const days=Math.round((e-s)/86400000)+1;
   const ce=new Date(s); ce.setDate(ce.getDate()-1);
@@ -121,7 +146,6 @@ function setCompareAuto(){
 }
 
 function fmt(n,d=0){if(n==null||isNaN(n))return'-';return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});}
-
 function inRange(date,s,e){return date>=s&&date<=e;}
 
 function aggregate(start,end){
@@ -136,44 +160,23 @@ function aggregate(start,end){
   const gaRevenue=sum('ga_revenue');
   const gaSessions=sum('ga_sessions');
   const gaPurchases=sum('ga_purchases');
-
-  // ✅ Frequency: 노출 가중 평균 (Meta 표기 방식과 일치)
   const weightedFreq=totalImp?rows.reduce((s,r)=>s+(+r.frequency||0)*(+r.impressions||0),0)/totalImp:0;
 
   return {
-    days:rows.length,
-    spend:totalSpend,
-    impressions:totalImp,
-    reach:sum('reach'),   // reach는 일별 합이 아닌 unique count이므로 정확도가 떨어질 수 있음 (안내 표시)
-    frequency:weightedFreq,
-    clicks:totalClicks,
-    linkClicks:totalLinkClicks,
-    ctr:totalImp?totalClicks/totalImp*100:0,
-    linkCtr:totalImp?totalLinkClicks/totalImp*100:0,
-    cpc:totalClicks?totalSpend/totalClicks:0,
-    cpm:totalImp?totalSpend/totalImp*1000:0,
-    metaPurchases:sum('meta_purchases'),
-    metaValue:metaValue,
-    metaRoas:totalSpend?metaValue/totalSpend:0,
-    metaAtc:sum('meta_add_to_cart'),
-    gaSessions:gaSessions,
-    gaUsers:sum('ga_users'),
-    gaPDP:sum('ga_pdp_views'),
-    gaATC:sum('ga_add_to_cart'),
-    gaLogins:sum('ga_logins'),
-    gaSignups:sum('ga_signups'),
-    gaCheckouts:sum('ga_checkouts'),
-    gaPurchases:gaPurchases,
-    gaRevenue:gaRevenue,
-    gaRoas:totalSpend?gaRevenue/totalSpend:0,
-    gaCvr:gaSessions?gaPurchases/gaSessions*100:0,
+    days:rows.length, spend:totalSpend, impressions:totalImp, reach:sum('reach'), frequency:weightedFreq,
+    clicks:totalClicks, linkClicks:totalLinkClicks,
+    ctr:totalImp?totalClicks/totalImp*100:0, linkCtr:totalImp?totalLinkClicks/totalImp*100:0,
+    cpc:totalClicks?totalSpend/totalClicks:0, cpm:totalImp?totalSpend/totalImp*1000:0,
+    metaPurchases:sum('meta_purchases'), metaValue:metaValue,
+    metaRoas:totalSpend?metaValue/totalSpend:0, metaAtc:sum('meta_add_to_cart'),
+    gaSessions:gaSessions, gaUsers:sum('ga_users'), gaPDP:sum('ga_pdp_views'),
+    gaATC:sum('ga_add_to_cart'), gaLogins:sum('ga_logins'), gaSignups:sum('ga_signups'),
+    gaCheckouts:sum('ga_checkouts'), gaPurchases:gaPurchases, gaRevenue:gaRevenue,
+    gaRoas:totalSpend?gaRevenue/totalSpend:0, gaCvr:gaSessions?gaPurchases/gaSessions*100:0,
     gaCac:gaPurchases?totalSpend/gaPurchases:null,
     avgEng:rows.length?rows.reduce((s,r)=>s+(+r.ga_avg_engagement_sec||0),0)/rows.length:0,
     avgScroll:rows.length?rows.reduce((s,r)=>s+(+r.ga_avg_scroll_depth_pct||0),0)/rows.length:0,
-    videoP25:sum('video_p25'),
-    videoP50:sum('video_p50'),
-    videoP75:sum('video_p75'),
-    videoP100:sum('video_p100'),
+    videoP25:sum('video_p25'), videoP50:sum('video_p50'), videoP75:sum('video_p75'), videoP100:sum('video_p100')
   };
 }
 
@@ -196,6 +199,242 @@ function deltaHTML(cur,prev,goodDir='up',unit='',digit=0){
           <div class="kpi-box-prev">이전: ${prev===null?'-':unit+fmt(prev,digit)+(unit==='%'?'':'')}</div>`;
 }
 
+// ========== 인구통계 매트릭스 ==========
+function buildDemographicsHTML(){
+  const rows=DEMO.filter(r=>inRange(r.event_date,periodStart,periodEnd));
+  if(!rows.length) return '<div style="padding:20px;background:#f9fafb;border-radius:8px;color:#9ca3af;text-align:center;font-size:12px;">인구통계 데이터 없음</div>';
+
+  const AGES=['18-24','25-34','35-44','45-54','55-64','65+'];
+  const GENDERS=['female','male','unknown'];
+  const GEN_LABEL={female:'여성',male:'남성',unknown:'미상'};
+
+  const matrix={};
+  AGES.forEach(a=>{matrix[a]={};GENDERS.forEach(g=>matrix[a][g]={imp:0,clk:0,spend:0,purc:0,rev:0});});
+  rows.forEach(r=>{
+    const a=r.age_bracket,g=r.gender;
+    if(!matrix[a]||!matrix[a][g])return;
+    matrix[a][g].imp   += +r.impressions||0;
+    matrix[a][g].clk   += +r.clicks||0;
+    matrix[a][g].spend += +r.spend_krw||0;
+    matrix[a][g].purc  += +r.purchases||0;
+    matrix[a][g].rev   += +r.revenue||0;
+  });
+
+  // 지표별 값 계산
+  const getVal=(cell)=>{
+    switch(demoMetric){
+      case 'impressions': return cell.imp;
+      case 'clicks': return cell.clk;
+      case 'ctr': return cell.imp?cell.clk/cell.imp*100:0;
+      case 'spend': return cell.spend;
+      case 'purchases': return cell.purc;
+      case 'cvr': return cell.clk?cell.purc/cell.clk*100:0;
+      case 'revenue': return cell.rev;
+      case 'roas': return cell.spend?cell.rev/cell.spend:0;
+      default: return cell.imp;
+    }
+  };
+  const formatVal=(v)=>{
+    switch(demoMetric){
+      case 'ctr': case 'cvr': return v.toFixed(2)+'%';
+      case 'roas': return v.toFixed(2)+'x';
+      case 'spend': case 'revenue': return v>=10000?(v/10000).toFixed(0)+'만':fmt(v);
+      default: return fmt(v);
+    }
+  };
+
+  // 최대값 찾기 (색상 스케일)
+  let maxVal=0;
+  AGES.forEach(a=>GENDERS.forEach(g=>{
+    const v=getVal(matrix[a][g]);
+    if(v>maxVal) maxVal=v;
+  }));
+
+  const color=(v)=>{
+    if(!maxVal||!v) return '#f9fafb';
+    const ratio=v/maxVal;
+    if(ratio<0.05) return '#f3f4f6';
+    const alpha=0.15+ratio*0.85;
+    return `rgba(37, 99, 235, ${alpha.toFixed(2)})`;
+  };
+
+  const metricTabs=[
+    ['impressions','노출'],['clicks','클릭'],['ctr','CTR'],
+    ['spend','지출'],['purchases','구매'],['cvr','전환율'],
+    ['revenue','매출'],['roas','ROAS']
+  ];
+
+  // 열 합계
+  const colTotal={};
+  GENDERS.forEach(g=>{
+    colTotal[g]={imp:0,clk:0,spend:0,purc:0,rev:0};
+    AGES.forEach(a=>{
+      const c=matrix[a][g];
+      colTotal[g].imp+=c.imp; colTotal[g].clk+=c.clk;
+      colTotal[g].spend+=c.spend; colTotal[g].purc+=c.purc; colTotal[g].rev+=c.rev;
+    });
+  });
+  // 행 합계
+  const rowTotal={};
+  AGES.forEach(a=>{
+    rowTotal[a]={imp:0,clk:0,spend:0,purc:0,rev:0};
+    GENDERS.forEach(g=>{
+      const c=matrix[a][g];
+      rowTotal[a].imp+=c.imp; rowTotal[a].clk+=c.clk;
+      rowTotal[a].spend+=c.spend; rowTotal[a].purc+=c.purc; rowTotal[a].rev+=c.rev;
+    });
+  });
+
+  return `
+    <div class="demo-tabs">
+      ${metricTabs.map(([k,l])=>`<span class="demo-tab ${demoMetric===k?'active':''}" data-m="${k}">${l}</span>`).join('')}
+    </div>
+    <table class="demo-matrix">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding-left:14px;">연령대</th>
+          ${GENDERS.map(g=>`<th>${GEN_LABEL[g]}</th>`).join('')}
+          <th style="background:#eff6ff;color:#1e40af;">합계</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${AGES.map(a=>`
+          <tr>
+            <td class="header" style="text-align:left;padding-left:14px;">${a}</td>
+            ${GENDERS.map(g=>{
+              const v=getVal(matrix[a][g]);
+              if(!v) return '<td class="empty">-</td>';
+              return `<td style="background:${color(v)};" title="${a} ${GEN_LABEL[g]}: ${formatVal(v)}">${formatVal(v)}</td>`;
+            }).join('')}
+            <td style="background:#eff6ff;color:#1e40af;">${formatVal(getVal(rowTotal[a]))}</td>
+          </tr>`).join('')}
+        <tr>
+          <td class="header" style="text-align:left;padding-left:14px;background:#eff6ff;color:#1e40af;">합계</td>
+          ${GENDERS.map(g=>`<td style="background:#eff6ff;color:#1e40af;">${formatVal(getVal(colTotal[g]))}</td>`).join('')}
+          <td style="background:#dbeafe;color:#1e40af;">${formatVal(AGES.reduce((s,a)=>s+getVal(rowTotal[a]),0)/(demoMetric==='ctr'||demoMetric==='cvr'||demoMetric==='roas'?AGES.length:1))}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:11px;color:#6b7280;">색상이 진할수록 값이 높음 · 클릭한 지표 기준</div>
+  `;
+}
+
+// ========== 게재위치 성과 ==========
+function buildPlatformHTML(){
+  const rows=PLATFORM.filter(r=>inRange(r.event_date,periodStart,periodEnd));
+  if(!rows.length) return '<div style="padding:20px;background:#f9fafb;border-radius:8px;color:#9ca3af;text-align:center;font-size:12px;">게재위치 데이터 없음</div>';
+
+  const map={};
+  rows.forEach(r=>{
+    const k=`${r.publisher_platform||'unknown'} / ${r.platform_position||'unknown'}`;
+    if(!map[k]) map[k]={imp:0,clk:0,spend:0,purc:0,rev:0};
+    const c=map[k];
+    c.imp+=+r.impressions||0; c.clk+=+r.clicks||0;
+    c.spend+=+r.spend_krw||0; c.purc+=+r.purchases||0; c.rev+=+r.revenue||0;
+  });
+  const sorted=Object.entries(map).sort((a,b)=>b[1].imp-a[1].imp);
+  const maxImp=sorted[0]?sorted[0][1].imp:1;
+
+  return `
+    <div class="rank-list">
+      ${sorted.map(([k,v],i)=>{
+        const ctr=v.imp?(v.clk/v.imp*100):0;
+        const roas=v.spend?(v.rev/v.spend):0;
+        const badge=ctr>=3?'<span class="rank-badge">CTR 우수</span>':ctr<1&&v.spend>10000?'<span class="rank-badge bad">CTR 저조</span>':'';
+        return `
+          <div class="rank-item">
+            <span class="rank-num">${i+1}</span>
+            <span class="rank-name">${k}${badge}</span>
+            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(v.imp/maxImp*100).toFixed(1)}%;"></div></div>
+            <span class="rank-metric">노출 ${fmt(v.imp)} · CTR ${ctr.toFixed(2)}% · ROAS ${roas.toFixed(2)}x</span>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ========== 지역 성과 ==========
+function buildRegionHTML(){
+  const rows=REGION.filter(r=>inRange(r.event_date,periodStart,periodEnd));
+  if(!rows.length) return '<div style="padding:20px;background:#f9fafb;border-radius:8px;color:#9ca3af;text-align:center;font-size:12px;">지역 데이터 없음</div>';
+
+  const map={};
+  rows.forEach(r=>{
+    const k=r.region||'unknown';
+    if(!map[k]) map[k]={imp:0,clk:0,spend:0,purc:0,rev:0};
+    const c=map[k];
+    c.imp+=+r.impressions||0; c.clk+=+r.clicks||0;
+    c.spend+=+r.spend_krw||0; c.purc+=+r.purchases||0; c.rev+=+r.revenue||0;
+  });
+  const sorted=Object.entries(map).sort((a,b)=>b[1].spend-a[1].spend).slice(0,15);
+  const maxSpend=sorted[0]?sorted[0][1].spend:1;
+
+  return `
+    <div class="rank-list">
+      ${sorted.map(([k,v],i)=>{
+        const roas=v.spend?(v.rev/v.spend):0;
+        const cpa=v.purc?v.spend/v.purc:0;
+        const badge=roas>=2?'<span class="rank-badge">ROAS 우수</span>':(roas<0.5&&v.spend>10000?'<span class="rank-badge bad">ROAS 저조</span>':'');
+        return `
+          <div class="rank-item">
+            <span class="rank-num">${i+1}</span>
+            <span class="rank-name">${k}${badge}</span>
+            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(v.spend/maxSpend*100).toFixed(1)}%;"></div></div>
+            <span class="rank-metric">지출 ₩${fmt(v.spend)} · 구매 ${fmt(v.purc)} · ROAS ${roas.toFixed(2)}x</span>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ========== 개선 제안 ==========
+function buildRecommendations(cur){
+  const tips=[];
+  if(cur.ctr<1.0 && cur.spend>=50000) tips.push({tone:'bad',t:`CTR ${cur.ctr.toFixed(2)}%로 저조 (기준 1%)`,d:'훅(첫 3초) 강화 · 카피 재작성 · 썸네일 A/B 테스트 권장'});
+  if(cur.metaRoas<1.0 && cur.spend>=100000) tips.push({tone:'bad',t:`Meta ROAS ${cur.metaRoas.toFixed(2)}x (손실)`,d:'3일 이상 지속되면 일시 정지 검토 · 랜딩 CVR 점검'});
+  if(cur.metaRoas>=3.0 && cur.spend>=50000) tips.push({tone:'good',t:`Meta ROAS ${cur.metaRoas.toFixed(2)}x (Winner)`,d:'예산 20~30% 증액 후보 · 유사 소재 확장'});
+  if(cur.frequency>=3.0) tips.push({tone:'warn',t:`빈도 ${cur.frequency.toFixed(2)} (피로도 임계)`,d:'동일 유저 반복 노출 · 새 소재 로테이션 필요'});
+  if(cur.avgEng<10 && cur.gaSessions>=100) tips.push({tone:'warn',t:`체류시간 ${cur.avgEng.toFixed(1)}초 (즉시 이탈)`,d:'랜딩 페이지 개선 필요 · 헤드라인 or 첫 화면 재검토'});
+  if(cur.gaCvr<0.5 && cur.gaSessions>=200) tips.push({tone:'warn',t:`세션 CVR ${cur.gaCvr.toFixed(2)}%`,d:'클릭 후 구매로 못 이어지는 중 · 랜딩 CTA/오퍼 점검'});
+
+  // 인구통계 기반 제안
+  const demoRows=DEMO.filter(r=>inRange(r.event_date,periodStart,periodEnd));
+  if(demoRows.length){
+    const bySeg={};
+    demoRows.forEach(r=>{
+      const k=`${r.age_bracket} ${r.gender==='female'?'여성':r.gender==='male'?'남성':'미상'}`;
+      if(!bySeg[k]) bySeg[k]={spend:0,rev:0,purc:0,clk:0,imp:0};
+      bySeg[k].spend+=+r.spend_krw||0;
+      bySeg[k].rev+=+r.revenue||0;
+      bySeg[k].purc+=+r.purchases||0;
+      bySeg[k].clk+=+r.clicks||0;
+      bySeg[k].imp+=+r.impressions||0;
+    });
+    const arr=Object.entries(bySeg).filter(([_,v])=>v.spend>=20000);
+    const winners=arr.filter(([_,v])=>v.spend>0 && v.rev/v.spend>=2.0);
+    const losers=arr.filter(([_,v])=>v.spend>0 && v.rev===0 && v.spend>=50000);
+    if(winners.length){
+      const best=winners.sort((a,b)=>(b[1].rev/b[1].spend)-(a[1].rev/a[1].spend))[0];
+      tips.push({tone:'good',t:`${best[0]} 세그먼트에서 ROAS ${(best[1].rev/best[1].spend).toFixed(2)}x`,d:'이 세그먼트에 예산 증액 or 유사 오디언스 확장 권장'});
+    }
+    if(losers.length){
+      const worst=losers.sort((a,b)=>b[1].spend-a[1].spend)[0];
+      tips.push({tone:'bad',t:`${worst[0]} 세그먼트: 지출 ₩${fmt(worst[1].spend)} but 구매 0`,d:'이 세그먼트 제외 or 광고세트 오디언스 재조정 검토'});
+    }
+  }
+
+  if(!tips.length) tips.push({tone:'good',t:'전체적으로 안정적 · 특이 이슈 없음',d:'현재 운영 유지 권장'});
+
+  return `
+    <div class="rank-list">
+      ${tips.map(t=>`
+        <div class="rank-item" style="border-left:4px solid ${t.tone==='good'?'#059669':t.tone==='bad'?'#dc2626':'#f59e0b'};">
+          <div style="flex:1;">
+            <div style="font-weight:700;color:${t.tone==='good'?'#065f46':t.tone==='bad'?'#991b1b':'#92400e'};margin-bottom:2px;">${t.t}</div>
+            <div style="font-size:12px;color:#6b7280;">${t.d}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
 function render(){
   const c=CREATIVE;
   const cur=aggregate(periodStart,periodEnd);
@@ -206,7 +445,7 @@ function render(){
     return;
   }
 
-  const img=c.local_image_path||c.thumbnail_url||'';
+  const img=c.local_image_path||c.thumbnail_url||c.image_url||'';
 
   document.getElementById('detailRoot').innerHTML=`
     ${buildHeader()}
@@ -243,6 +482,24 @@ function render(){
             ${kpiBox('Meta ROAS',fmt(cur.metaRoas,2)+'x',cur.metaRoas,prev?.metaRoas,'up','',2)}
             ${kpiBox('Meta 장바구니',`${fmt(cur.metaAtc)}건`,cur.metaAtc,prev?.metaAtc,'up','')}
           </div>
+        </div>
+
+        <div class="kpi-section">
+          <div class="kpi-section-title">👥 오디언스 · 연령 × 성별 매트릭스</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px;">이 소재가 어떤 연령/성별에서 가장 잘 되는지 · 지표 탭 클릭해서 전환</div>
+          <div id="demoBlock">${buildDemographicsHTML()}</div>
+        </div>
+
+        <div class="kpi-section">
+          <div class="kpi-section-title">📍 게재위치 · Placement</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px;">Facebook / Instagram × Feed / Reels / Story 등 위치별 성과</div>
+          ${buildPlatformHTML()}
+        </div>
+
+        <div class="kpi-section">
+          <div class="kpi-section-title">🗺 지역 성과 · Region</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px;">지출 기준 상위 15개 지역</div>
+          ${buildRegionHTML()}
         </div>
 
         <div class="kpi-section">
@@ -285,6 +542,12 @@ function render(){
           </div>
         </div>`:''}
 
+        <div class="kpi-section">
+          <div class="kpi-section-title">💡 개선 제안 · Recommendations</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px;">데이터 기반 자동 진단 · 즉시 실행 가능한 액션</div>
+          ${buildRecommendations(cur)}
+        </div>
+
         <div class="chart-box">
           <h3 style="margin-top:0;">📈 일별 성과 추이 (선택 기간)</h3>
           <canvas id="trendChart" height="90"></canvas>
@@ -295,6 +558,17 @@ function render(){
 
   drawTrend();
   bindControls();
+  bindDemoTabs();
+}
+
+function bindDemoTabs(){
+  document.querySelectorAll('.demo-tab').forEach(el=>{
+    el.addEventListener('click',()=>{
+      demoMetric=el.dataset.m;
+      document.getElementById('demoBlock').innerHTML=buildDemographicsHTML();
+      bindDemoTabs();
+    });
+  });
 }
 
 function buildHeader(){
@@ -413,7 +687,6 @@ function bindControls(){
     render();
   });
 
-  // 기간 변경시 비교 기간 자동 갱신
   [ps,pe].forEach(el=>{
     if(!el) return;
     el.addEventListener('change',()=>{
