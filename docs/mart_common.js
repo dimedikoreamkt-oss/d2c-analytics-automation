@@ -122,15 +122,20 @@ function buildSidebar() {
     ['index.html',                 'H',  'Overview'],
     ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
     ['data_explorer.html',         'DE', '데이터 익스플로러'],
+    ['landing_analytics.html',     'LA', '랜딩 분석'],
+    ['budget_optimizer.html',      'BO', '예산 최적화'],
     ['mart6.html',                 '6',  '신규 vs 재방문'],
     ['mart16.html',                '16', '채널 딥다이브'],
-    ['mart17.html',                '17', '광고 CAC / ROAS']
-    ['landing_analytics.html', 'LA', '랜딩 분석'],
+    ['mart17.html',                '17', '광고 CAC / ROAS'],
   ];
   const sidebar = document.querySelector('.sidebar');
   if (!sidebar) return;
   const current = location.pathname.split('/').pop() || 'index.html';
-  const link = ([h, tag, name]) => '<a href="' + h + '" class="' + (h === current ? 'active' : '') + '"><span class="num">' + tag + '</span> ' + name + '</a>';
+  const link = (item) => {
+    if (!Array.isArray(item) || item.length < 3) return '';
+    const [h, tag, name] = item;
+    return '<a href="' + h + '" class="' + (h === current ? 'active' : '') + '"><span class="num">' + tag + '</span> ' + name + '</a>';
+  };
   sidebar.innerHTML = '<div class="sec-label">Analytics</div>' + items.map(link).join('');
 }
 
