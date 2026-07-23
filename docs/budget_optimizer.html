@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D2C Analytics · 예산 최적화 제안</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="mart_common.css">
+<style>
+  .disclaimer { background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-start; }
+  .disclaimer svg { color:#a16207; flex-shrink:0; margin-top:2px; }
+  .disclaimer-body { flex:1; font-size:13px; color:#78350f; }
+  .disclaimer-body b { color:#451a03; }
+  .sim-hero { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+  .sim-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
+  .sim-lbl { font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .sim-row { display:flex; justify-content:space-between; align-items:baseline; margin-top:8px; }
+  .sim-cur { font-size:14px; color:var(--text-muted); text-decoration:line-through; }
+  .sim-new { font-size:22px; font-weight:700; color:var(--text); }
+  .sim-diff { font-size:12px; font-weight:700; margin-top:6px; }
+  .sim-diff.up { color:#059669; }
+  .sim-diff.down { color:#dc2626; }
+  .section-title { font-size:15px; font-weight:700; color:var(--text); margin:32px 0 12px; display:flex; align-items:center; gap:8px; }
+  .section-title svg { color:var(--text-muted); width:18px; height:18px; }
+  .opt-table { width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; font-size:13px; }
+  .opt-table th { background:#f8fafc; padding:12px 14px; text-align:left; font-size:12px; font-weight:600; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+  .opt-table td { padding:12px 14px; border-bottom:1px solid #f1f5f9; }
+  .opt-table tr:hover { background:#fafbfc; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .action-boost   { background:#dcfce7; color:#166534; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .action-hold    { background:#f1f5f9; color:#475569; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .action-cut     { background:#fef3c7; color:#a16207; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .action-exclude { background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .delta-up { color:#059669; font-weight:600; }
+  .delta-down { color:#dc2626; font-weight:600; }
+  .steps { display:flex; flex-direction:column; gap:12px; }
+  .step-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .step-head { padding:14px 20px; background:#f8fafc; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  .step-num { width:28px; height:28px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0; }
+  .step-title { font-size:14px; font-weight:700; flex:1; }
+  .step-tag { font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px; }
+  .step-body { padding:16px 20px; font-size:13px; color:var(--text-secondary); line-height:1.7; }
+  .step-body ol { padding-left:20px; margin:0; }
+  .step-body li { margin-bottom:6px; }
+  .step-body code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--primary); }
+  .step-body b { color:var(--text); }
+  .expected-box { background:#f0f9ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px; margin-top:10px; font-size:12px; color:#1e40af; }
+  .chart-wrap { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:22px 24px; margin:20px 0; }
+  .chart-wrap h3 { font-size:14px; font-weight:700; margin-bottom:16px; }
+  .empty { padding:40px; text-align:center; color:var(--text-muted); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta" id="lastUpdated">Loading…</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard / Budget Optimizer</div>
+      <h1>예산 최적화 제안</h1>
+      <div class="desc">지면별·소재별 성과를 기반으로 한 예산 재분배 시뮬레이션과 Meta 어드민 실행 가이드입니다.</div>
+    </div>
+
+    <div class="disclaimer">
+      <i data-lucide="info" style="width:18px;height:18px;"></i>
+      <div class="disclaimer-body">
+        <b>안내:</b> 이 페이지는 데이터 기반 <b>제안</b>만 표시합니다. Meta 어드민에서의 실제 예산 조정은 <b>운영자가 직접 판단·실행</b>해야 하며, 이 시스템은 자동으로 광고 예산을 변경하지 않습니다.
+      </div>
+    </div>
+
+    <div class="section-title"><i data-lucide="calculator"></i> 시뮬레이션 요약 <span style="font-size:12px;font-weight:400;color:var(--text-muted);"> · 최근 7일 데이터 기반</span></div>
+    <div class="sim-hero" id="simHero"></div>
+
+    <div class="chart-wrap">
+      <h3>현재 vs 최적화 후 지출 재분배</h3>
+      <canvas id="reallocChart" style="max-height:340px;"></canvas>
+    </div>
+
+    <div class="section-title"><i data-lucide="layout-grid"></i> 지면별 재분배 상세</div>
+    <div style="overflow-x:auto;">
+      <table class="opt-table">
+        <thead>
+          <tr>
+            <th>지면</th>
+            <th>조치</th>
+            <th class="num">현재 지출</th>
+            <th class="num">신규 지출</th>
+            <th class="num">현재 매출</th>
+            <th class="num">예상 매출</th>
+            <th class="num">현재 ROAS</th>
+            <th class="num">예상 ROAS</th>
+            <th class="num">예상 매출 변화</th>
+          </tr>
+        </thead>
+        <tbody id="placementTable"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title"><i data-lucide="users"></i> 오디언스 확장 후보</div>
+    <div style="overflow-x:auto;">
+      <table class="opt-table">
+        <thead>
+          <tr>
+            <th>세그먼트</th>
+            <th>구분</th>
+            <th class="num">현재 지출</th>
+            <th class="num">구매</th>
+            <th class="num">ROAS</th>
+            <th>제안</th>
+          </tr>
+        </thead>
+        <tbody id="audienceTable"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title"><i data-lucide="list-checks"></i> Meta 어드민 실행 가이드</div>
+    <div class="steps" id="stepsList"></div>
+  </main>
+</div>
+
+<script>
+const KRW = n => (Math.round(n||0)).toLocaleString('ko-KR') + '원';
+const NUM = n => (n||0).toLocaleString('ko-KR');
+const PCT = n => (n==null?'-':(n).toFixed(2)+'%');
+
+function buildSidebar(){
+  const marts = [
+    ['index.html',                 'H',  'Overview'],
+    ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
+    ['budget_optimizer.html',      'BO', '예산 최적화'],
+    ['data_explorer.html',         'DE', '데이터 익스플로러'],
+    ['mart6.html',                 '6',  '신규 vs 재방문'],
+    ['mart16.html',                '16', '채널 딥다이브'],
+    ['mart17.html',                '17', '광고 CAC / ROAS']
+  ];
+  const sidebar = document.querySelector('.sidebar');
+  if(!sidebar) return;
+  const cur = location.pathname.split('/').pop() || 'index.html';
+  sidebar.innerHTML = '<div class="sec-label">Analytics</div>' +
+    marts.map(([h,t,n]) => `<a href="${h}" class="${h===cur?'active':''}"><span class="num">${t}</span> ${n}</a>`).join('');
+}
+
+/* === 최적화 로직 === */
+function computeAction(p) {
+  // p: { key, spend, imp, clicks, purc, rev, roas, ctr }
+  if(p.spend >= 5000 && p.purc === 0 && p.roas < 0.1) {
+    return { action:'exclude', label:'제외', factor:0.0, reason:'지출 대비 매출 0원' };
+  }
+  if(p.spend >= 5000 && p.roas < 0.3 && p.purc <= 1) {
+    return { action:'cut',     label:'감축',  factor:0.5, reason:'ROAS 하위 & 구매 미미' };
+  }
+  if(p.spend >= 100000 && p.roas >= 0.6 && p.purc >= 3) {
+    return { action:'boost',   label:'+20%',  factor:1.2, reason:'주력 지면 · 구매 다수' };
+  }
+  return { action:'hold', label:'유지', factor:1.0, reason:'현행 유지 권장' };
+}
+
+function stepsBuilder(placementRows, audienceRows) {
+  const steps = [];
+  const excludes = placementRows.filter(p => p.opt.action === 'exclude');
+  const cuts     = placementRows.filter(p => p.opt.action === 'cut');
+  const boosts   = placementRows.filter(p => p.opt.action === 'boost');
+
+  if(excludes.length) {
+    steps.push({
+      tag:'exclude',
+      title:`STEP A: 저성과 지면 제외 (${excludes.length}개)`,
+      body:`
+        <ol>
+          <li>Meta Ads Manager → 광고세트 편집 → <b>게재 위치</b> → <b>수동 게재 위치</b> 선택</li>
+          <li>다음 지면 체크 <b>해제</b>:
+            <ul style="margin-top:6px;padding-left:20px;">
+              ${excludes.map(p => `<li><code>${p.key}</code> (지출 ${KRW(p.spend)} · 구매 ${p.purc}건)</li>`).join('')}
+            </ul>
+          </li>
+          <li>저장 → 광고세트 재검토 상태 통과 대기 (24시간 이내)</li>
+        </ol>
+        <div class="expected-box">💰 <b>절약 재원:</b> ${KRW(excludes.reduce((s,p) => s+p.spend, 0))} / 주 → 다른 지면 재투자 가능</div>
+      `
+    });
+  }
+
+  if(cuts.length) {
+    steps.push({
+      tag:'cut',
+      title:`STEP B: 저효율 지면 감축 (${cuts.length}개)`,
+      body:`
+        <ol>
+          <li>광고세트 예산을 낮출 수는 없으므로, 아래 지면들은 별도 광고세트로 분리 후 낮은 예산 설정</li>
+          ${cuts.map(p => `<li><code>${p.key}</code>: 현재 ${KRW(p.spend)} → 약 ${KRW(p.spend*0.5)} 목표 (50% 감축)</li>`).join('')}
+          <li>4주 관찰 후 여전히 ROAS < 0.3 이면 제외 검토</li>
+        </ol>
+      `
+    });
+  }
+
+  if(boosts.length) {
+    steps.push({
+      tag:'boost',
+      title:`STEP C: 주력 지면 예산 증액 (${boosts.length}개)`,
+      body:`
+        <ol>
+          <li>Meta Ads Manager → 캠페인 편집 → 일예산 <b>20% 증액</b></li>
+          ${boosts.map(p => `<li><code>${p.key}</code>: 현재 ${KRW(p.spend)} → 목표 ${KRW(p.spend*1.2)} (예상 매출 +${KRW(p.rev*0.2)})</li>`).join('')}
+          <li>증액 후 3일간 CPA/ROAS 모니터링 → 유지 시 추가 +10% 검토</li>
+          <li>급격한 성과 하락 시 (ROAS -20% 이상) 즉시 원복</li>
+        </ol>
+        <div class="expected-box">📈 <b>예상 추가 매출:</b> ${KRW(boosts.reduce((s,p) => s+p.rev*0.2, 0))} / 주</div>
+      `
+    });
+  }
+
+  const strongAudiences = audienceRows.filter(a => a.roas >= 0.8);
+  if(strongAudiences.length) {
+    steps.push({
+      tag:'audience',
+      title:`STEP D: 강세 오디언스 확장 (${strongAudiences.length}개)`,
+      body:`
+        <ol>
+          <li>Meta 어드민 → <b>오디언스</b> 메뉴 → <b>유사 오디언스 만들기</b></li>
+          <li>시드 소스: 최근 30일 <b>구매자 픽셀 이벤트</b> (offsite_conversion.fb_pixel_purchase)</li>
+          <li>위치: 한국 · 유사도: <b>1-3%</b> (약 50만-150만 명)</li>
+          <li>다음 강세 세그먼트를 별도 광고세트로 A/B 테스트:
+            <ul style="margin-top:6px;padding-left:20px;">
+              ${strongAudiences.map(a => `<li><b>${a.key}</b> (${a.type}) - ROAS ${a.roas.toFixed(2)}x · 구매 ${a.purc}건</li>`).join('')}
+            </ul>
+          </li>
+          <li>테스트 예산: 위 STEP A 절약분의 30-50% 배정</li>
+          <li>7일 후 성과 리뷰 → 통과 세그먼트만 스케일업</li>
+        </ol>
+      `
+    });
+  }
+
+  steps.push({
+    tag:'monitor',
+    title:'STEP E: 실행 후 모니터링 체크리스트',
+    body:`
+      <ol>
+        <li><b>D+1</b>: Meta Ads Manager에서 지면별 지출 배분 확인 (제외 지면 지출 0원)</li>
+        <li><b>D+3</b>: <a href="index.html">Overview 대시보드</a>에서 ROAS 추이 확인 (0.62x → 목표 0.75x+)</li>
+        <li><b>D+7</b>: <a href="creative_intelligence.html">소재 인텔리전스</a>에서 피로도 상승 여부 확인</li>
+        <li><b>D+14</b>: 유사 오디언스 세그먼트별 CPA/ROAS 비교 → 승자 스케일업</li>
+        <li><b>이상 감지</b>: ROAS 20% 이상 하락 시 즉시 원복</li>
+      </ol>
+    `
+  });
+
+  return steps;
+}
+
+async function loadData(){
+  buildSidebar();
+  try {
+    const [mart19, mart22, mart23] = await Promise.all([
+      fetch('data/mart19_creatives.json?t='+Date.now()).then(r=>r.ok?r.json():[]),
+      fetch('data/mart22_creative_demographics.json?t='+Date.now()).then(r=>r.ok?r.json():[]),
+      fetch('data/mart23_creative_platform.json?t='+Date.now()).then(r=>r.ok?r.json():[])
+    ]);
+
+    const today = new Date(); today.setUTCHours(0,0,0,0);
+    const d7 = new Date(today); d7.setUTCDate(today.getUTCDate()-7);
+    const fmt = d => d.toISOString().slice(0,10);
+
+    /* === 지면별 집계 === */
+    const plat7 = mart23.filter(r => r.event_date >= fmt(d7) && r.event_date < fmt(today));
+    const platAgg = {};
+    plat7.forEach(r => {
+      const k = (r.publisher_platform||'unknown') + ' - ' + (r.platform_position||'unknown');
+      if(k.includes('unknown')) return;
+      if(!platAgg[k]) platAgg[k] = { key:k, spend:0, imp:0, clicks:0, purc:0, rev:0 };
+      platAgg[k].spend += +r.spend_krw||0;
+      platAgg[k].imp   += +r.impressions||0;
+      platAgg[k].clicks+= +r.clicks||0;
+      platAgg[k].purc  += +r.meta_purchases||0;
+      platAgg[k].rev   += +r.meta_purchase_value||0;
+    });
+    const platRows = Object.values(platAgg).map(p => ({
+      ...p,
+      roas: p.spend ? p.rev/p.spend : 0,
+      ctr:  p.imp   ? p.clicks/p.imp*100 : 0
+    })).sort((a,b) => b.spend - a.spend);
+
+    /* === 최적화 시뮬레이션 === */
+    const optRows = platRows.map(p => {
+      const opt = computeAction(p);
+      const newSpend = p.spend * opt.factor;
+      const newRev = p.rev * opt.factor; // 선형 가정 (보수적)
+      const newRoas = newSpend ? newRev/newSpend : 0;
+      return { ...p, opt, newSpend, newRev, newRoas };
+    });
+
+    // 재원 재분배: 제외/감축으로 절약된 예산을 boost에 자동 분배
+    const savedBudget = optRows.reduce((s,r) => s + (r.spend - r.newSpend), 0);
+    const boostTargets = optRows.filter(r => r.opt.action === 'boost');
+    const boostShare = boostTargets.length ? savedBudget / boostTargets.length : 0;
+    optRows.forEach(r => {
+      if(r.opt.action === 'boost') {
+        r.newSpend += boostShare;
+        // 신규 예산의 한계효과 감소 반영 (효율 90%)
+        const marginalRev = (boostShare / p_marginal_denom(r)) * r.rev * 0.9;
+        r.newRev = r.rev * 1.2 + marginalRev;
+        r.newRoas = r.newSpend ? r.newRev/r.newSpend : 0;
+      }
+    });
+    function p_marginal_denom(r){ return r.spend || 1; }
+
+    /* === 시뮬레이션 요약 === */
+    const curTotal = {
+      spend: optRows.reduce((s,r) => s+r.spend, 0),
+      rev:   optRows.reduce((s,r) => s+r.rev, 0),
+      purc:  optRows.reduce((s,r) => s+r.purc, 0)
+    };
+    const newTotal = {
+      spend: optRows.reduce((s,r) => s+r.newSpend, 0),
+      rev:   optRows.reduce((s,r) => s+r.newRev, 0),
+      purc:  0
+    };
+    // 구매 예측: 매출 비율로 근사
+    newTotal.purc = curTotal.rev ? Math.round(curTotal.purc * newTotal.rev / curTotal.rev) : 0;
+    curTotal.roas = curTotal.spend ? curTotal.rev/curTotal.spend : 0;
+    newTotal.roas = newTotal.spend ? newTotal.rev/newTotal.spend : 0;
+
+    const heroData = [
+      ['총 지출', curTotal.spend, newTotal.spend, 'KRW'],
+      ['총 매출', curTotal.rev,   newTotal.rev,   'KRW'],
+      ['ROAS',    curTotal.roas,  newTotal.roas,  'x'],
+      ['구매 수', curTotal.purc,  newTotal.purc,  '건']
+    ];
+    document.getElementById('simHero').innerHTML = heroData.map(([lbl,cur,neu,unit]) => {
+      const diff = neu - cur;
+      const diffPct = cur ? diff/cur*100 : 0;
+      const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+      const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '–';
+      const fmtVal = v => unit==='KRW' ? KRW(v) : unit==='x' ? v.toFixed(2)+'x' : NUM(Math.round(v))+unit;
+      return `
+        <div class="sim-card">
+          <div class="sim-lbl">${lbl}</div>
+          <div class="sim-row">
+            <div>
+              <div class="sim-cur">현재 ${fmtVal(cur)}</div>
+              <div class="sim-new">${fmtVal(neu)}</div>
+            </div>
+          </div>
+          <div class="sim-diff ${cls}">${arrow} ${diff>=0?'+':''}${diffPct.toFixed(1)}%</div>
+        </div>
+      `;
+    }).join('');
+
+    /* === 재분배 차트 === */
+    new Chart(document.getElementById('reallocChart'), {
+      type:'bar',
+      data:{
+        labels: optRows.map(r => r.key),
+        datasets:[
+          { label:'현재 지출', data: optRows.map(r => Math.round(r.spend)), backgroundColor:'#94a3b8' },
+          { label:'최적화 후 지출', data: optRows.map(r => Math.round(r.newSpend)), backgroundColor:'#0066FF' }
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{ position:'top' }, tooltip:{ callbacks:{ label:c => c.dataset.label+': '+KRW(c.parsed.x) }}},
+        scales:{ x:{ beginAtZero:true, ticks:{ callback:v => (v/1000).toFixed(0)+'K' } } }
+      }
+    });
+
+    /* === 지면 테이블 === */
+    document.getElementById('placementTable').innerHTML = optRows.map(r => {
+      const actionCls = 'action-'+r.opt.action;
+      const revDiff = r.newRev - r.rev;
+      const revDiffCls = revDiff > 0 ? 'delta-up' : revDiff < 0 ? 'delta-down' : '';
+      return `<tr>
+        <td><b>${r.key}</b></td>
+        <td><span class="${actionCls}">${r.opt.label}</span><div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${r.opt.reason}</div></td>
+        <td class="num">${KRW(r.spend)}</td>
+        <td class="num"><b>${KRW(r.newSpend)}</b></td>
+        <td class="num">${KRW(r.rev)}</td>
+        <td class="num"><b>${KRW(r.newRev)}</b></td>
+        <td class="num">${r.roas.toFixed(2)}x</td>
+        <td class="num"><b>${r.newRoas.toFixed(2)}x</b></td>
+        <td class="num ${revDiffCls}">${revDiff>=0?'+':''}${KRW(revDiff)}</td>
+      </tr>`;
+    }).join('');
+
+    /* === 오디언스 (연령 + 성별) === */
+    const demo7 = mart22.filter(r => r.event_date >= fmt(d7) && r.event_date < fmt(today));
+    const audAgg = {};
+    demo7.forEach(r => {
+      const age = r.age_bracket || 'unknown';
+      const gender = r.gender || 'unknown';
+      if(age === 'unknown' || gender === 'unknown') return;
+      const k = age+' '+gender;
+      if(!audAgg[k]) audAgg[k] = { key:age+' '+(gender==='female'?'여성':gender==='male'?'남성':gender), type:'연령×성별', spend:0, purc:0, rev:0 };
+      audAgg[k].spend += +r.spend_krw||0;
+      audAgg[k].purc  += +r.meta_purchases||0;
+      audAgg[k].rev   += +r.meta_purchase_value||0;
+    });
+    const audRows = Object.values(audAgg)
+      .map(a => ({...a, roas: a.spend ? a.rev/a.spend : 0}))
+      .filter(a => a.spend >= 5000)
+      .sort((a,b) => b.roas - a.roas)
+      .slice(0, 10);
+
+    document.getElementById('audienceTable').innerHTML = audRows.length ? audRows.map(a => {
+      const proposal = a.roas >= 1.0 ? '<span class="action-boost">유사 오디언스 확장</span>' :
+                       a.roas >= 0.6 ? '<span class="action-hold">현행 유지</span>' :
+                                       '<span class="action-cut">별도 세트로 분리 관찰</span>';
+      return `<tr>
+        <td><b>${a.key}</b></td>
+        <td>${a.type}</td>
+        <td class="num">${KRW(a.spend)}</td>
+        <td class="num">${NUM(a.purc)}</td>
+        <td class="num"><b>${a.roas.toFixed(2)}x</b></td>
+        <td>${proposal}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty">오디언스 데이터 없음</td></tr>';
+
+    /* === Steps === */
+    const steps = stepsBuilder(optRows, audRows);
+    const tagColor = { exclude:'#fee2e2:#991b1b', cut:'#fef3c7:#a16207', boost:'#dcfce7:#166534', audience:'#dbeafe:#1e40af', monitor:'#f1f5f9:#475569' };
+    document.getElementById('stepsList').innerHTML = steps.map((s,i) => {
+      const [bg,fg] = (tagColor[s.tag]||'#f1f5f9:#475569').split(':');
+      return `
+        <div class="step-card">
+          <div class="step-head">
+            <div class="step-num">${i+1}</div>
+            <div class="step-title">${s.title}</div>
+            <div class="step-tag" style="background:${bg};color:${fg};">${s.tag}</div>
+          </div>
+          <div class="step-body">${s.body}</div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('lastUpdated').textContent = 'Last updated: 2026-07-23';
+    lucide.createIcons();
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('simHero').innerHTML = `<div style="grid-column:1/-1;color:var(--danger);padding:20px;">데이터 로드 실패: ${e.message}</div>`;
+  }
+}
+loadData();
+</script>
+</body>
+</html>
