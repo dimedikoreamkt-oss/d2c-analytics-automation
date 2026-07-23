@@ -2,6 +2,15 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <script>
+(function(){
+  if (window.location.hostname === 'dimedikoreamkt-oss.github.io') {
+    var path = window.location.pathname.replace('/d2c-analytics-automation', '');
+    window.location.replace('https://odd-silence-2d78.dimekorea-analytics.workers.dev' + path + window.location.search);
+  }
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>D2C Analytics · 소재 인텔리전스</title>
