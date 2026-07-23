@@ -115,6 +115,7 @@ function buildSidebar(){
   const marts = [
     ['index.html',                 'H',  'Overview'],
     ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
+    ['budget_optimizer.html',      'BO', '예산 최적화'],
     ['data_explorer.html',         'DE', '데이터 익스플로러'],
     ['mart6.html',                 '6',  '신규 vs 재방문'],
     ['mart16.html',                '16', '채널 딥다이브'],
@@ -127,6 +128,7 @@ function buildSidebar(){
     '<div class="sec-label">Analytics</div>' +
     marts.map(([h,t,n]) => `<a href="${h}" class="${h===cur?'active':''}"><span class="num">${t}</span> ${n}</a>`).join('');
 }
+
 
 async function loadData(){
   buildSidebar();
