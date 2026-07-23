@@ -1,4 +1,4 @@
-cat > creative_intelligence.html << 'HTMLEOF'
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -395,12 +395,4 @@ loadAll();
 </script>
 </body>
 </html>
-HTMLEOF
 
-echo "=== 파일 크기 확인 ==="
-ls -lh creative_intelligence.html
-
-cd ~/d2c-analytics-automation
-git add docs/creative_intelligence.html
-git commit -m "fix: Mart 21 fatigue tab uses actual schema (signals + grade + score + change_pct + days_remaining)"
-git push origin main
