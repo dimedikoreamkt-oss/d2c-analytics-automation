@@ -103,6 +103,14 @@ jobs:
             --use_legacy_sql=false --format=none \
             < sql/24_mart_creative_region.sql
 
+      - name: Refresh Mart 25 (landing performance)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
+            < sql/25_mart_landing_performance.sql
+
+
       - name: Sync with remote (before generating JSON)
         run: |
           git config user.name  "github-actions[bot]"
@@ -162,6 +170,14 @@ jobs:
              WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
              ORDER BY event_date DESC" \
             > docs/data/mart24_creative_region.json
+            
+          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=json --max_rows=100000 \
+            "SELECT * FROM \`${PROJECT_ID}.marts.mart_landing_performance\`
+             WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+             ORDER BY event_date DESC, revenue DESC" \
+            > docs/data/mart25_landing.json
+
 
           ls -lh docs/data/*.json
 
