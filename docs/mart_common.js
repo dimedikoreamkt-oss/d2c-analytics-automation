@@ -125,6 +125,7 @@ function buildSidebar() {
     ['mart6.html',                 '6',  '신규 vs 재방문'],
     ['mart16.html',                '16', '채널 딥다이브'],
     ['mart17.html',                '17', '광고 CAC / ROAS']
+    ['landing_analytics.html', 'LA', '랜딩 분석'],
   ];
   const sidebar = document.querySelector('.sidebar');
   if (!sidebar) return;
