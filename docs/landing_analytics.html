@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D2C Analytics · 랜딩 페이지 분석</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="mart_common.css">
+<style>
+  .hero { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:24px; }
+  @media (max-width:1100px){ .hero{ grid-template-columns:repeat(2,1fr);} }
+  .hero-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
+  .h-lbl { font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .h-val { font-size:24px; font-weight:700; margin:8px 0 4px; letter-spacing:-.5px; }
+  .h-sub { font-size:11px; color:var(--text-muted); }
+  .section-title { font-size:15px; font-weight:700; margin:32px 0 12px; display:flex; align-items:center; gap:8px; }
+  .section-title svg { color:var(--text-muted); width:18px; height:18px; }
+  .filter-bar { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; margin-bottom:16px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .filter-bar label { font-size:12px; color:var(--text-muted); font-weight:600; }
+  .filter-bar select, .filter-bar input { padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:inherit; }
+  .table-wrap { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  table.landings { width:100%; border-collapse:collapse; font-size:13px; }
+  table.landings th { background:#f8fafc; padding:12px 10px; text-align:left; font-size:11px; font-weight:600; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.landings td { padding:12px 10px; border-bottom:1px solid #f1f5f9; }
+  table.landings tr:hover { background:#fafbfc; cursor:pointer; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .url-cell { max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .url-cell b { display:block; font-size:13px; color:var(--text); }
+  .url-cell small { font-size:10px; color:var(--text-muted); }
+  .scroll-bar { display:flex; height:6px; border-radius:3px; overflow:hidden; background:#f1f5f9; min-width:80px; }
+  .scroll-bar > div { height:100%; }
+  .scroll-legend { font-size:10px; color:var(--text-muted); margin-top:4px; display:flex; gap:6px; }
+  .scroll-legend span { display:inline-flex; align-items:center; gap:2px; }
+  .scroll-legend .dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
+  .good { color:#059669; font-weight:700; }
+  .warn { color:#d97706; font-weight:700; }
+  .bad { color:#dc2626; font-weight:700; }
+  .chart-wrap { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:22px 24px; margin-bottom:20px; }
+  .chart-wrap h3 { font-size:14px; font-weight:700; margin-bottom:16px; }
+  .funnel-chart { display:flex; align-items:flex-end; gap:8px; height:180px; padding:20px 0; }
+  .funnel-step { flex:1; background:linear-gradient(180deg, #0066FF 0%, #4d94ff 100%); border-radius:4px 4px 0 0; position:relative; min-height:20px; color:white; font-size:11px; text-align:center; padding-top:6px; }
+  .funnel-step .step-label { position:absolute; bottom:-30px; left:0; right:0; color:#475569; font-size:11px; font-weight:600; }
+  .funnel-step .step-pct { position:absolute; top:-24px; left:0; right:0; color:#475569; font-size:12px; font-weight:700; }
+  .empty { padding:40px; text-align:center; color:var(--text-muted); font-size:13px; }
+  .detail-panel { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:22px 24px; margin-top:16px; display:none; }
+  .detail-panel.active { display:block; }
+  .detail-title { font-size:15px; font-weight:700; margin-bottom:8px; }
+  .detail-url { font-size:12px; color:var(--primary); word-break:break-all; margin-bottom:20px; }
+  .badge-good{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;}
+  .badge-warn{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;}
+  .badge-bad{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta" id="lastUpdated">Loading…</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard / Landing Analytics</div>
+      <h1>랜딩 페이지 성과 분석</h1>
+      <div class="desc">사용자가 랜딩 페이지에서 얼마나 스크롤하고, 얼마나 머물고, 어디서 이탈하는지 통합 분석합니다. 행 클릭 시 상세 지표 표시.</div>
+    </div>
+
+    <div class="filter-bar">
+      <label>기간</label>
+      <select id="periodSelect">
+        <option value="7" selected>최근 7일</option>
+        <option value="14">최근 14일</option>
+        <option value="30">최근 30일</option>
+      </select>
+      <label>최소 세션</label>
+      <input type="number" id="minSessions" value="10" min="1" style="width:70px;">
+      <label>정렬</label>
+      <select id="sortBy">
+        <option value="revenue" selected>매출 순</option>
+        <option value="sessions">세션 순</option>
+        <option value="cvr">전환율 순</option>
+        <option value="scroll">스크롤 순</option>
+        <option value="engagement">체류 순</option>
+      </select>
+    </div>
+
+    <div class="hero" id="heroGrid"></div>
+
+    <div class="section-title"><i data-lucide="list"></i> 랜딩 페이지별 성과 <span id="pageCount" style="font-size:12px;font-weight:400;color:var(--text-muted);"></span></div>
+    <div class="table-wrap">
+      <table class="landings">
+        <thead>
+          <tr>
+            <th style="min-width:280px;">랜딩 URL</th>
+            <th class="num">세션</th>
+            <th class="num">체류(초)</th>
+            <th>스크롤 분포</th>
+            <th class="num">이탈률</th>
+            <th class="num">장바구니</th>
+            <th class="num">구매</th>
+            <th class="num">CVR</th>
+            <th class="num">매출</th>
+            <th class="num">세션당매출</th>
+          </tr>
+        </thead>
+        <tbody id="landingsTable"></tbody>
+      </table>
+    </div>
+
+    <div id="detailPanel" class="detail-panel">
+      <div class="detail-title" id="detailTitle">랜딩 상세</div>
+      <div class="detail-url" id="detailUrl"></div>
+      <div class="hero" id="detailKpi" style="grid-template-columns:repeat(4,1fr);"></div>
+
+      <div class="section-title" style="margin-top:24px;"><i data-lucide="git-branch"></i> 스크롤 → 퍼널 진행 (%)</div>
+      <div class="chart-wrap">
+        <div class="funnel-chart" id="funnelChart"></div>
+      </div>
+
+      <div class="section-title"><i data-lucide="trending-up"></i> 일별 추이</div>
+      <div class="chart-wrap">
+        <canvas id="dailyChart" style="max-height:260px;"></canvas>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const KRW = n => Math.round(n||0).toLocaleString('ko-KR') + '원';
+const NUM = n => (n||0).toLocaleString('ko-KR');
+const PCT = n => (n==null?'-':(+n).toFixed(1)+'%');
+
+function buildSidebar(){
+  const marts = [
+    ['index.html', 'H', 'Overview'],
+    ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
+    ['budget_optimizer.html', 'BO', '예산 최적화'],
+    ['landing_analytics.html', 'LA', '랜딩 분석'],
+    ['data_explorer.html', 'DE', '데이터 익스플로러'],
+    ['mart6.html', '6', '신규 vs 재방문'],
+    ['mart16.html', '16', '채널 딥다이브'],
+    ['mart17.html', '17', '광고 CAC / ROAS']
+  ];
+  const sidebar = document.querySelector('.sidebar');
+  if(!sidebar) return;
+  const cur = location.pathname.split('/').pop() || 'index.html';
+  sidebar.innerHTML = '<div class="sec-label">Analytics</div>' +
+    marts.map(([h,t,n]) => `<a href="${h}" class="${h===cur?'active':''}"><span class="num">${t}</span> ${n}</a>`).join('');
+}
+
+let DATA = [];
+
+function aggBy(rows, keyFn){
+  const m = {};
+  rows.forEach(r => {
+    const k = keyFn(r);
+    if(!k) return;
+    if(!m[k]) m[k] = {
+      key:k, sessions:0, users:0, engagement:0,
+      scroll25:0, scroll50:0, scroll75:0, scroll90:0,
+      bounce:0, quickExit:0,
+      pdp:0, atc:0, checkout:0, purchases:0, revenue:0,
+      _weightedScroll:0, _weightedEngagement:0
+    };
+    const a = m[k];
+    const s = +r.sessions||0;
+    a.sessions += s;
+    a.users += +r.users||0;
+    a._weightedEngagement += (+r.avg_engagement_sec||0) * s;
+    a._weightedScroll     += (+r.avg_scroll_pct||0) * s;
+    a.scroll25   += +r.scroll_25_sessions||0;
+    a.scroll50   += +r.scroll_50_sessions||0;
+    a.scroll75   += +r.scroll_75_sessions||0;
+    a.scroll90   += +r.scroll_90_sessions||0;
+    a.bounce     += +r.bounce_sessions||0;
+    a.quickExit  += +r.quick_exit_sessions||0;
+    a.pdp        += +r.pdp_views||0;
+    a.atc        += +r.add_to_carts||0;
+    a.checkout   += +r.checkouts||0;
+    a.purchases  += +r.purchases||0;
+    a.revenue    += +r.revenue||0;
+  });
+  return Object.values(m).map(a => ({
+    ...a,
+    avg_engagement: a.sessions ? a._weightedEngagement/a.sessions : 0,
+    avg_scroll:     a.sessions ? a._weightedScroll/a.sessions     : 0,
+    bounce_rate:    a.sessions ? a.bounce/a.sessions*100          : 0,
+    quick_exit_rate:a.sessions ? a.quickExit/a.sessions*100       : 0,
+    reach_25_pct:   a.sessions ? a.scroll25/a.sessions*100        : 0,
+    reach_50_pct:   a.sessions ? a.scroll50/a.sessions*100        : 0,
+    reach_75_pct:   a.sessions ? a.scroll75/a.sessions*100        : 0,
+    reach_90_pct:   a.sessions ? a.scroll90/a.sessions*100        : 0,
+    atc_rate:       a.sessions ? a.atc/a.sessions*100             : 0,
+    cvr:            a.sessions ? a.purchases/a.sessions*100       : 0,
+    rps:            a.sessions ? a.revenue/a.sessions             : 0,
+    aov:            a.purchases ? a.revenue/a.purchases           : 0
+  }));
+}
+
+function shortenUrl(url){
+  if(!url) return '(unknown)';
+  return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+}
+
+function scrollBar(a){
+  const total = Math.max(a.sessions, 1);
+  const w25 = (a.scroll25/total*100).toFixed(0);
+  const w50 = (a.scroll50/total*100).toFixed(0);
+  const w75 = (a.scroll75/total*100).toFixed(0);
+  const w90 = (a.scroll90/total*100).toFixed(0);
+  return `
+    <div style="width:120px;">
+      <div class="scroll-bar" title="25%:${w25} 50%:${w50} 75%:${w75} 90%:${w90}">
+        <div style="width:${w25}%;background:#dbeafe;"></div>
+        <div style="width:${Math.max(0,w50-w25)}%;background:#93c5fd;"></div>
+        <div style="width:${Math.max(0,w75-w50)}%;background:#3b82f6;"></div>
+        <div style="width:${Math.max(0,w90-w75)}%;background:#1e40af;"></div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:3px;">
+        평균 ${a.avg_scroll.toFixed(0)}% · 90% 도달 ${w90}%
+      </div>
+    </div>
+  `;
+}
+
+function renderKpi(rows){
+  const total = {
+    sessions: rows.reduce((s,r)=>s+r.sessions,0),
+    revenue:  rows.reduce((s,r)=>s+r.revenue,0),
+    purchases:rows.reduce((s,r)=>s+r.purchases,0),
+    engagement: rows.reduce((s,r)=>s+r._weightedEngagement,0),
+    scroll:   rows.reduce((s,r)=>s+r._weightedScroll,0)
+  };
+  const avgEng = total.sessions ? total.engagement/total.sessions : 0;
+  const avgScroll = total.sessions ? total.scroll/total.sessions : 0;
+  const cvr = total.sessions ? total.purchases/total.sessions*100 : 0;
+
+  document.getElementById('heroGrid').innerHTML = [
+    ['총 세션',    NUM(total.sessions), rows.length + '개 랜딩'],
+    ['총 매출',    KRW(total.revenue),  NUM(total.purchases) + '건 구매'],
+    ['평균 CVR',   cvr.toFixed(2)+'%',  cvr >= 1 ? '<span class="good">양호</span>' : '<span class="bad">저조</span>'],
+    ['평균 체류',  avgEng.toFixed(1)+'초', avgEng >= 30 ? '<span class="good">양호</span>' : avgEng >= 10 ? '<span class="warn">보통</span>' : '<span class="bad">이탈위험</span>'],
+    ['평균 스크롤',avgScroll.toFixed(0)+'%', avgScroll >= 50 ? '<span class="good">양호</span>' : avgScroll >= 30 ? '<span class="warn">보통</span>' : '<span class="bad">저조</span>']
+  ].map(([lbl,val,sub])=>`
+    <div class="hero-card">
+      <div class="h-lbl">${lbl}</div>
+      <div class="h-val">${val}</div>
+      <div class="h-sub">${sub}</div>
+    </div>
+  `).join('');
+}
+
+function renderTable(rows){
+  const sortBy = document.getElementById('sortBy').value;
+  const minSess = +document.getElementById('minSessions').value || 0;
+  const filtered = rows.filter(r => r.sessions >= minSess);
+  const sortMap = {
+    revenue:    (a,b) => b.revenue-a.revenue,
+    sessions:   (a,b) => b.sessions-a.sessions,
+    cvr:        (a,b) => b.cvr-a.cvr,
+    scroll:     (a,b) => b.avg_scroll-a.avg_scroll,
+    engagement: (a,b) => b.avg_engagement-a.avg_engagement
+  };
+  filtered.sort(sortMap[sortBy]);
+  document.getElementById('pageCount').textContent = ` · ${filtered.length}개 표시`;
+  document.getElementById('landingsTable').innerHTML = filtered.length ? filtered.map((r,i) => {
+    const engCls = r.avg_engagement>=30?'good':r.avg_engagement>=10?'warn':'bad';
+    const cvrCls = r.cvr>=1?'good':r.cvr>=0.3?'warn':'bad';
+    const bounceCls = r.bounce_rate<=40?'good':r.bounce_rate<=70?'warn':'bad';
+    return `<tr data-key="${encodeURIComponent(r.key)}">
+      <td class="url-cell"><b>${shortenUrl(r.key)}</b><small>${r.key}</small></td>
+      <td class="num">${NUM(r.sessions)}</td>
+      <td class="num ${engCls}">${r.avg_engagement.toFixed(1)}</td>
+      <td>${scrollBar(r)}</td>
+      <td class="num ${bounceCls}">${r.bounce_rate.toFixed(1)}%</td>
+      <td class="num">${NUM(r.atc)}</td>
+      <td class="num">${NUM(r.purchases)}</td>
+      <td class="num ${cvrCls}">${r.cvr.toFixed(2)}%</td>
+      <td class="num">${KRW(r.revenue)}</td>
+      <td class="num">${KRW(r.rps)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="10" class="empty">조건에 맞는 랜딩 없음</td></tr>';
+
+  document.querySelectorAll('#landingsTable tr[data-key]').forEach(row => {
+    row.addEventListener('click', () => renderDetail(decodeURIComponent(row.dataset.key), rows));
+  });
+}
+
+function renderDetail(url, aggRows){
+  const item = aggRows.find(r => r.key === url);
+  if(!item) return;
+  document.getElementById('detailPanel').classList.add('active');
+  document.getElementById('detailTitle').textContent = shortenUrl(url);
+  document.getElementById('detailUrl').innerHTML = `<a href="${url}" target="_blank">${url}</a>`;
+
+  // KPI
+  document.getElementById('detailKpi').innerHTML = [
+    ['세션', NUM(item.sessions), '고유 사용자 ' + NUM(item.users)],
+    ['평균 체류', item.avg_engagement.toFixed(1)+'초', '즉시이탈 ' + item.quick_exit_rate.toFixed(1)+'%'],
+    ['평균 스크롤', item.avg_scroll.toFixed(0)+'%', '90% 도달 ' + item.reach_90_pct.toFixed(1)+'%'],
+    ['ROAS', item.rps > 0 ? KRW(item.rps)+'/세션' : '-', 'AOV ' + (item.aov ? KRW(item.aov) : '-')]
+  ].map(([lbl,val,sub])=>`
+    <div class="hero-card">
+      <div class="h-lbl">${lbl}</div>
+      <div class="h-val" style="font-size:20px;">${val}</div>
+      <div class="h-sub">${sub}</div>
+    </div>
+  `).join('');
+
+  // 퍼널 차트
+  const steps = [
+    ['진입', item.sessions, 100],
+    ['25% 스크롤', item.scroll25, item.reach_25_pct],
+    ['50% 스크롤', item.scroll50, item.reach_50_pct],
+    ['75% 스크롤', item.scroll75, item.reach_75_pct],
+    ['90% 스크롤', item.scroll90, item.reach_90_pct],
+    ['장바구니', item.atc, item.atc_rate],
+    ['결제 시작', item.checkout, item.sessions ? item.checkout/item.sessions*100 : 0],
+    ['구매 완료', item.purchases, item.cvr]
+  ];
+  const maxV = steps[0][1] || 1;
+  document.getElementById('funnelChart').innerHTML = steps.map(([label,val,pct]) => `
+    <div class="funnel-step" style="height:${Math.max(5, val/maxV*100)}%;" title="${label}: ${NUM(val)}세션 (${pct.toFixed(1)}%)">
+      <div class="step-pct">${pct.toFixed(1)}%</div>
+      <div style="margin-top:8px;font-weight:700;">${NUM(val)}</div>
+      <div class="step-label">${label}</div>
+    </div>
+  `).join('');
+
+  // 일별 추이
+  const dailyRows = DATA.filter(r => r.landing_url === url).sort((a,b) => a.event_date.localeCompare(b.event_date));
+  const dailyChart = document.getElementById('dailyChart');
+  if(window._dailyChartInst) window._dailyChartInst.destroy();
+  window._dailyChartInst = new Chart(dailyChart, {
+    type:'line',
+    data:{
+      labels: dailyRows.map(r => r.event_date.slice(5)),
+      datasets:[
+        { label:'세션', data:dailyRows.map(r=>+r.sessions||0), borderColor:'#0066FF', backgroundColor:'rgba(0,102,255,0.1)', yAxisID:'y', tension:0.3 },
+        { label:'매출', data:dailyRows.map(r=>+r.revenue||0),  borderColor:'#00A76F', yAxisID:'y1', tension:0.3 },
+        { label:'평균 스크롤(%)', data:dailyRows.map(r=>+r.avg_scroll_pct||0), borderColor:'#f59e0b', yAxisID:'y2', tension:0.3, borderDash:[5,3] }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top' } },
+      scales:{
+        y:  { position:'left',  title:{display:true, text:'세션'} },
+        y1: { position:'right', title:{display:true, text:'매출(원)'}, grid:{drawOnChartArea:false} },
+        y2: { display:false, min:0, max:100 }
+      }
+    }
+  });
+
+  document.getElementById('detailPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function loadData(){
+  buildSidebar();
+  try {
+    const raw = await fetch('data/mart25_landing.json?t='+Date.now()).then(r=>r.json());
+    DATA = raw;
+
+    function refresh(){
+      const days = +document.getElementById('periodSelect').value;
+      const today = new Date(); today.setUTCHours(0,0,0,0);
+      const cutoff = new Date(today); cutoff.setUTCDate(today.getUTCDate()-days);
+      const fmt = d => d.toISOString().slice(0,10);
+      const filtered = DATA.filter(r => r.event_date >= fmt(cutoff));
+      const agg = aggBy(filtered, r => r.landing_url);
+      renderKpi(agg);
+      renderTable(agg);
+    }
+    refresh();
+    ['periodSelect','minSessions','sortBy'].forEach(id => document.getElementById(id).addEventListener('change', refresh));
+
+    document.getElementById('lastUpdated').textContent = 'Last updated: 2026-07-23';
+    lucide.createIcons();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('heroGrid').innerHTML = `<div style="grid-column:1/-1;color:var(--danger);padding:20px;">데이터 로드 실패: ${e.message}<br>Mart 25 실행이 필요합니다.</div>`;
+  }
+}
+loadData();
+</script>
+</body>
+</html>
