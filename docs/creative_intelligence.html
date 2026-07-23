@@ -1,4 +1,3 @@
-cd ~/d2c-analytics-automation/docs
 cat > creative_intelligence.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="ko">
@@ -36,19 +35,28 @@ cat > creative_intelligence.html << 'HTMLEOF'
   .rank-badge.gold { background:#f59e0b; }
   .rank-badge.silver { background:#94a3b8; }
   .rank-badge.bronze { background:#b45309; }
-  table.appeal-table { width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
-  table.appeal-table th { background:#f8fafc; padding:12px 14px; text-align:left; font-size:12px; font-weight:600; color:var(--text-muted); border-bottom:1px solid var(--border); }
-  table.appeal-table td { padding:12px 14px; border-bottom:1px solid #f1f5f9; font-size:13px; }
+  table.appeal-table { width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; font-size:13px; }
+  table.appeal-table th { background:#f8fafc; padding:12px 14px; text-align:left; font-size:12px; font-weight:600; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.appeal-table td { padding:12px 14px; border-bottom:1px solid #f1f5f9; }
   table.appeal-table tr:hover { background:#f8fafc; }
   .num { text-align:right; font-variant-numeric:tabular-nums; }
   .roas-good { color:#059669; font-weight:700; }
   .roas-bad { color:#dc2626; font-weight:700; }
-  .fatigue-high { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
-  .fatigue-mid { background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
-  .fatigue-low { background:#dcfce7; color:#166534; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
+  .grade-critical { background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .grade-warning  { background:#fef3c7; color:#92400e; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .grade-caution  { background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .grade-healthy  { background:#dcfce7; color:#166534; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .signal-dot { display:inline-block; width:22px; height:22px; border-radius:50%; text-align:center; line-height:22px; font-size:11px; margin-right:2px; font-weight:700; }
+  .signal-on  { background:#dc2626; color:white; }
+  .signal-off { background:#e5e7eb; color:#9ca3af; }
+  .change-up   { color:#dc2626; font-weight:600; }
+  .change-down { color:#059669; font-weight:600; }
+  .change-flat { color:#6b7280; }
   .chart-wrap { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:22px 24px; margin-bottom:20px; }
   .chart-wrap h3 { font-size:14px; font-weight:700; margin-bottom:16px; }
   .empty { padding:40px; text-align:center; color:var(--text-muted); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
+  .fatigue-legend { display:flex; gap:16px; margin-bottom:16px; padding:12px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); font-size:12px; color:var(--text-muted); }
+  .fatigue-legend b { color:var(--text); }
 </style>
 </head>
 <body>
@@ -103,25 +111,39 @@ cat > creative_intelligence.html << 'HTMLEOF'
     </div>
 
     <div class="panel" id="panel-fatigue">
-      <div class="section-title"><i data-lucide="alert-triangle"></i> 소재 피로도 (Mart 21)</div>
+      <div class="section-title"><i data-lucide="alert-triangle"></i> 소재 피로도 (Mart 21) — 5가지 위험 신호 통합 진단</div>
+      <div class="fatigue-legend">
+        <span><b>신호 아이콘</b>: 🔴 활성 / ⚪ 정상</span>
+        <span><b>F</b>: 고빈도 (freq≥3)</span>
+        <span><b>C</b>: CTR 하락</span>
+        <span><b>P</b>: CPC 상승</span>
+        <span><b>M</b>: CPM 상승</span>
+        <span><b>L</b>: 장기 운영</span>
+      </div>
       <div class="chart-wrap">
         <h3>피로도 점수 상위 15개 소재</h3>
         <canvas id="fatigueChart" style="max-height:340px;"></canvas>
       </div>
+      <div style="overflow-x:auto;">
       <table class="appeal-table">
         <thead>
           <tr>
             <th>소재명</th>
-            <th class="num">Frequency</th>
-            <th class="num">피로도 점수</th>
-            <th class="num">최근 CTR</th>
-            <th class="num">최근 ROAS</th>
-            <th>상태</th>
+            <th>등급</th>
+            <th class="num">점수</th>
+            <th class="num">신호</th>
+            <th>F</th><th>C</th><th>P</th><th>M</th><th>L</th>
+            <th class="num">Freq (7d)</th>
+            <th class="num">CTR 변화</th>
+            <th class="num">CPC 변화</th>
+            <th class="num">잔여수명</th>
+            <th class="num">운영일</th>
             <th>조치</th>
           </tr>
         </thead>
         <tbody id="fatigueTable"></tbody>
       </table>
+      </div>
     </div>
   </main>
 </div>
@@ -155,6 +177,32 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   document.getElementById('panel-'+t.dataset.panel).classList.add('active');
 }));
 
+function gradeClass(g){
+  if(!g) return 'grade-healthy';
+  const s = String(g);
+  if(s.includes('위험')||s.includes('심각')||s.toUpperCase().includes('CRITICAL')) return 'grade-critical';
+  if(s.includes('경고')||s.includes('주의')||s.toUpperCase().includes('WARNING'))   return 'grade-warning';
+  if(s.includes('관찰')||s.toUpperCase().includes('CAUTION'))                       return 'grade-caution';
+  return 'grade-healthy';
+}
+function signalDot(on, label){
+  return `<span class="signal-dot ${on?'signal-on':'signal-off'}" title="${label}">${on?'●':'○'}</span>`;
+}
+function fmtChange(v){
+  if(v==null || isNaN(v)) return '-';
+  const cls = v > 5 ? 'change-up' : v < -5 ? 'change-down' : 'change-flat';
+  const sign = v>0?'+':'';
+  return `<span class="${cls}">${sign}${v.toFixed(1)}%</span>`;
+}
+function actionFor(f){
+  const grade = String(f.fatigue_grade||'');
+  const signals = +f.signal_count||0;
+  if(grade.includes('위험') || signals >= 4) return '즉시 소재 교체';
+  if(grade.includes('경고') || signals >= 3) return '새 소재 로테이션 준비';
+  if(grade.includes('주의') || grade.includes('관찰')) return '트렌드 모니터링';
+  return '유지';
+}
+
 async function loadAll(){
   buildSidebar();
   try {
@@ -171,7 +219,6 @@ async function loadAll(){
     const now7 = mart19.filter(r => r.event_date >= fmt(d7) && r.event_date < fmt(today));
 
     const totalSpend = now7.reduce((s,r)=>s+(+r.spend_krw||0),0);
-    const totalPurc  = now7.reduce((s,r)=>s+(+r.meta_purchases||0),0);
     const totalRev   = now7.reduce((s,r)=>s+(+r.meta_purchase_value||0),0);
     const activeCount = meta.filter(m => m.effective_status === 'ACTIVE').length;
 
@@ -187,6 +234,7 @@ async function loadAll(){
       </div>
     `).join('');
 
+    /* === Tab 1: Gallery (Mart 19) === */
     const perAd = {};
     now7.forEach(r => {
       const id = r.ad_id;
@@ -207,7 +255,6 @@ async function loadAll(){
       }))
       .sort((a,b) => b.roas - a.roas)
       .slice(0, 24);
-
     document.getElementById('galleryGrid').innerHTML = ranked.length ? ranked.map((r,i) => {
       const badgeClass = i===0?'gold':i===1?'silver':i===2?'bronze':'';
       return `<a class="creative-card" href="creative_detail.html?ad_id=${r.ad_id}">
@@ -223,6 +270,7 @@ async function loadAll(){
       </a>`;
     }).join('') : '<div class="empty" style="grid-column:1/-1;">최근 7일 지출된 소재가 없습니다.</div>';
 
+    /* === Tab 2: Appeal (Mart 20) === */
     const appealAgg = {};
     mart20.filter(r => r.event_date >= fmt(d7)).forEach(r => {
       const key = r.appeal_tag + '|' + r.creative_type;
@@ -235,7 +283,6 @@ async function loadAll(){
     const appealRows = Object.values(appealAgg)
       .map(a => ({...a, ctr:a.imp?a.clicks/a.imp*100:0, roas:a.spend?a.rev/a.spend:0}))
       .sort((a,b) => b.rev - a.rev);
-
     document.getElementById('appealTable').innerHTML = appealRows.length ? appealRows.map(a => `
       <tr>
         <td><b>${a.appeal}</b></td>
@@ -261,54 +308,79 @@ async function loadAll(){
     });
     new Chart(document.getElementById('appealChart'), {
       type:'bar',
-      data:{
-        labels: topAppeals,
-        datasets:[
-          { label:'Image ROAS', data:imageData, backgroundColor:'#0066FF' },
-          { label:'Video ROAS', data:videoData, backgroundColor:'#00A76F' }
-        ]
-      },
-      options:{
-        responsive:true, maintainAspectRatio:false,
+      data:{ labels: topAppeals, datasets:[
+        { label:'Image ROAS', data:imageData, backgroundColor:'#0066FF' },
+        { label:'Video ROAS', data:videoData, backgroundColor:'#00A76F' }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{ position:'top' }, tooltip:{ callbacks:{ label:c => c.dataset.label+': '+c.parsed.y+'x' }}},
         scales:{ y:{ beginAtZero:true, title:{display:true, text:'ROAS (x)'} } }
       }
     });
 
-    const fatigueRanked = mart21.slice(0, 15);
+    /* === Tab 3: Fatigue (Mart 21) - 실제 스키마 활용 === */
+    const fatigueRanked = mart21
+      .slice()
+      .sort((a,b) => (+b.fatigue_score||0) - (+a.fatigue_score||0))
+      .slice(0, 15);
+
     document.getElementById('fatigueTable').innerHTML = fatigueRanked.length ? fatigueRanked.map(f => {
-      const freq = +f.frequency || 0;
       const score = +f.fatigue_score || 0;
-      const ctr = +f.recent_ctr_pct || 0;
-      const roas = +f.recent_roas || 0;
-      const badge = freq >= 3.0 ? '<span class="fatigue-high">위험</span>' :
-                    freq >= 2.0 ? '<span class="fatigue-mid">주의</span>' :
-                                  '<span class="fatigue-low">정상</span>';
-      const action = freq >= 3.0 ? '즉시 소재 교체 필요' :
-                     freq >= 2.0 ? '새 소재 로테이션 준비' :
-                                   '유지';
+      const grade = f.fatigue_grade || 'healthy';
+      const signals = +f.signal_count || 0;
+      const r7freq = +f.r7_freq || 0;
+      const ctrChg = +f.ctr_change_pct;
+      const cpcChg = +f.cpc_change_pct;
+      const daysRemain = +f.estimated_days_remaining;
+      const runDays = +f.running_days || 0;
       return `<tr>
-        <td><b>${f.ad_name||f.ad_id}</b></td>
-        <td class="num">${freq.toFixed(2)}</td>
-        <td class="num">${score.toFixed(1)}</td>
-        <td class="num">${ctr.toFixed(2)}%</td>
-        <td class="num ${roas>=1?'roas-good':'roas-bad'}">${roas.toFixed(2)}x</td>
-        <td>${badge}</td>
-        <td>${action}</td>
+        <td><b>${(f.ad_name||f.ad_id||'').slice(0,32)}</b><div style="font-size:11px;color:var(--text-muted);">${(f.campaign_name||'').slice(0,30)}</div></td>
+        <td><span class="${gradeClass(grade)}">${grade}</span></td>
+        <td class="num"><b>${score}</b></td>
+        <td class="num">${signals}/5</td>
+        <td>${signalDot(+f.sig_high_freq,   '고빈도')}</td>
+        <td>${signalDot(+f.sig_ctr_decline, 'CTR 하락')}</td>
+        <td>${signalDot(+f.sig_cpc_rise,    'CPC 상승')}</td>
+        <td>${signalDot(+f.sig_cpm_rise,    'CPM 상승')}</td>
+        <td>${signalDot(+f.sig_long_running,'장기운영')}</td>
+        <td class="num">${r7freq.toFixed(2)}</td>
+        <td class="num">${fmtChange(ctrChg)}</td>
+        <td class="num">${fmtChange(cpcChg)}</td>
+        <td class="num">${isFinite(daysRemain) ? daysRemain.toFixed(0)+'일' : '-'}</td>
+        <td class="num">${runDays}일</td>
+        <td>${actionFor(f)}</td>
       </tr>`;
-    }).join('') : '<tr><td colspan="7" class="empty">피로도 데이터 없음</td></tr>';
+    }).join('') : '<tr><td colspan="15" class="empty">피로도 데이터 없음</td></tr>';
 
     new Chart(document.getElementById('fatigueChart'), {
       type:'bar',
       data:{
-        labels: fatigueRanked.map(f => (f.ad_name||f.ad_id).slice(0,20)),
+        labels: fatigueRanked.map(f => (f.ad_name||f.ad_id||'').slice(0,22)),
         datasets:[{
           label:'Fatigue Score',
           data: fatigueRanked.map(f => +f.fatigue_score||0),
-          backgroundColor: fatigueRanked.map(f => (+f.frequency||0)>=3 ? '#dc2626' : (+f.frequency||0)>=2 ? '#f59e0b' : '#059669')
+          backgroundColor: fatigueRanked.map(f => {
+            const g = String(f.fatigue_grade||'');
+            if(g.includes('위험')||g.includes('심각')) return '#dc2626';
+            if(g.includes('경고')) return '#f59e0b';
+            if(g.includes('주의')||g.includes('관찰')) return '#3b82f6';
+            return '#10b981';
+          })
         }]
       },
-      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } }}
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{ display:false }, tooltip:{ callbacks:{
+          afterLabel:ctx => {
+            const f = fatigueRanked[ctx.dataIndex];
+            return [
+              '등급: '+(f.fatigue_grade||'-'),
+              '신호: '+(+f.signal_count||0)+'/5',
+              '운영: '+(+f.running_days||0)+'일'
+            ];
+          }
+        }}},
+        scales:{ x:{ beginAtZero:true, title:{ display:true, text:'Fatigue Score' } } }
+      }
     });
 
     document.getElementById('lastUpdated').textContent = 'Last updated: 2026-07-23';
@@ -325,14 +397,10 @@ loadAll();
 </html>
 HTMLEOF
 
-echo "=== 파일 생성 확인 ==="
+echo "=== 파일 크기 확인 ==="
 ls -lh creative_intelligence.html
 
-echo "=== git 상태 ==="
 cd ~/d2c-analytics-automation
-git status | head -10
-
-echo "=== add + commit + push ==="
 git add docs/creative_intelligence.html
-git commit -m "feat: add creative_intelligence.html (gallery + appeal + fatigue tabs)"
+git commit -m "fix: Mart 21 fatigue tab uses actual schema (signals + grade + score + change_pct + days_remaining)"
 git push origin main
