@@ -1,14 +1,48 @@
 #!/bin/bash
-set -e
+# set -e (removed for graceful failure)
 PROJECT_ID="d2c-analytics-502304"
 LOCATION="asia-northeast3"
 
 echo "=== D2C Analytics marts refresh start: $(date) ==="
+# 다른 워크플로우가 담당하는 SQL 목록 (skip)
+# - 22_mart_competitor_winners: scrape_market.yml (competitor_ads 필요)
+# - 22_mart_market_winners: scrape_market.yml (scraped_ads 필요)
+# - 22_mart_creative_demographics: daily_creatives.yml
+# - 23_mart_creative_platform: daily_creatives.yml
+# - 23_mart_creative_region: daily_creatives.yml
+# - 24_mart_creative_region: daily_creatives.yml
+# - 25_mart_landing_performance: daily_creatives.yml
+# - 19_mart_creative_performance ~ 21_mart_creative_fatigue: daily_creatives.yml
+SKIP_PATTERNS=(
+  "19_mart_creative"
+  "20_mart_creative"
+  "21_mart_creative"
+  "22_mart_competitor"
+  "22_mart_market"
+  "22_mart_creative"
+  "23_mart_creative"
+  "24_mart_creative"
+  "25_mart_landing"
+)
+
 for f in sql/*.sql; do
+  skip=0
+  for pattern in "${SKIP_PATTERNS[@]}"; do
+    if [[ "$f" == *"$pattern"* ]]; then
+      echo "--- SKIP $f (owned by other workflow) ---"
+      skip=1
+      break
+    fi
+  done
+  [[ $skip -eq 1 ]] && continue
+
   echo "--- running $f ---"
-  bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-    --use_legacy_sql=false < "$f"
-  echo "--- done $f ---"
+  if bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+       --use_legacy_sql=false < "$f"; then
+    echo "--- done $f ---"
+  else
+    echo "!!! FAILED $f (continue with next) !!!"
+  fi
 done
 echo "=== All 5 marts refreshed: $(date) ==="
 
