@@ -28,7 +28,7 @@ def log(msg):
 
 def fetch_meta_insights(since_date: str, until_date: str):
     """Meta Graph API insights 호출. Ad 단위로 breakdown하여 UTM 값 확보."""
-    url = f"{META_BASE}/act_{META_AD_ACCOUNT_ID}/insights"
+    url = f"{META_BASE}/{META_AD_ACCOUNT_ID}/insights"
     fields = [
         'date_start', 'account_id', 'account_name',
         'campaign_id', 'campaign_name',
@@ -76,7 +76,7 @@ def fetch_meta_insights(since_date: str, until_date: str):
 
 def fetch_ad_utm_map():
     """각 광고(ad_id)에 설정된 URL 파라미터에서 UTM 값 추출."""
-    url = f"{META_BASE}/act_{META_AD_ACCOUNT_ID}/ads"
+    url = f"{META_BASE}/{META_AD_ACCOUNT_ID}/ads"
     params = {
         'access_token': META_ACCESS_TOKEN,
         'fields': 'id,url_tags',
@@ -263,7 +263,7 @@ def main():
     until = today - timedelta(days=1)
     since = until - timedelta(days=BACKFILL_DAYS - 1)
     log(f"수집 범위: {since} ~ {until} (총 {BACKFILL_DAYS}일)")
-    log(f"Ad Account: act_{META_AD_ACCOUNT_ID}")
+    log(f"Ad Account: {META_AD_ACCOUNT_ID}")
 
     utm_map = fetch_ad_utm_map()
     raw = fetch_meta_insights(since.isoformat(), until.isoformat())
