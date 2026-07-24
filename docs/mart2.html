@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <link rel="stylesheet" href="mart_common.css">
+  <script src="mart_common.js"></script>
 </head>
 <body>
 <header class="topbar">
@@ -361,13 +362,6 @@ function render() {
 
 // 사이드바
 (function(){
-  const marts = [
-    ['mart1.html','1','일별 이커머스 KPI'],['mart2.html','2','퍼널 이탈 분석'],
-    ['mart3.html','3','코호트 리텐션'],['mart4.html','4','멀티터치 어트리뷰션'],
-    ['mart5.html','5','LTV / RFM'],['mart6.html','6','신규 vs 재방문'],
-    ['mart7.html','7','요일×시간대 히트맵'],['mart8.html','8','콘텐츠 참여도'],
-    ['mart9.html','9','다크소셜 / AI 리퍼럴']
-  ];
   const sb = document.querySelector('.sidebar');
   const cur = location.pathname.split('/').pop();
   sb.innerHTML = `<div class="sec-label">Analytics</div>` +

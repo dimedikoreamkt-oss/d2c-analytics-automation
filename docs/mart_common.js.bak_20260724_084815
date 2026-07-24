@@ -174,69 +174,6 @@ function filterByRange(rows, dateKey, s, e) { return rows.filter(r => r[dateKey]
 function sumBy(rows, k) { return rows.reduce((s,r) => { const v = parseFloat(r[k]); return isFinite(v) ? s+v : s; }, 0); }
 function avgBy(rows, k) { const vs = rows.map(r => parseFloat(r[k])).filter(v => isFinite(v)); return vs.length ? vs.reduce((a,b)=>a+b,0)/vs.length : NaN; }
 
-
-// ===== 광고 지표 가중평균 계산 (CPC/CPM/CTR/CAC/CPA/ROAS/AOV 등) =====
-// 광고 산업 표준: 개별 값을 SUM하면 안 되고, 원시 데이터로 재계산해야 함
-function weightedMetric(rows, k) {
-  const s = (key) => rows.reduce((a, r) => {
-    const v = parseFloat(r[key]);
-    return isFinite(v) ? a + v : a;
-  }, 0);
-
-  switch(k) {
-    // 광고 효율 지표
-    case 'cpc':               return s('clicks') > 0 ? s('spend_krw') / s('clicks') : 0;
-    case 'cpm':               return s('impressions') > 0 ? (s('spend_krw') / s('impressions')) * 1000 : 0;
-    case 'ctr_pct':           return s('impressions') > 0 ? (s('clicks') / s('impressions')) * 100 : 0;
-    case 'click_to_purchase_pct': return s('clicks') > 0 ? (s('purchases') / s('clicks')) * 100 : 0;
-
-    // 획득/전환 비용
-    case 'cac_krw':           return s('acquired_users') > 0 ? s('spend_krw') / s('acquired_users') : 0;
-    case 'cpa_krw':           return s('purchases') > 0 ? s('spend_krw') / s('purchases') : 0;
-
-    // 매출 배수
-    case 'roas':              return s('spend_krw') > 0 ? s('ga_revenue') / s('spend_krw') : 0;
-    case 'platform_roas':     return s('spend_krw') > 0 ? s('platform_revenue') / s('spend_krw') : 0;
-    case 'ltv_cac_ratio':     return s('spend_krw') > 0 && s('acquired_users') > 0 ?
-                                     (s('ltv_estimate_krw') / s('acquired_users')) / (s('spend_krw') / s('acquired_users')) : 0;
-
-    // 단가/전환율
-    case 'aov':               return s('purchases') > 0 ? s('revenue') / s('purchases') : 0;
-    case 'session_cvr_pct':   return s('sessions') > 0 ? (s('purchases') / s('sessions')) * 100 : 0;
-    case 'user_cvr_pct':      return s('users') > 0 ? (s('purchases') / s('users')) * 100 : 0;
-    case 'atc_rate_pct':      return s('sessions') > 0 ? (s('add_to_carts') / s('sessions')) * 100 : 0;
-    case 'cart_abandonment_pct': return s('add_to_carts') > 0 ?
-                                     ((s('add_to_carts') - s('purchases')) / s('add_to_carts')) * 100 : 0;
-
-    // 유저당 매출
-    case 'revenue_per_user':           return s('users') > 0 ? s('revenue') / s('users') : 0;
-    case 'revenue_per_acquired_user':  return s('acquired_users') > 0 ? s('revenue') / s('acquired_users') : 0;
-    case 'ltv_estimate_krw':           return s('acquired_users') > 0 ? s('ltv_estimate_krw') / s('acquired_users') : NaN;
-
-    default: return NaN;
-  }
-}
-
-// 계산형 지표(가중평균 적용 대상)인지 판정
-function isCalculatedMetric(k) {
-  return /^(cpc|cpm|ctr_pct|cac_krw|cpa_krw|roas|platform_roas|aov|session_cvr_pct|user_cvr_pct|atc_rate_pct|cart_abandonment_pct|revenue_per_user|revenue_per_acquired_user|click_to_purchase_pct|ltv_cac_ratio|ltv_estimate_krw)$/.test(k);
-}
-
-// 통합 집계 함수: 지표 특성에 맞는 계산 방식 자동 선택
-function aggregateMetric(rows, k) {
-  const isPct = /pct|rate|ratio/i.test(k);
-  if (isCalculatedMetric(k)) {
-    // CPC/CPM 등: 원시 데이터로 가중평균 재계산
-    return weightedMetric(rows, k);
-  } else if (isPct) {
-    // 그 외 % 지표: 단순 평균
-    return avgBy(rows, k);
-  } else {
-    // 카운트/금액: 합산
-    return sumBy(rows, k);
-  }
-}
-
 // ===== 날짜 필터 =====
 function buildDateFilter(container, allDates, onChange) {
   const dates = allDates.slice().sort();
@@ -403,8 +340,8 @@ function render(rows) {
       hero.className = 'compare-hero';
       selectedMetrics.slice(0, 3).forEach(k => {
         const isPct = /pct|rate|ratio/i.test(k);
-        const cur = aggregateMetric(primaryRows, k);
-        const prev = aggregateMetric(compareRows, k);
+        const cur = isPct ? avgBy(primaryRows, k) : sumBy(primaryRows, k);
+        const prev = isPct ? avgBy(compareRows, k) : sumBy(compareRows, k);
         const card = document.createElement('div');
         card.className = 'compare-card';
         card.innerHTML =
@@ -425,8 +362,8 @@ function render(rows) {
       const items = [];
       selectedMetrics.forEach(k => {
         const isPct = /pct|rate|ratio/i.test(k);
-        const cur = aggregateMetric(primaryRows, k);
-        const prev = aggregateMetric(compareRows, k);
+        const cur = isPct ? avgBy(primaryRows, k) : sumBy(primaryRows, k);
+        const prev = isPct ? avgBy(compareRows, k) : sumBy(compareRows, k);
         if (!isFinite(cur) || !isFinite(prev) || prev === 0) return;
         const diff = isPct ? (cur - prev) : ((cur - prev)/Math.abs(prev))*100;
         if (Math.abs(diff) < 5) return;
@@ -455,8 +392,8 @@ function render(rows) {
       kpiGrid.className = 'kpi-grid';
       selectedMetrics.forEach(k => {
         const isPct = /pct|rate|ratio/i.test(k);
-        const cur = aggregateMetric(primaryRows, k);
-        const prev = aggregateMetric(compareRows, k);
+        const cur = isPct ? avgBy(primaryRows, k) : sumBy(primaryRows, k);
+        const prev = isPct ? avgBy(compareRows, k) : sumBy(compareRows, k);
         const card = document.createElement('div');
         card.className = 'kpi-card';
         card.innerHTML =
@@ -555,36 +492,3 @@ document.addEventListener('DOMContentLoaded', () => {
     buildSidebar();
   }
 });
-
-
-// ========================================
-// 공통 사이드바 목차 (모든 페이지 통일)
-// ========================================
-const MARTS_NAV = [
-  ['index.html',                 'H',  'Overview'],
-  ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
-  ['data_explorer.html',         'DE', '데이터 익스플로러'],
-  ['landing_analytics.html',     'LA', '랜딩 분석'],
-  ['budget_optimizer.html',      'BO', '예산 최적화'],
-  ['mart6.html',                 '6',  '신규 vs 재방문'],
-  ['mart16.html',                '16', '채널 딥다이브'],
-  ['mart17.html',                '17', '광고 CAC / ROAS'],
-];
-
-function buildSidebar() {
-  const sidebar = document.querySelector('.sidebar');
-  if (!sidebar) return;
-  const cur = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  sidebar.innerHTML =
-    '<div class="sec-label">Analytics</div>' +
-    MARTS_NAV.map(([h, t, n]) =>
-      `<a href="${h}" class="${h.toLowerCase() === cur ? 'active' : ''}"><span class="num">${t}</span> ${n}</a>`
-    ).join('');
-}
-
-// DOM 로드 시 자동 실행
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', buildSidebar);
-} else {
-  buildSidebar();
-}

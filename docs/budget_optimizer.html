@@ -60,6 +60,7 @@
   .chart-wrap h3 { font-size:14px; font-weight:700; margin-bottom:16px; }
   .empty { padding:40px; text-align:center; color:var(--text-muted); font-size:13px; background:var(--white); border:1px dashed var(--border); border-radius:var(--radius); }
 </style>
+  <script src="mart_common.js"></script>
 </head>
 <body>
 <header class="topbar">
@@ -136,23 +137,6 @@
 const KRW = n => (Math.round(n||0)).toLocaleString('ko-KR') + '원';
 const NUM = n => (n||0).toLocaleString('ko-KR');
 const PCT = n => (n==null?'-':(n).toFixed(2)+'%');
-
-function buildSidebar(){
-  const marts = [
-    ['index.html',                 'H',  'Overview'],
-    ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
-    ['budget_optimizer.html',      'BO', '예산 최적화'],
-    ['data_explorer.html',         'DE', '데이터 익스플로러'],
-    ['mart6.html',                 '6',  '신규 vs 재방문'],
-    ['mart16.html',                '16', '채널 딥다이브'],
-    ['mart17.html',                '17', '광고 CAC / ROAS']
-  ];
-  const sidebar = document.querySelector('.sidebar');
-  if(!sidebar) return;
-  const cur = location.pathname.split('/').pop() || 'index.html';
-  sidebar.innerHTML = '<div class="sec-label">Analytics</div>' +
-    marts.map(([h,t,n]) => `<a href="${h}" class="${h===cur?'active':''}"><span class="num">${t}</span> ${n}</a>`).join('');
-}
 
 /* === 최적화 로직 === */
 function computeAction(p) {

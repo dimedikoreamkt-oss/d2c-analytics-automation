@@ -67,6 +67,7 @@
   .fatigue-legend { display:flex; gap:16px; margin-bottom:16px; padding:12px 16px; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); font-size:12px; color:var(--text-muted); }
   .fatigue-legend b { color:var(--text); }
 </style>
+  <script src="mart_common.js"></script>
 </head>
 <body>
 <header class="topbar">
@@ -162,25 +163,6 @@ const KRW = n => (n||0).toLocaleString('ko-KR') + '원';
 const NUM = n => (n||0).toLocaleString('ko-KR');
 const PCT = n => (n==null?'-':(n).toFixed(2)+'%');
 const XN = n => Math.abs(n||0) >= 1000000 ? ((n/1000000).toFixed(1)+'M') : Math.abs(n||0) >= 1000 ? ((n/1000).toFixed(1)+'K') : (n||0).toString();
-
-function buildSidebar(){
-  const marts = [
-    ['index.html',                 'H',  'Overview'],
-    ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
-    ['budget_optimizer.html',      'BO', '예산 최적화'],
-    ['data_explorer.html',         'DE', '데이터 익스플로러'],
-    ['mart6.html',                 '6',  '신규 vs 재방문'],
-    ['mart16.html',                '16', '채널 딥다이브'],
-    ['mart17.html',                '17', '광고 CAC / ROAS']
-  ];
-  const sidebar = document.querySelector('.sidebar');
-  if(!sidebar) return;
-  const cur = location.pathname.split('/').pop() || 'index.html';
-  sidebar.innerHTML =
-    '<div class="sec-label">Analytics</div>' +
-    marts.map(([h,t,n]) => `<a href="${h}" class="${h===cur?'active':''}"><span class="num">${t}</span> ${n}</a>`).join('');
-}
-
 
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
