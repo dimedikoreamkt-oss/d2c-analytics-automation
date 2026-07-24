@@ -79,7 +79,7 @@ def fetch_ad_utm_map():
     url = f"{META_BASE}/act_{META_AD_ACCOUNT_ID}/ads"
     params = {
         'access_token': META_ACCESS_TOKEN,
-        'fields': 'id,creative{url_tags}',
+        'fields': 'id,url_tags,creative{url_tags}',
         'limit': 500
     }
     utm_map = {}
@@ -88,7 +88,7 @@ def fetch_ad_utm_map():
         r.raise_for_status()
         payload = r.json()
         for ad in payload.get('data', []):
-            tags = ((ad.get('creative') or {}).get('url_tags') or '')
+            tags = ad.get('url_tags') or ((ad.get('creative') or {}).get('url_tags') or '')
             utm = {}
             for pair in tags.split('&'):
                 if '=' in pair:

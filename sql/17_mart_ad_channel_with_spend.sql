@@ -52,7 +52,8 @@ ga_perf_agg AS (
     SUM(checkouts) AS checkouts,
     SUM(purchases) AS purchases,
     SUM(revenue) AS revenue,
-    SUM(acquired_users) AS acquired_users
+    SUM(acquired_users) AS acquired_users,
+    ANY_VALUE(campaign_original) AS campaign_original
   FROM ga_perf
   GROUP BY event_date, source_norm, campaign_norm
 ),
