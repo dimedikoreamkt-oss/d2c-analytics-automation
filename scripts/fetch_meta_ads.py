@@ -79,7 +79,7 @@ def fetch_ad_utm_map():
     url = f"{META_BASE}/act_{META_AD_ACCOUNT_ID}/ads"
     params = {
         'access_token': META_ACCESS_TOKEN,
-        'fields': 'id,url_tags,creative{url_tags}',
+        'fields': 'id,url_tags',
         'limit': 500
     }
     utm_map = {}
