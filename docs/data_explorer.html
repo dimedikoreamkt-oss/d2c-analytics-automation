@@ -146,57 +146,131 @@ timeseries(rows){
 funnel(rows){
   const root = document.getElementById('root');
   const types = [...new Set(rows.map(r=>r.funnel_type).filter(Boolean))];
-  const segments = [...new Set(rows.map(r=>r.segment).filter(Boolean))];
-  const activeType = types[0] || null;
-  const activeSeg = segments[0] || null;
 
-  const render = (typeVal, segVal) => {
+  // funnel_type별 사용 가능한 segment 매핑
+  const segsByType = {};
+  types.forEach(t => {
+    segsByType[t] = [...new Set(rows.filter(r=>r.funnel_type===t).map(r=>r.segment).filter(Boolean))];
+  });
+
+  // 날짜 범위
+  const allDates = [...new Set(rows.map(r=>r.event_date).filter(Boolean))].sort();
+  const dateRangeLabel = allDates.length ? `${allDates[0]} ~ ${allDates[allDates.length-1]} · ${allDates.length}일 집계` : '';
+
+  // 집계 함수: funnel_type + segment 기준으로 step_name별 sessions 합산
+  const aggregate = (typeVal, segVal) => {
     const filtered = rows.filter(r =>
       (!typeVal || r.funnel_type===typeVal) &&
       (!segVal || r.segment===segVal)
-    ).sort((a,b) => (+a.step_number||0)-(+b.step_number||0));
+    );
 
-    const funnelHtml = filtered.map(s => {
+    const grouped = {};
+    filtered.forEach(row => {
+      const key = row.step_name || ('step_'+row.step_number);
+      if (!grouped[key]) {
+        grouped[key] = {
+          step_name: row.step_name,
+          step_number: +row.step_number || 0,
+          sessions: 0
+        };
+      }
+      grouped[key].sessions += (+row.sessions || +row.users || 0);
+    });
+
+    const steps = Object.values(grouped).sort((a,b) => a.step_number - b.step_number);
+    if (steps.length === 0) return [];
+
+    const step1 = steps[0].sessions || 1;
+    steps.forEach((s, i) => {
+      s.pct_of_step1 = (s.sessions / step1) * 100;
+      if (i === 0) {
+        s.dropoff_from_prev_pct = null;
+      } else {
+        const prev = steps[i-1].sessions;
+        s.dropoff_from_prev_pct = prev > 0 ? ((prev - s.sessions) / prev * 100) : 0;
+      }
+    });
+    return steps;
+  };
+
+  const render = (typeVal, segVal) => {
+    const steps = aggregate(typeVal, segVal);
+
+    const funnelHtml = steps.map(s => {
       const pct = +s.pct_of_step1 || 0;
-      const drop = +s.dropoff_from_prev_pct || 0;
+      const drop = s.dropoff_from_prev_pct;
+      const dropLabel = drop === null ? '기준' : '−' + drop.toFixed(1) + '%';
+      const dropColor = drop === null ? '' : (drop > 50 ? 'color:#dc2626;' : drop > 20 ? 'color:#ea580c;' : 'color:#16a34a;');
       return `<div class="funnel-row">
-        <div class="funnel-label">${s.step_name||'Step '+s.step_number}<span class="sub">Step ${s.step_number} · ${NUM(s.users||s.sessions||0)} 명</span></div>
+        <div class="funnel-label">${s.step_name||'Step '+s.step_number}<span class="sub">Step ${s.step_number} · ${NUM(s.sessions)} 명</span></div>
         <div class="funnel-bar-outer">
           <div class="funnel-bar-inner" style="width:${Math.max(pct,3)}%">${pct.toFixed(1)}%</div>
         </div>
-        <div class="funnel-drop">${drop ? '−'+drop.toFixed(1)+'%' : '기준'}</div>
+        <div class="funnel-drop" style="${dropColor}">${dropLabel}</div>
       </div>`;
     }).join('');
 
-    document.getElementById('funnelContent').innerHTML = `<div class="funnel-wrap">${funnelHtml || '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);">데이터 없음</div>'}</div>`;
+    // 요약 정보
+    let summaryHtml = '';
+    if (steps.length >= 2) {
+      const first = steps[0], last = steps[steps.length-1];
+      const overallCVR = ((last.sessions / (first.sessions||1)) * 100).toFixed(2);
+      summaryHtml = `<div style="margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:6px;font-size:13px;">
+        <strong>전체 전환율:</strong> ${NUM(first.sessions)}명 (${first.step_name}) → ${NUM(last.sessions)}명 (${last.step_name})
+        <strong style="color:#2563eb;margin-left:8px;">${overallCVR}%</strong>
+      </div>`;
+    }
+
+    document.getElementById('funnelContent').innerHTML =
+      `<div class="funnel-wrap">${funnelHtml || '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);">데이터 없음</div>'}</div>${summaryHtml}`;
   };
+
+  const buildSegTabs = (typeVal) => {
+    const segs = segsByType[typeVal] || [];
+    if (segs.length <= 1) return '';
+    return `<div class="sub-tabs" id="funnelSegTabs">
+      ${segs.map((s,i)=>`<span class="sub-tab ${i===0?'active':''}" data-s="${s}">${s}</span>`).join('')}
+    </div>`;
+  };
+
+  const activeType = types[0] || null;
+  const activeSeg = (segsByType[activeType] || [])[0] || null;
 
   root.innerHTML = `
     <div class="chart-box">
       <h3>퍼널 통과율 <span class="chart-en">Funnel Dropoff</span></h3>
-      <div class="h3-sub">각 단계별 유입 대비 도달률 · 오른쪽은 직전 단계 대비 이탈률</div>
+      <div class="h3-sub">각 단계별 유입 대비 도달률 · 오른쪽은 직전 단계 대비 이탈률 · <span style="color:#2563eb;">${dateRangeLabel}</span></div>
       <div class="sub-tabs" id="funnelTypeTabs">
         ${types.map((t,i)=>`<span class="sub-tab ${i===0?'active':''}" data-t="${t}">${t}</span>`).join('')}
       </div>
-      ${segments.length > 1 ? `<div class="sub-tabs" id="funnelSegTabs">
-        ${segments.map((s,i)=>`<span class="sub-tab ${i===0?'active':''}" data-s="${s}">${s}</span>`).join('')}
-      </div>` : ''}
+      <div id="funnelSegWrap">${buildSegTabs(activeType)}</div>
       <div id="funnelContent"></div>
     </div>`;
 
   const state = { type: activeType, seg: activeSeg };
+
+  const bindSegTabs = () => {
+    document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
+      document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(x=>x.classList.remove('active'));
+      el.classList.add('active');
+      state.seg = el.dataset.s;
+      render(state.type, state.seg);
+    }));
+  };
+
   document.querySelectorAll('#funnelTypeTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
     document.querySelectorAll('#funnelTypeTabs .sub-tab').forEach(x=>x.classList.remove('active'));
     el.classList.add('active');
     state.type = el.dataset.t;
+    // segment 탭 재구성
+    document.getElementById('funnelSegWrap').innerHTML = buildSegTabs(state.type);
+    const segs = segsByType[state.type] || [];
+    state.seg = segs[0] || null;
+    bindSegTabs();
     render(state.type, state.seg);
   }));
-  document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
-    document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(x=>x.classList.remove('active'));
-    el.classList.add('active');
-    state.seg = el.dataset.s;
-    render(state.type, state.seg);
-  }));
+
+  bindSegTabs();
   render(state.type, state.seg);
 },
 
