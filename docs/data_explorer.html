@@ -144,70 +144,60 @@ timeseries(rows){
 // M2 · 퍼널
 // ────────────────────────────────
 funnel(rows){
+  const root = document.getElementById('root');
   const types = [...new Set(rows.map(r=>r.funnel_type).filter(Boolean))];
   const segments = [...new Set(rows.map(r=>r.segment).filter(Boolean))];
-  
-  funnel(rows){
-  const root = document.getElementById('root');
-  const types = [...new Set(rows.map(r=>r.funnel_type))].filter(Boolean);
-  const segments = [...new Set(rows.map(r=>r.segment))].filter(Boolean);
   const activeType = types[0] || null;
   const activeSeg = segments[0] || null;
-  
+
   const render = (typeVal, segVal) => {
-    // funnel_type + segment 필터
     const filtered = rows.filter(r =>
       (!typeVal || r.funnel_type===typeVal) &&
-      (!segVal  || r.segment===segVal)
+      (!segVal || r.segment===segVal)
     ).sort((a,b) => (+a.step_number||0)-(+b.step_number||0));
-    
-    // step_number 기준 집계 (날짜별 데이터 병합)
-    const grouped = {};
-    filtered.forEach(r => {
-      const key = r.step_number;
-      if (!grouped[key]) {
-        grouped[key] = {
-          step_number: r.step_number,
-          step_name: r.step_name,
-          sessions: 0
-        };
-      }
-      grouped[key].sessions += Number(r.sessions || 0);
-    });
-    
-    // 스텝 순서로 정렬
-    const steps = Object.values(grouped).sort((a, b) => Number(a.step_number) - Number(b.step_number));
-    
-    // 통과율 & 이탈률 재계산
-    const step1Sessions = steps[0]?.sessions || 1;
-    steps.forEach((s, idx) => {
-      s.pct_of_step1 = (s.sessions / step1Sessions) * 100;
-      if (idx === 0) {
-        s.dropoff_from_prev_pct = null;
-      } else {
-        const prev = steps[idx - 1].sessions;
-        s.dropoff_from_prev_pct = prev > 0 ? ((prev - s.sessions) / prev) * 100 : 0;
-      }
-    });
-    
-    // 렌더링
-    const funnelHtml = steps.map(s => {
-      const pct = Number(s.pct_of_step1) || 0;
-      const drop = Number(s.dropoff_from_prev_pct) || 0;
+
+    const funnelHtml = filtered.map(s => {
+      const pct = +s.pct_of_step1 || 0;
+      const drop = +s.dropoff_from_prev_pct || 0;
       return `<div class="funnel-row">
-        <div class="funnel-label">${s.step_name||'Step '+s.step_number}<span class="sub">Step ${s.step_number} · ${NUM(s.sessions)} 세션</span></div>
+        <div class="funnel-label">${s.step_name||'Step '+s.step_number}<span class="sub">Step ${s.step_number} · ${NUM(s.users||s.sessions||0)} 명</span></div>
         <div class="funnel-bar-outer">
           <div class="funnel-bar-inner" style="width:${Math.max(pct,3)}%">${pct.toFixed(1)}%</div>
         </div>
         <div class="funnel-drop">${drop ? '−'+drop.toFixed(1)+'%' : '기준'}</div>
       </div>`;
     }).join('');
-    
-    document.getElementById('funnelContent').innerHTML = 
-      `<div class="funnel-wrap">${funnelHtml || '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);">데이터 없음</div>'}</div>`;
-  }
-  
-  return {types, segments, render};
+
+    document.getElementById('funnelContent').innerHTML = `<div class="funnel-wrap">${funnelHtml || '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted);">데이터 없음</div>'}</div>`;
+  };
+
+  root.innerHTML = `
+    <div class="chart-box">
+      <h3>퍼널 통과율 <span class="chart-en">Funnel Dropoff</span></h3>
+      <div class="h3-sub">각 단계별 유입 대비 도달률 · 오른쪽은 직전 단계 대비 이탈률</div>
+      <div class="sub-tabs" id="funnelTypeTabs">
+        ${types.map((t,i)=>`<span class="sub-tab ${i===0?'active':''}" data-t="${t}">${t}</span>`).join('')}
+      </div>
+      ${segments.length > 1 ? `<div class="sub-tabs" id="funnelSegTabs">
+        ${segments.map((s,i)=>`<span class="sub-tab ${i===0?'active':''}" data-s="${s}">${s}</span>`).join('')}
+      </div>` : ''}
+      <div id="funnelContent"></div>
+    </div>`;
+
+  const state = { type: activeType, seg: activeSeg };
+  document.querySelectorAll('#funnelTypeTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
+    document.querySelectorAll('#funnelTypeTabs .sub-tab').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    state.type = el.dataset.t;
+    render(state.type, state.seg);
+  }));
+  document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(el => el.addEventListener('click', () => {
+    document.querySelectorAll('#funnelSegTabs .sub-tab').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    state.seg = el.dataset.s;
+    render(state.type, state.seg);
+  }));
+  render(state.type, state.seg);
 },
 
 // ────────────────────────────────
