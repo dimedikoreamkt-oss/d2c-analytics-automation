@@ -147,15 +147,19 @@ funnel(rows){
   const types = [...new Set(rows.map(r=>r.funnel_type).filter(Boolean))];
   const segments = [...new Set(rows.map(r=>r.segment).filter(Boolean))];
   
-  function render(){
-    const typeVal = document.querySelector('#funnelTypeTabs .active')?.dataset.val;
-    const segVal = document.querySelector('#funnelSegTabs .active')?.dataset.val;
-    
+  funnel(rows){
+  const root = document.getElementById('root');
+  const types = [...new Set(rows.map(r=>r.funnel_type))].filter(Boolean);
+  const segments = [...new Set(rows.map(r=>r.segment))].filter(Boolean);
+  const activeType = types[0] || null;
+  const activeSeg = segments[0] || null;
+  
+  const render = (typeVal, segVal) => {
     // funnel_type + segment 필터
     const filtered = rows.filter(r =>
       (!typeVal || r.funnel_type===typeVal) &&
-      (!segVal || r.segment===segVal)
-    );
+      (!segVal  || r.segment===segVal)
+    ).sort((a,b) => (+a.step_number||0)-(+b.step_number||0));
     
     // step_number 기준 집계 (날짜별 데이터 병합)
     const grouped = {};
