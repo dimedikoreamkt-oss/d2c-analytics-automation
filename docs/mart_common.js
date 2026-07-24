@@ -555,36 +555,3 @@ document.addEventListener('DOMContentLoaded', () => {
     buildSidebar();
   }
 });
-
-
-// ========================================
-// 공통 사이드바 목차 (모든 페이지 통일)
-// ========================================
-const MARTS_NAV = [
-  ['index.html',                 'H',  'Overview'],
-  ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
-  ['data_explorer.html',         'DE', '데이터 익스플로러'],
-  ['landing_analytics.html',     'LA', '랜딩 분석'],
-  ['budget_optimizer.html',      'BO', '예산 최적화'],
-  ['mart6.html',                 '6',  '신규 vs 재방문'],
-  ['mart16.html',                '16', '채널 딥다이브'],
-  ['mart17.html',                '17', '광고 CAC / ROAS'],
-];
-
-function buildSidebar() {
-  const sidebar = document.querySelector('.sidebar');
-  if (!sidebar) return;
-  const cur = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  sidebar.innerHTML =
-    '<div class="sec-label">Analytics</div>' +
-    MARTS_NAV.map(([h, t, n]) =>
-      `<a href="${h}" class="${h.toLowerCase() === cur ? 'active' : ''}"><span class="num">${t}</span> ${n}</a>`
-    ).join('');
-}
-
-// DOM 로드 시 자동 실행
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', buildSidebar);
-} else {
-  buildSidebar();
-}
