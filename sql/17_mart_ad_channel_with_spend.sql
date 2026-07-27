@@ -35,7 +35,7 @@ ga_perf AS (
     SUM(purchases) AS purchases,
     SUM(revenue) AS revenue,
     SUM(acquired_users) AS acquired_users
-  FROM `d2c-analytics-502304.marts.mart_ad_channel_deep`
+  FROM `d2c-analytics-502304.marts.mart_channel_deep`
   WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
   GROUP BY event_date, source_norm, campaign_norm, source_original, medium_original, campaign_original
 ),
