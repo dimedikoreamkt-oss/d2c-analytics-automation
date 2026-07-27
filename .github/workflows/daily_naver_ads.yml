@@ -1,0 +1,90 @@
+name: Daily Naver Ads Sync
+
+on:
+  schedule:
+    - cron: '30 12 * * *'  # 매일 KST 21:30
+  workflow_dispatch:
+    inputs:
+      custom_since:
+        description: 'Custom start date (YYYY-MM-DD)'
+        default: ''
+        required: false
+      custom_until:
+        description: 'Custom end date (YYYY-MM-DD)'
+        default: ''
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync-naver-ads:
+    runs-on: ubuntu-latest
+    env:
+      NAVER_ACCOUNTS:   ${{ secrets.NAVER_ACCOUNTS }}
+      CUSTOM_SINCE:     ${{ github.event.inputs.custom_since || '' }}
+      CUSTOM_UNTIL:     ${{ github.event.inputs.custom_until || '' }}
+      PROJECT_ID:       d2c-analytics-502304
+      LOCATION:         asia-northeast3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Fetch Naver Ads data (all accounts)
+        run: python scripts/fetch_naver_ads.py
+
+      - name: Refresh Mart 26 (Naver Ad Performance)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
+            < sql/26_mart_naver_ad_performance.sql
+
+      - name: Refresh Mart 27 (Brand Summary)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
+            < sql/27_mart_naver_brand_summary.sql
+
+      - name: Refresh Mart 28 (Keyword Insights)
+        run: |
+          bq query \
+            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+            --use_legacy_sql=false --format=none \
+            < sql/28_mart_naver_keyword_insights.sql
+
+      - name: Export JSONs
+        run: |
+          for mart in mart_naver_ad_performance mart_naver_brand_summary mart_naver_keyword_insights; do
+            outfile="docs/data/${mart#mart_naver_}.json"
+            bq query \
+              --project_id="${PROJECT_ID}" --location="${LOCATION}" \
+              --use_legacy_sql=false \
+              --format=json --max_rows=10000 \
+              "SELECT * FROM \`${PROJECT_ID}.marts.${mart}\`" \
+              > docs/data/${mart}.json
+          done
+
+      - name: Commit and push
+        run: |
+          git config user.email "dimedikoreamkt@gmail.com"
+          git config user.name "GitHub Actions"
+          git add docs/data/*.json
+          git commit -m "chore: sync Naver Ads data [skip ci]" || echo "No changes"
+          git push
