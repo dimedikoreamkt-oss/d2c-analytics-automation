@@ -54,18 +54,36 @@ async function initLLM(modelId, onProgress) {
     ? (window.location.origin + '/hf-proxy/')
     : 'https://huggingface.co/';
   
-  // WebLLM appConfig: 모델 URL 재정의
+  // WebLLM appConfig: 모델·WASM URL 모두 HF 프록시로 통일
+  // WebLLM v0.2.x는 model + model_lib 모두 huggingface.co에서 받음
+  const rewriteUrl = (u) => {
+    if (!u || !isWorker) return u;
+    // huggingface.co → /hf-proxy/
+    if (u.startsWith('https://huggingface.co/')) {
+      return u.replace('https://huggingface.co/', hfBase);
+    }
+    // raw.githubusercontent.com (구버전 폴백)
+    if (u.startsWith('https://raw.githubusercontent.com/')) {
+      return u.replace('https://raw.githubusercontent.com/', window.location.origin + '/gh-proxy/');
+    }
+    return u;
+  };
+  
   const customAppConfig = {
+    ...webllm.prebuiltAppConfig,
     model_list: webllm.prebuiltAppConfig.model_list.map(m => ({
       ...m,
-      model: m.model.replace('https://huggingface.co/', hfBase),
-      model_lib: m.model_lib.replace('https://raw.githubusercontent.com/', 
-        isWorker ? (window.location.origin + '/gh-proxy/') : 'https://raw.githubusercontent.com/')
+      model: rewriteUrl(m.model),
+      model_lib: rewriteUrl(m.model_lib)
     }))
   };
   
-  console.log('[WebLLM] Model host:', hfBase);
-  console.log('[WebLLM] Sample model URL:', customAppConfig.model_list[0]?.model);
+  // 선택된 모델의 실제 URL 확인용 로그
+  const targetModel = customAppConfig.model_list.find(m => m.model_id === modelId);
+  console.log('[WebLLM] isWorker:', isWorker);
+  console.log('[WebLLM] Selected model:', modelId);
+  console.log('[WebLLM] Selected model.model (weights):', targetModel?.model);
+  console.log('[WebLLM] Selected model.model_lib (WASM):', targetModel?.model_lib);
   
   const engine = new webllm.MLCEngine({
     appConfig: customAppConfig,
