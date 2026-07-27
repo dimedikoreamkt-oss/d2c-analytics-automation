@@ -41,10 +41,6 @@ async function loadWebLLMLibrary() {
 // 모델 다운로드 & 초기화
 // ============================================
 async function initLLM(modelId, onProgress) {
-  // Cloudflare Worker 도메인 감지 → CORS 이슈로 GitHub Pages 안내
-  if (window.location.hostname.includes('workers.dev')) {
-    throw new Error('⚠️ Cloudflare Worker 도메인에서는 CORS 정책으로 인해 로컬 AI를 사용할 수 없습니다.\n\n📌 GitHub Pages 직접 접속 URL을 사용해주세요:\nhttps://dimedikoreamkt-oss.github.io/d2c-analytics-automation/mart26.html\n\n이 URL에서는 HuggingFace CDN에 직접 접속 가능하여 모델 다운로드가 정상 작동합니다.');
-  }
   if (!checkWebGPU()) {
     throw new Error('WebGPU 미지원 브라우저입니다. Chrome/Edge 최신 버전을 사용해주세요.');
   }
@@ -52,9 +48,30 @@ async function initLLM(modelId, onProgress) {
   LLM_STATE.loading = true;
   LLM_STATE.model = modelId;
 
-  const engine = new webllm.MLCEngine();
+  // Worker 도메인 접속 시 HuggingFace URL을 Worker 프록시로 재작성
+  const isWorker = window.location.hostname.includes('workers.dev');
+  const hfBase = isWorker 
+    ? (window.location.origin + '/hf-proxy/')
+    : 'https://huggingface.co/';
+  
+  // WebLLM appConfig: 모델 URL 재정의
+  const customAppConfig = {
+    model_list: webllm.prebuiltAppConfig.model_list.map(m => ({
+      ...m,
+      model: m.model.replace('https://huggingface.co/', hfBase),
+      model_lib: m.model_lib.replace('https://raw.githubusercontent.com/', 
+        isWorker ? (window.location.origin + '/gh-proxy/') : 'https://raw.githubusercontent.com/')
+    }))
+  };
+  
+  console.log('[WebLLM] Model host:', hfBase);
+  console.log('[WebLLM] Sample model URL:', customAppConfig.model_list[0]?.model);
+  
+  const engine = new webllm.MLCEngine({
+    appConfig: customAppConfig,
+    logLevel: 'INFO'
+  });
   engine.setInitProgressCallback((r) => {
-    // r = { progress: 0~1, text: "..." }
     if (onProgress) onProgress(r);
   });
 
@@ -389,18 +406,8 @@ function showLLMSetup() {
   const box = document.getElementById('chatMessages');
   if (document.getElementById('llmSetupBox')) return;
   
-  // Worker 도메인 사전 감지
+  // Worker 도메인에서는 HF 프록시 경유 (Cloudflare Worker에 /hf-proxy/ 엔드포인트 필요)
   const isWorker = window.location.hostname.includes('workers.dev');
-  if (isWorker) {
-    const warn = document.createElement('div');
-    warn.className = 'chat-msg bot';
-    warn.style.background = '#fef2f2';
-    warn.style.border = '1px solid #fecaca';
-    warn.innerHTML = '⚠️ <strong>현재 Cloudflare Worker 도메인으로 접속 중</strong><br><br>CORS 정책으로 인해 HuggingFace CDN에서 AI 모델을 다운로드할 수 없습니다.<br><br><strong>📌 아래 URL로 직접 접속해주세요:</strong><br><a href="https://dimedikoreamkt-oss.github.io/d2c-analytics-automation/mart26.html" target="_blank" style="color:#0066FF;font-weight:700;">GitHub Pages 직접 접속 ↗</a><br><br>이 URL에서는 로그인은 없지만 로컬 AI 기능이 완벽하게 작동합니다.<br>(로컬 AI는 데이터를 외부로 전송하지 않으므로 인증과 무관합니다)';
-    box.appendChild(warn);
-    box.scrollTop = box.scrollHeight;
-    return;
-  }
 
   const supported = checkWebGPU();
   const setup = document.createElement('div');
@@ -433,6 +440,9 @@ function showLLMSetup() {
         ${modelOptions}
       </select>
     </div>
+    <div id="proxyNotice" style="display:none;margin-bottom:10px;padding:8px 12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;font-size:11px;color:#1d4ed8;">
+      ℹ️ Cloudflare Worker 프록시 경유 모드 - 모델 다운로드는 Worker 서버를 거쳐 이루어집니다.
+    </div>
     <button id="llmStartBtn" style="width:100%;padding:10px;background:#0066FF;color:white;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">🚀 다운로드 & 활성화</button>
     <div id="llmProgress" style="display:none;margin-top:10px;">
       <div style="background:#e5e7eb;height:8px;border-radius:4px;overflow:hidden;">
@@ -444,6 +454,12 @@ function showLLMSetup() {
   box.appendChild(setup);
   box.scrollTop = box.scrollHeight;
 
+  // Worker 접속 시 프록시 안내 표시
+  if (window.location.hostname.includes('workers.dev')) {
+    const notice = document.getElementById('proxyNotice');
+    if (notice) notice.style.display = 'block';
+  }
+  
   document.getElementById('llmStartBtn').addEventListener('click', async () => {
     const selectedModel = document.getElementById('llmModelSelect').value;
     const btn = document.getElementById('llmStartBtn');
