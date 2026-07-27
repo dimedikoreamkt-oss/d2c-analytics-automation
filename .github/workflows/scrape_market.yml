@@ -50,6 +50,7 @@ jobs:
         continue-on-error: true
 
       - name: Refresh Mart 22
+        continue-on-error: true
         run: |
           bq query \
             --project_id="${PROJECT_ID}" \

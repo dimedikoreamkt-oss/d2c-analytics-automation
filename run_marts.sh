@@ -157,7 +157,7 @@ LIMIT 5000"
 # Mart 16
 run_export "Mart 16 (ad channel deep)" "docs/data/mart16_ad_channel.json" "
 SELECT *
-FROM \`${PROJECT_ID}.marts.mart_ad_channel_deep\`
+FROM \`${PROJECT_ID}.marts.mart_channel_deep\`
 WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 ORDER BY event_date DESC, revenue DESC
 LIMIT 5000"
