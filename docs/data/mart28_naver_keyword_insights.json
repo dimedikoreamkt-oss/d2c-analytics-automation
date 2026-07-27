@@ -1,4 +1,3 @@
-BigQuery error in query operation: Error processing job
-'d2c-analytics-502304:bqjob_r9af1b7336307d04_0000019fa26c5a5e_1': Not found:
-Table d2c-analytics-502304:marts.mart_naver_keyword_insights was not found in
-location asia-northeast3
+Error in query string: Error processing job
+'d2c-analytics-502304:bqjob_r20c21cf99ec7689b_0000019fa27001a0_1': Unrecognized
+name: event_date at [3:10]

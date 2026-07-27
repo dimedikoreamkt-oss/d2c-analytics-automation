@@ -15,11 +15,11 @@ SELECT
   SUM(clicks)                 AS clicks,
   SUM(cost_krw)               AS cost_krw,
   SUM(conversions)            AS conversions,
-  SUM(revenue)                AS revenue,
+  SUM(conversion_value)         AS revenue,
   SAFE_DIVIDE(SUM(clicks), NULLIF(SUM(impressions), 0)) * 100 AS ctr_pct,
   SAFE_DIVIDE(SUM(cost_krw), NULLIF(SUM(clicks), 0))          AS cpc_krw,
   SAFE_DIVIDE(SUM(cost_krw), NULLIF(SUM(conversions), 0))     AS cpa_krw,
-  SAFE_DIVIDE(SUM(revenue), NULLIF(SUM(cost_krw), 0))         AS roas
+  SAFE_DIVIDE(SUM(conversion_value), NULLIF(SUM(cost_krw), 0)) AS roas
 FROM `d2c-analytics-502304.marts.naver_ad_insights`
 WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
 GROUP BY event_date, brand, campaign_type;

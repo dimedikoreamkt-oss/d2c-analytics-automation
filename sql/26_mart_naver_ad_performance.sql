@@ -36,7 +36,7 @@ WITH naver_base AS (
 ga_join AS (
   SELECT
     event_date,
-    LOWER(utm_campaign) AS utm_campaign,
+    LOWER(campaign) AS utm_campaign,
     SUM(sessions)  AS ga_sessions,
     SUM(purchases) AS ga_purchases,
     SUM(revenue)   AS ga_revenue

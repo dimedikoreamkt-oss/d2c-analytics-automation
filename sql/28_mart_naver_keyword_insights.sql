@@ -16,7 +16,7 @@ WITH keyword_summary AS (
     SUM(clicks)      AS clicks_30d,
     SUM(cost_krw)    AS cost_30d,
     SUM(conversions) AS conversions_30d,
-    SUM(revenue)     AS revenue_30d,
+    SUM(conversion_value) AS revenue_30d,
     AVG(avg_rank)    AS avg_rank_30d,
     COUNT(DISTINCT event_date) AS active_days_30d
   FROM `d2c-analytics-502304.marts.naver_ad_insights`
