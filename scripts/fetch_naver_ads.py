@@ -17,7 +17,7 @@ NAVER_ACCOUNTS = json.loads(NAVER_ACCOUNTS_JSON)
 PROJECT_ID = os.environ.get("PROJECT_ID", "d2c-analytics-502304")
 BQ_TABLE_ID = f"{PROJECT_ID}.marts.naver_ad_insights"
 
-STAT_FIELDS = ["impCnt", "clkCnt", "salesAmt", "ccnt", "ctr", "cpc", "avgRnk", "convAmt"]
+STAT_FIELDS = ["impCnt", "clkCnt", "salesAmt", "purchaseCcnt", "ctr", "cpc", "avgRnk", "purchaseConvAmt"]
 
 
 def generate_signature(timestamp, method, uri, secret_key):
@@ -160,8 +160,8 @@ def collect_account_data(account, start_date, end_date):
                 "impressions": int(float(row.get("impCnt", 0) or 0)),
                 "clicks": int(float(row.get("clkCnt", 0) or 0)),
                 "cost_krw": float(row.get("salesAmt", 0) or 0),
-                "conversions": int(float(row.get("ccnt", 0) or 0)),
-                "conversion_value": float(row.get("convAmt", 0) or 0),
+                "conversions": int(float(row.get("purchaseCcnt", 0) or 0)),
+                "conversion_value": float(row.get("purchaseConvAmt", 0) or 0),
                 "ctr": float(row.get("ctr", 0) or 0),
                 "cpc": float(row.get("cpc", 0) or 0),
                 "avg_rank": float(row.get("avgRnk", 0) or 0),
@@ -206,8 +206,8 @@ def collect_account_data(account, start_date, end_date):
                             "impressions": int(float(stat.get("impCnt", 0) or 0)),
                             "clicks": int(float(stat.get("clkCnt", 0) or 0)),
                             "cost_krw": float(stat.get("salesAmt", 0) or 0),
-                            "conversions": int(float(stat.get("ccnt", 0) or 0)),
-                            "conversion_value": float(stat.get("convAmt", 0) or 0),
+                            "conversions": int(float(stat.get("purchaseCcnt", 0) or 0)),
+                            "conversion_value": float(stat.get("purchaseConvAmt", 0) or 0),
                             "ctr": float(stat.get("ctr", 0) or 0),
                             "cpc": float(stat.get("cpc", 0) or 0),
                             "avg_rank": float(stat.get("avgRnk", 0) or 0),
