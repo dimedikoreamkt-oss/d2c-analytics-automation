@@ -74,7 +74,12 @@ async function initLLM(modelId, onProgress) {
     model_list: webllm.prebuiltAppConfig.model_list.map(m => ({
       ...m,
       model: rewriteUrl(m.model),
-      model_lib: rewriteUrl(m.model_lib)
+      model_lib: rewriteUrl(m.model_lib),
+      // 컨텍스트 윈도우 확장 (기본 4096 → 8192)
+      overrides: {
+        ...(m.overrides || {}),
+        context_window_size: 8192
+      }
     }))
   };
   
@@ -106,192 +111,159 @@ async function initLLM(modelId, onProgress) {
 function buildDynamicContext(question) {
   const q = question.toLowerCase();
   const ctx = {};
-  const summary = {};
-
-  // 항상 포함: 전체 요약
+  
   const perf = filterPerf ? filterPerf() : (DATA.perf || []);
   const daily = filterDaily ? filterDaily() : (DATA.daily || []);
   const kw = filterKeyword ? filterKeyword() : (DATA.keyword || []);
   const type = DATA.type || [];
   const insight = (DATA.insight || [])[0] || {};
 
-  summary.total_cost = perf.reduce((s, r) => s + num(r.cost_krw), 0);
-  summary.total_revenue = perf.reduce((s, r) => s + num(r.revenue), 0);
-  summary.total_impressions = perf.reduce((s, r) => s + num(r.impressions), 0);
-  summary.total_clicks = perf.reduce((s, r) => s + num(r.clicks), 0);
-  summary.total_conversions = perf.reduce((s, r) => s + num(r.conversions), 0);
-  summary.overall_roas = summary.total_cost ? +(summary.total_revenue / summary.total_cost).toFixed(2) : 0;
-  summary.overall_ctr = summary.total_impressions ? +(summary.total_clicks / summary.total_impressions * 100).toFixed(2) : 0;
-  summary.overall_cpc = summary.total_clicks ? Math.round(summary.total_cost / summary.total_clicks) : 0;
-  summary.overall_cpa = summary.total_conversions ? Math.round(summary.total_cost / summary.total_conversions) : 0;
-  summary.campaign_count = new Set(perf.map(r => r.campaign_name).filter(Boolean)).size;
-  summary.date_range = (FILTERS && FILTERS.dateStart) ? (FILTERS.dateStart + ' ~ ' + FILTERS.dateEnd) : '전체';
-  summary.compare_mode = (FILTERS && FILTERS.compareMode) || 'wow';
-  summary.latest_date = perf.length ? perf.reduce((m, r) => r.event_date > m ? r.event_date : m, '') : '-';
-  ctx.summary = summary;
+  // 항상 포함: 압축 요약
+  const totalCost = perf.reduce((s, r) => s + num(r.cost_krw), 0);
+  const totalRev = perf.reduce((s, r) => s + num(r.revenue), 0);
+  const totalConv = perf.reduce((s, r) => s + num(r.conversions), 0);
+  const totalImps = perf.reduce((s, r) => s + num(r.impressions), 0);
+  const totalClicks = perf.reduce((s, r) => s + num(r.clicks), 0);
+  
+  ctx.summary = {
+    period: (FILTERS && FILTERS.dateStart) ? (FILTERS.dateStart + '~' + FILTERS.dateEnd) : '전체',
+    cost: totalCost,
+    revenue: totalRev,
+    conversions: totalConv,
+    roas: totalCost ? +(totalRev / totalCost).toFixed(2) : 0,
+    ctr_pct: totalImps ? +(totalClicks / totalImps * 100).toFixed(2) : 0,
+    cpc: totalClicks ? Math.round(totalCost / totalClicks) : 0,
+    cpa: totalConv ? Math.round(totalCost / totalConv) : 0,
+    campaigns: new Set(perf.map(r => r.campaign_name).filter(Boolean)).size
+  };
 
-  // 오늘 데이터
+  // 오늘 지표
   if (daily[0]) {
     const t = daily[0];
     ctx.today = {
       date: t.event_date,
-      cost_krw: num(t.cost_krw),
+      cost: num(t.cost_krw),
       revenue: num(t.revenue),
-      roas: num(t.roas),
-      purchases: num(t.purchases),
-      ctr_pct: num(t.ctr_pct),
-      rev_dod_pct: num(t.rev_dod_pct),
-      cost_dod_pct: num(t.cost_dod_pct),
-      rev_wow_pct: num(t.rev_wow_pct),
-      alert_status: t.alert_status,
-      recommended_action: t.recommended_action
+      roas: +num(t.roas).toFixed(2),
+      rev_dod: num(t.rev_dod_pct),
+      cost_dod: num(t.cost_dod_pct),
+      rev_wow: num(t.rev_wow_pct),
+      status: t.alert_status
     };
   }
 
-  // 캠페인 집계
+  // 캠페인 집계 (필드 최소화)
   const campAgg = {};
   perf.forEach(r => {
     const k = r.campaign_name; if (!k) return;
-    if (!campAgg[k]) campAgg[k] = { type: r.campaign_type, cost: 0, rev: 0, conv: 0, clicks: 0, imps: 0 };
-    campAgg[k].cost += num(r.cost_krw);
-    campAgg[k].rev += num(r.revenue);
-    campAgg[k].conv += num(r.conversions);
-    campAgg[k].clicks += num(r.clicks);
-    campAgg[k].imps += num(r.impressions);
+    if (!campAgg[k]) campAgg[k] = { type: r.campaign_type, c: 0, r: 0, cv: 0, cl: 0, i: 0 };
+    campAgg[k].c += num(r.cost_krw);
+    campAgg[k].r += num(r.revenue);
+    campAgg[k].cv += num(r.conversions);
+    campAgg[k].cl += num(r.clicks);
+    campAgg[k].i += num(r.impressions);
   });
   const campList = Object.entries(campAgg).map(([n, v]) => ({
-    name: n, type: v.type,
-    impressions: v.imps, clicks: v.clicks,
-    ctr_pct: v.imps ? +(v.clicks / v.imps * 100).toFixed(2) : 0,
-    cost_krw: v.cost,
-    cpc_krw: v.clicks ? Math.round(v.cost / v.clicks) : 0,
-    conversions: v.conv,
-    cvr_pct: v.clicks ? +(v.conv / v.clicks * 100).toFixed(2) : 0,
-    revenue: v.rev,
-    roas: v.cost ? +(v.rev / v.cost).toFixed(2) : 0
+    n, t: v.t,
+    cost: v.c, rev: v.r, cv: v.cv,
+    roas: v.c ? +(v.r / v.c).toFixed(2) : 0,
+    cpc: v.cl ? Math.round(v.c / v.cl) : 0,
+    cvr: v.cl ? +(v.cv / v.cl * 100).toFixed(1) : 0
   })).sort((a, b) => b.cost - a.cost);
 
-  // 질문 키워드 기반 컨텍스트 선택
-  const needsAll = /전체|모든|전반|한 눈에|한눈에|요약|summary/.test(q);
-  const needsToday = /오늘|어제|현재|지금|당일/.test(q);
-  const needsWeek = /이번 ?주|지난 ?주|최근 ?7일|일주일/.test(q);
-  const needsMonth = /한 ?달|30일|이번 ?달|월간/.test(q);
-  const needsKeyword = /키워드|keyword|star|dead|healthy|낭비|고효율/.test(q);
-  const needsCampaign = /캠페인|campaign/.test(q);
-  const needsType = /유형|쇼핑|웹사이트|브랜드|shopping|web_site|brand/i.test(q);
-  const needsCompare = /비교|vs|대비/.test(q);
-  const needsCause = /원인|왜|이유|하락|떨어|부진|급락/.test(q);
-  const needsCPC = /cpc|입찰|클릭당|비싸/.test(q);
-  const needsCVR = /전환율|cvr|conversion/i.test(q);
-  const needsBudget = /예산|budget|재분배|투자/.test(q);
-  const needsRisk = /리스크|위험|문제|경고/.test(q);
-  const needsAction = /뭐 ?해야|무엇|계획|플랜|action|다음/.test(q);
+  // 질문 의도 감지
+  const isKeyword = /키워드|keyword|star|dead|낭비|고효율/.test(q);
+  const isCamp = /캠페인|campaign/.test(q);
+  const isType = /유형|쇼핑|웹사이트|브랜드|shopping|web_site|brand/i.test(q);
+  const isCause = /원인|왜|이유|하락|떨어|부진|급락/.test(q);
+  const isBudget = /예산|재분배|투자/.test(q);
+  const isRisk = /리스크|위험|문제/.test(q);
+  const isAction = /뭐 ?해야|계획|플랜|action|다음/.test(q);
 
-  // 언급된 캠페인/키워드 자동 추출
+  // 언급된 캠페인/키워드
   const mentionedCamps = [];
-  const mentionedKws = [];
   campList.forEach(c => {
-    if (question.includes(c.name)) mentionedCamps.push(c.name);
+    if (question.includes(c.n)) mentionedCamps.push(c);
     else {
-      const parts = c.name.split(/[_\s\-]/).filter(p => p.length >= 2);
-      if (parts.some(p => question.includes(p))) mentionedCamps.push(c.name);
+      const parts = c.n.split(/[_\s\-]/).filter(p => p.length >= 2);
+      if (parts.some(p => question.includes(p))) mentionedCamps.push(c);
     }
   });
+  const mentionedKws = [];
   kw.forEach(k => {
-    if (k.keyword && question.includes(k.keyword)) mentionedKws.push(k.keyword);
+    if (k.keyword && question.includes(k.keyword)) mentionedKws.push(k);
   });
 
-  // 언급된 항목은 무조건 포함
+  // 컨텍스트 삽입 (우선순위)
   if (mentionedCamps.length) {
-    ctx.mentioned_campaigns = campList.filter(c => mentionedCamps.includes(c.name)).slice(0, 5);
+    ctx.mentioned = mentionedCamps.slice(0, 3);
   }
   if (mentionedKws.length) {
-    ctx.mentioned_keywords = kw.filter(k => mentionedKws.includes(k.keyword)).slice(0, 10).map(k => ({
-      keyword: k.keyword, campaign: k.campaign_name,
+    ctx.mentioned_kw = mentionedKws.slice(0, 5).map(k => ({
+      kw: k.keyword, c: k.campaign_name,
       grade: k.keyword_grade,
-      cost_30d: num(k.cost_30d), revenue_30d: num(k.revenue_30d),
-      conversions_30d: num(k.conversions_30d), roas: +num(k.roas).toFixed(2),
-      cpc_krw: num(k.cpc_krw), ctr_pct: num(k.ctr_pct)
+      cost: num(k.cost_30d),
+      rev: num(k.revenue_30d),
+      conv: num(k.conversions_30d),
+      roas: +num(k.roas).toFixed(2)
     }));
   }
 
-  // 일일 데이터
-  if (needsToday || needsWeek || needsCause || needsAll || daily.length < 15) {
-    ctx.daily_last_14d = daily.slice(0, 14).map(r => ({
-      date: r.event_date,
-      impressions: num(r.impressions), clicks: num(r.clicks),
-      cost_krw: num(r.cost_krw), revenue: num(r.revenue),
-      purchases: num(r.purchases), roas: num(r.roas),
-      ctr_pct: num(r.ctr_pct), cpc_krw: num(r.cpc_krw),
-      rev_dod_pct: num(r.rev_dod_pct), rev_wow_pct: num(r.rev_wow_pct),
-      alert_status: r.alert_status
-    }));
+  // 필요 시에만 상위 데이터 추가
+  if (!mentionedCamps.length && (isCamp || isBudget || isAction || isCause)) {
+    ctx.top_campaigns = campList.slice(0, 8);
   }
 
-  // 캠페인 상위
-  if (needsCampaign || needsAll || needsCompare || needsBudget || needsAction || !mentionedCamps.length) {
-    ctx.top20_campaigns = campList.slice(0, 20);
-  }
-
-  // 유형별
-  if (needsType || needsAll || needsCompare) {
+  if (isType || (!isKeyword && !mentionedCamps.length)) {
     const tyAgg = {};
     type.forEach(r => {
       const k = r.campaign_type; if (!k) return;
-      if (!tyAgg[k]) tyAgg[k] = { cost: 0, rev: 0, conv: 0, imps: 0, clicks: 0 };
-      tyAgg[k].cost += num(r.cost_krw);
-      tyAgg[k].rev += num(r.revenue);
-      tyAgg[k].conv += num(r.purchases);
-      tyAgg[k].imps += num(r.impressions);
-      tyAgg[k].clicks += num(r.clicks);
+      if (!tyAgg[k]) tyAgg[k] = { c: 0, r: 0, cv: 0 };
+      tyAgg[k].c += num(r.cost_krw);
+      tyAgg[k].r += num(r.revenue);
+      tyAgg[k].cv += num(r.purchases);
     });
     ctx.by_type = Object.entries(tyAgg).map(([k, v]) => ({
-      type: k, cost_krw: v.cost, revenue: v.rev, conversions: v.conv,
-      impressions: v.imps, clicks: v.clicks,
-      roas: v.cost ? +(v.rev / v.cost).toFixed(2) : 0,
-      ctr_pct: v.imps ? +(v.clicks / v.imps * 100).toFixed(2) : 0
+      type: k, cost: v.c, rev: v.r, conv: v.cv,
+      roas: v.c ? +(v.r / v.c).toFixed(2) : 0
     }));
   }
 
-  // 키워드
-  if (needsKeyword || needsAll || needsBudget) {
+  if (isKeyword || isBudget) {
     const validKw = kw.filter(k => k.keyword);
     const star = validKw.filter(k => num(k.roas) >= 5 && num(k.conversions_30d) >= 2);
     const dead = validKw.filter(k => num(k.cost_30d) > 3000 && num(k.roas) < 1);
-    const losing = validKw.filter(k => num(k.cost_30d) > 3000 && num(k.roas) >= 1 && num(k.roas) < 2);
-    ctx.keyword_summary = {
-      total: validKw.length,
-      star_count: star.length,
-      dead_count: dead.length,
-      losing_count: losing.length,
-      star_top10: star.sort((a, b) => num(b.revenue_30d) - num(a.revenue_30d)).slice(0, 10).map(k => ({
-        keyword: k.keyword, campaign: k.campaign_name,
-        roas: +num(k.roas).toFixed(2), revenue_30d: num(k.revenue_30d),
-        cost_30d: num(k.cost_30d), conversions_30d: num(k.conversions_30d)
+    ctx.kw_stats = {
+      star: star.length,
+      dead: dead.length,
+      wasted: dead.reduce((s, k) => s + num(k.cost_30d), 0),
+      star_top: star.sort((a, b) => num(b.revenue_30d) - num(a.revenue_30d)).slice(0, 5).map(k => ({
+        kw: k.keyword, roas: +num(k.roas).toFixed(1), rev: num(k.revenue_30d)
       })),
-      dead_top10: dead.sort((a, b) => num(b.cost_30d) - num(a.cost_30d)).slice(0, 10).map(k => ({
-        keyword: k.keyword, campaign: k.campaign_name,
-        roas: +num(k.roas).toFixed(2), cost_30d: num(k.cost_30d), revenue_30d: num(k.revenue_30d)
-      })),
-      wasted_total: dead.reduce((s, k) => s + num(k.cost_30d), 0)
+      dead_top: dead.sort((a, b) => num(b.cost_30d) - num(a.cost_30d)).slice(0, 5).map(k => ({
+        kw: k.keyword, roas: +num(k.roas).toFixed(2), cost: num(k.cost_30d)
+      }))
     };
   }
 
-  // 인사이트
-  if (needsAll || needsAction || needsRisk) {
-    ctx.auto_insight = {
-      overall_status: insight.overall_status,
-      revenue_change_pct: insight.revenue_change_pct,
-      cost_change_pct: insight.cost_change_pct,
-      roas_change_pct: insight.roas_change_pct,
-      top_revenue_campaign: insight.top_revenue_campaign,
-      worst_revenue_campaign: insight.worst_revenue_campaign,
-      best_roas_campaign: insight.best_roas_campaign,
-      best_roas_value: insight.best_roas_value,
-      top_cost_increase_campaign: insight.top_cost_increase_campaign,
-      top_cost_increase_pct: insight.top_cost_increase_pct,
-      top_cost_decrease_campaign: insight.top_cost_decrease_campaign,
-      action_recommendation: insight.action_recommendation
+  if (isCause || isAction || isRisk) {
+    // 최근 7일 vs 이전 7일 요약만
+    const w7 = daily.slice(0, 7);
+    const p7 = daily.slice(7, 14);
+    const sum = arr => arr.reduce((s, r) => ({
+      c: s.c + num(r.cost_krw), r: s.r + num(r.revenue), cv: s.cv + num(r.purchases)
+    }), { c: 0, r: 0, cv: 0 });
+    const w = sum(w7); const p = sum(p7);
+    ctx.week_compare = {
+      recent: { cost: w.c, rev: w.r, conv: w.cv, roas: w.c ? +(w.r / w.c).toFixed(2) : 0 },
+      prev: { cost: p.c, rev: p.r, conv: p.cv, roas: p.c ? +(p.r / p.c).toFixed(2) : 0 },
+      rev_change_pct: p.r ? +((w.r - p.r) / p.r * 100).toFixed(1) : 0
+    };
+    ctx.insight_key = {
+      status: insight.overall_status,
+      top_rev_camp: insight.top_revenue_campaign,
+      worst_camp: insight.worst_revenue_campaign,
+      best_roas: insight.best_roas_campaign
     };
   }
 
@@ -307,36 +279,26 @@ async function askLLM(userQuestion, onToken) {
   }
 
   const context = buildDynamicContext(userQuestion);
-  const systemPrompt = `당신은 D2C 이커머스 브랜드의 시니어 퍼포먼스 마케팅 분석가입니다. 네이버 검색광고 데이터를 분석해 실무적이고 구체적인 답변을 한국어로 제공합니다.
+  const systemPrompt = `당신은 네이버 검색광고 시니어 마케팅 분석가입니다. 한국어로 답변하세요.
 
-**분석 원칙:**
-1. 반드시 데이터의 실제 숫자를 인용하세요 (매출 ₩X, ROAS X.XXx 형태)
-2. 원인 → 결과 → 실행 액션 순서로 답하세요
-3. 데이터에 없는 정보는 추측하지 말고 "데이터로 확인 불가"라고 답하세요
-4. 마크다운 형식(제목·리스트·굵은글씨)으로 구조화하세요
-5. 답변은 간결하되 실용적으로 (300~600자 권장)
+원칙: 실제 숫자 인용, 원인→액션 순서, 마크다운 사용, 간결하게(200~400자).
+용어: STAR(ROAS≥5x)·HEALTHY(2~5x)·LOSING(1~2x)·DEAD(<1x).
 
-**용어 정의:**
-- STAR: ROAS ≥ 5x + 전환 ≥ 2건 (예산 확대 대상)
-- HEALTHY: ROAS 2~5x (유지)
-- LOSING: ROAS 1~2x (입찰 조정)
-- DEAD: ROAS < 1x + 지출 ≥ ₩3K (제외 대상)
+데이터:
+${JSON.stringify(context)}`;
 
-**주어진 데이터 (JSON):**
-${JSON.stringify(context, null, 2)}`;
-
-  // 대화 히스토리 (최근 6턴)
+  // 대화 히스토리 (최근 4턴만 - 컨텍스트 절약)
   LLM_STATE.history.push({ role: 'user', content: userQuestion });
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...LLM_STATE.history.slice(-6)
+    ...LLM_STATE.history.slice(-4)
   ];
 
   let fullText = '';
   const stream = await LLM_STATE.engine.chat.completions.create({
     messages,
     temperature: 0.3,
-    max_tokens: 800,
+    max_tokens: 600,
     stream: true
   });
 
