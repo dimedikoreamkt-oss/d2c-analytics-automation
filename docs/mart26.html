@@ -120,6 +120,55 @@ body{font-family:'Inter','Noto Sans KR',sans-serif;background:var(--bg);color:va
 </style>
 <script src="naver_daily_chart.js?v=20260727114755"></script>
 <link rel="stylesheet" href="mart_common.css">
+<style id="mart26-layout-fix">
+/* ===== Sidebar 추가 후 레이아웃 정상화 ===== */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  background: var(--bg, #FAFBFC);
+}
+/* .main 안으로 들어간 컨텐츠가 사이드바 옆 공간을 꽉 채우도록 */
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: calc(100vh - 60px);
+  width: 100%;
+}
+.main {
+  padding: 28px 32px !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+/* 내부 컨테이너들이 100% 폭 사용하도록 강제 */
+.main > *,
+.main .container,
+.main .content,
+.main .dashboard,
+.main .wrapper {
+  max-width: none !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+/* 카드/차트 그리드가 사이드바 폭을 고려해 재배치 */
+.main .hero-grid,
+.main .grid,
+.main [class*="grid-"] {
+  width: 100% !important;
+}
+/* 반응형: 900px 이하 사이드바 숨김 시 풀폭 */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .main { padding: 16px !important; }
+}
+</style>
+
 </head>
 <body>
 <header class="topbar">
