@@ -95,22 +95,6 @@ def fetch_daily_stats(entity_id, start_date, end_date, account):
 
 
 
-def fetch_device_stats(entity_id, start_date, end_date, account):
-    """
-    단일 엔티티의 디바이스별 통계 조회 (PC vs Mobile)
-    /stats?id=<NCC_ID>&breakdown=pcMblTp
-    """
-    params = {
-        "id": entity_id,
-        "fields": json.dumps(STAT_FIELDS),
-        "timeRange": json.dumps({"since": start_date, "until": end_date}),
-        "breakdown": "pcMblTp",
-    }
-    res = api_get("/stats", params, account)
-    if res is None:
-        return []
-    return res.get("data", [])
-
 
 def fetch_summary_stats(entity_ids, start_date, end_date, account):
     """
@@ -231,53 +215,7 @@ def collect_account_data(account, start_date, end_date):
                             "avg_rank": float(stat.get("avgRnk", 0) or 0),
                         })
 
-    # 3. 디바이스별 (PC/Mobile) 통계 수집
-    print(f"  📱 디바이스별 통계 수집 중...")
-    device_rows = []
-    for c_idx2, campaign2 in enumerate(campaigns, 1):
-        camp_id2 = campaign2.get("nccCampaignId", "")
-        camp_name2 = campaign2.get("name", "(unnamed)")
-        camp_type2 = campaign2.get("campaignTp", "UNKNOWN")
-
-        dev_stats = fetch_device_stats(camp_id2, start_date, end_date, account)
-        time.sleep(0.2)
-
-        for row in dev_stats:
-            device_type = row.get("pcMblTp", "UNKNOWN")
-            # pcMblTp: PC=0, MOBILE=1 (또는 문자열)
-            if str(device_type) == "0" or str(device_type).upper() == "PC":
-                device = "PC"
-            elif str(device_type) == "1" or str(device_type).upper() in ("MOBILE", "M"):
-                device = "Mobile"
-            else:
-                device = str(device_type)
-
-            event_date = row.get("dateStart", "")
-            if not event_date:
-                # breakdown 시 날짜가 없을 수 있음 → start_date 사용
-                event_date = start_date
-
-            device_rows.append({
-                "event_date": event_date,
-                "brand": account["brand"],
-                "customer_id": str(account["customer_id"]),
-                "campaign_id": camp_id2,
-                "campaign_name": camp_name2,
-                "campaign_type": camp_type2,
-                "device": device,
-                "impressions": int(float(row.get("impCnt", 0) or 0)),
-                "clicks": int(float(row.get("clkCnt", 0) or 0)),
-                "cost_krw": float(row.get("salesAmt", 0) or 0),
-                "conversions": int(float(row.get("purchaseCcnt", 0) or 0)),
-                "conversion_value": float(row.get("purchaseConvAmt", 0) or 0),
-                "ctr": float(row.get("ctr", 0) or 0),
-                "cpc": float(row.get("cpc", 0) or 0),
-                "avg_rank": float(row.get("avgRnk", 0) or 0),
-            })
-
-    print(f"  📱 디바이스별 {len(device_rows)}행 수집")
-    all_rows.extend(device_rows)
-    print(f"  ✅ 총 {len(all_rows)}행 수집 완료")
+    print(f"  ✅ {len(all_rows)}행 수집 완료")
     return all_rows
 
 
