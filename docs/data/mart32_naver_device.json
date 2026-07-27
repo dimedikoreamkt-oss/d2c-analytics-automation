@@ -1,4 +1,1 @@
-BigQuery error in query operation: Error processing job
-'d2c-analytics-502304:bqjob_r5558f5bc89e67f12_0000019fa299be8c_1': Not found:
-Table d2c-analytics-502304:marts.mart_naver_device was not found in location
-asia-northeast3
+BigQuery error in query operation: Cannot start a job without a project id.
