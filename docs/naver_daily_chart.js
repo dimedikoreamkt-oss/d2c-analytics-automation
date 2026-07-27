@@ -1,25 +1,24 @@
 // ============================================
-// 📊 일일 성과 커스터마이징 차트 (다중 지표 토글)
+// 📊 일일 성과 스마트 차트 (자동 축·타입 배정 + 필터 연동)
 // ============================================
 
 let dailyMultiChart;
 const DAILY_METRICS_STATE = {
-  // 초기 활성 지표
   active: new Set(['impressions', 'clicks', 'revenue'])
 };
 
-// 지표 정의 (data 속성에서 자동 추출되지만 fallback용)
+// 지표 정의 - color, label, unit(개수/금액/비율)
 const METRIC_META = {
-  impressions:   { color:'#0066FF', label:'노출',    yaxis:'y',  type:'bar',  fmt:'n' },
-  clicks:        { color:'#8b5cf6', label:'클릭',    yaxis:'y',  type:'bar',  fmt:'n' },
-  revenue:       { color:'#10b981', label:'매출',    yaxis:'y2', type:'bar',  fmt:'k' },
-  cost_krw:      { color:'#3b82f6', label:'광고비',  yaxis:'y2', type:'bar',  fmt:'k' },
-  roas:          { color:'#f59e0b', label:'ROAS',    yaxis:'y3', type:'line', fmt:'r' },
-  purchases:     { color:'#ec4899', label:'전환',    yaxis:'y',  type:'bar',  fmt:'n' },
-  ctr_pct:       { color:'#14b8a6', label:'CTR(%)',  yaxis:'y3', type:'line', fmt:'p' },
-  cpc_krw:       { color:'#f97316', label:'CPC',     yaxis:'y2', type:'line', fmt:'k' },
-  cpa_krw:       { color:'#a855f7', label:'CPA',     yaxis:'y2', type:'line', fmt:'k' },
-  click_cvr_pct: { color:'#06b6d4', label:'전환율(%)', yaxis:'y3', type:'line', fmt:'p' }
+  impressions:   { color:'#0066FF', label:'노출',      unit:'count',  fmt:'n' },
+  clicks:        { color:'#8b5cf6', label:'클릭',      unit:'count',  fmt:'n' },
+  purchases:     { color:'#ec4899', label:'전환',      unit:'count',  fmt:'n' },
+  revenue:       { color:'#10b981', label:'매출',      unit:'money',  fmt:'k' },
+  cost_krw:      { color:'#3b82f6', label:'광고비',    unit:'money',  fmt:'k' },
+  cpc_krw:       { color:'#f97316', label:'CPC',       unit:'money',  fmt:'k' },
+  cpa_krw:       { color:'#a855f7', label:'CPA',       unit:'money',  fmt:'k' },
+  roas:          { color:'#f59e0b', label:'ROAS',      unit:'ratio',  fmt:'r' },
+  ctr_pct:       { color:'#14b8a6', label:'CTR',       unit:'pct',    fmt:'p' },
+  click_cvr_pct: { color:'#06b6d4', label:'전환율',    unit:'pct',    fmt:'p' }
 };
 
 function fmtByType(v, type) {
@@ -30,96 +29,191 @@ function fmtByType(v, type) {
   return Math.round(v).toLocaleString('ko-KR');
 }
 
+// ============================================
+// 스마트 축·타입 자동 배정
+// ============================================
+function assignAxisAndType(activeMetrics, daily) {
+  // 각 지표의 최대값 계산
+  const maxValues = {};
+  activeMetrics.forEach(m => {
+    maxValues[m] = Math.max(...daily.map(r => Math.abs(num(r[m]))));
+  });
+  
+  // 단위별로 그룹화
+  const byUnit = { count: [], money: [], ratio: [], pct: [] };
+  activeMetrics.forEach(m => {
+    byUnit[METRIC_META[m].unit].push(m);
+  });
+  
+  // Y축 배정 규칙:
+  // - count와 money는 절대값이 다름 → 무조건 다른 축
+  // - ratio(ROAS)와 pct(CTR/CVR)는 작은 값 → 별도 y3 축
+  // 
+  // 최대 3개 축 사용:
+  //   y (좌): count (노출/클릭/전환) - 첫 번째 그룹
+  //   y2 (우1): money (매출/광고비/CPC/CPA)
+  //   y3 (우2): ratio/pct (ROAS/CTR/전환율)
+  
+  const axisMap = {};
+  const typeMap = {};
+  
+  activeMetrics.forEach(m => {
+    const meta = METRIC_META[m];
+    const maxV = maxValues[m];
+    
+    // 축 배정
+    if (meta.unit === 'count') axisMap[m] = 'y';
+    else if (meta.unit === 'money') axisMap[m] = 'y2';
+    else axisMap[m] = 'y3';  // ratio + pct
+  });
+  
+  // 차트 타입 자동 결정 (같은 축 안에서 스케일 차이 감지)
+  const axisMax = { y: 0, y2: 0, y3: 0 };
+  Object.entries(axisMap).forEach(([m, ax]) => {
+    axisMax[ax] = Math.max(axisMax[ax], maxValues[m]);
+  });
+  
+  activeMetrics.forEach(m => {
+    const meta = METRIC_META[m];
+    const ax = axisMap[m];
+    const maxV = maxValues[m];
+    const axMaxV = axisMax[ax];
+    
+    // 규칙:
+    // - ratio/pct는 항상 line (막대 안 어울림)
+    // - 같은 축의 최대값 대비 20% 미만이면 line (막대로는 안 보임)
+    // - 그 외 (누적성 데이터, 충분한 크기) 막대
+    if (meta.unit === 'ratio' || meta.unit === 'pct') {
+      typeMap[m] = 'line';
+    } else if (axMaxV > 0 && maxV / axMaxV < 0.2) {
+      typeMap[m] = 'line';  // 스케일이 20% 미만이면 라인
+    } else {
+      typeMap[m] = 'bar';
+    }
+  });
+  
+  return { axisMap, typeMap };
+}
+
+// ============================================
+// 차트 렌더링
+// ============================================
 function renderDailyMultiChart() {
   const canvas = document.getElementById('dailyMultiChart');
   if (!canvas) return;
   
+  // 글로벌 필터 반영: filterDaily() 함수가 있으면 사용, 없으면 raw
   const daily = (typeof filterDaily === 'function' ? filterDaily() : (DATA.daily || []))
-    .slice().sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''));
+    .slice()
+    .sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''));
   
   if (!daily.length) {
-    canvas.parentNode.innerHTML = '<div class="loading">해당 기간 데이터 없음</div>';
+    canvas.parentNode.innerHTML = '<div class="chart-wrap tall"><canvas id="dailyMultiChart"></canvas></div><div class="loading">해당 기간 데이터 없음</div>';
     return;
   }
+  
+  const activeMetrics = Array.from(DAILY_METRICS_STATE.active);
+  if (!activeMetrics.length) {
+    if (dailyMultiChart) dailyMultiChart.destroy();
+    return;
+  }
+  
+  // 스마트 축·타입 배정
+  const { axisMap, typeMap } = assignAxisAndType(activeMetrics, daily);
   
   const labels = daily.map(r => (r.event_date || '').slice(5));
   const datasets = [];
   
-  DAILY_METRICS_STATE.active.forEach(m => {
+  activeMetrics.forEach(m => {
     const meta = METRIC_META[m];
-    if (!meta) return;
     const data = daily.map(r => num(r[m]));
+    const isLine = typeMap[m] === 'line';
+    
     const ds = {
-      label: meta.label,
+      label: meta.label + (isLine ? ' (선)' : ''),
       data,
-      yAxisID: meta.yaxis,
-      order: meta.type === 'line' ? 1 : 2
+      yAxisID: axisMap[m],
+      order: isLine ? 1 : 2,
+      _fmt: meta.fmt
     };
-    if (meta.type === 'line') {
+    
+    if (isLine) {
       ds.type = 'line';
       ds.borderColor = meta.color;
-      ds.backgroundColor = meta.color;
+      ds.backgroundColor = meta.color + '20';
       ds.borderWidth = 2.5;
       ds.tension = 0.35;
-      ds.pointRadius = 3;
-      ds.pointHoverRadius = 5;
+      ds.pointRadius = 3.5;
+      ds.pointHoverRadius = 6;
+      ds.pointBackgroundColor = meta.color;
+      ds.pointBorderColor = 'white';
+      ds.pointBorderWidth = 1.5;
       ds.fill = false;
     } else {
       ds.type = 'bar';
-      // 반투명 배경으로
-      ds.backgroundColor = meta.color + 'B8';  // ~72% opacity
+      ds.backgroundColor = meta.color + 'CC';  // ~80% opacity
       ds.borderColor = meta.color;
       ds.borderRadius = 3;
       ds.borderWidth = 1;
     }
-    ds._fmt = meta.fmt;
     datasets.push(ds);
   });
   
   if (dailyMultiChart) dailyMultiChart.destroy();
   const ctx = canvas.getContext('2d');
   
-  // 어떤 Y축이 실제로 사용되는지 확인
-  const usedAxes = new Set();
-  DAILY_METRICS_STATE.active.forEach(m => usedAxes.add(METRIC_META[m]?.yaxis));
-  
+  // 사용되는 축만 활성화
+  const usedAxes = new Set(Object.values(axisMap));
   const scales = {
-    x: { ticks: { font: { size: 10 } } }
+    x: { 
+      stacked: false,
+      ticks: { font: { size: 10 } },
+      grid: { color: '#f1f5f9' }
+    }
   };
+  
   if (usedAxes.has('y')) {
     scales.y = {
       position: 'left',
-      title: { display: true, text: '개수 (노출/클릭/전환)', font: { size: 10 } },
+      title: { display: true, text: '개수 (노출/클릭/전환)', font: { size: 10 }, color: '#64748b' },
       ticks: {
-        callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v,
-        font: { size: 10 }
-      }
+        callback: v => v >= 1000 ? (v / 1000).toFixed(1) + 'K' : v,
+        font: { size: 10 },
+        color: '#64748b'
+      },
+      grid: { color: '#f8fafc' },
+      beginAtZero: true
     };
   }
   if (usedAxes.has('y2')) {
     scales.y2 = {
       position: 'right',
-      title: { display: true, text: '금액 (₩)', font: { size: 10 } },
+      title: { display: true, text: '금액 (₩)', font: { size: 10 }, color: '#64748b' },
       grid: { drawOnChartArea: false },
       ticks: {
         callback: v => v >= 1000000 ? '₩' + (v / 1000000).toFixed(1) + 'M' 
                      : v >= 1000 ? '₩' + (v / 1000).toFixed(0) + 'K' 
                      : '₩' + v,
-        font: { size: 10 }
-      }
+        font: { size: 10 },
+        color: '#64748b'
+      },
+      beginAtZero: true
     };
   }
   if (usedAxes.has('y3')) {
     scales.y3 = {
+      type: 'linear',
       position: 'right',
-      offset: usedAxes.has('y2'),
-      title: { display: true, text: 'ROAS / % (비율)', font: { size: 10 } },
+      title: { display: true, text: 'ROAS / 비율(%)', font: { size: 10 }, color: '#64748b' },
       grid: { drawOnChartArea: false },
       ticks: {
         callback: v => (+v).toFixed(1),
-        font: { size: 10 }
+        font: { size: 10 },
+        color: '#64748b'
       },
-      min: 0
+      min: 0,
+      // y2와 겹치지 않도록 오프셋
+      offset: usedAxes.has('y2') ? true : false
     };
   }
   
@@ -132,7 +226,7 @@ function renderDailyMultiChart() {
       plugins: {
         legend: {
           position: 'top',
-          labels: { boxWidth: 12, font: { size: 11 }, padding: 10 }
+          labels: { boxWidth: 12, font: { size: 11 }, padding: 10, usePointStyle: false }
         },
         tooltip: {
           callbacks: {
@@ -148,14 +242,40 @@ function renderDailyMultiChart() {
       scales
     }
   });
+  
+  // 축 배정 정보를 하단 안내에 반영
+  updateAxisHint(axisMap, typeMap);
 }
 
+// 축 배정 안내 텍스트 업데이트
+function updateAxisHint(axisMap, typeMap) {
+  const hint = document.getElementById('dailyChartHint');
+  if (!hint) return;
+  
+  const groups = { y: [], y2: [], y3: [] };
+  Object.entries(axisMap).forEach(([m, ax]) => {
+    const meta = METRIC_META[m];
+    const type = typeMap[m] === 'line' ? '📈' : '📊';
+    groups[ax].push(`${type} ${meta.label}`);
+  });
+  
+  const parts = [];
+  if (groups.y.length) parts.push(`<strong style="color:#64748b;">좌축:</strong> ${groups.y.join(', ')}`);
+  if (groups.y2.length) parts.push(`<strong style="color:#3b82f6;">우축1(₩):</strong> ${groups.y2.join(', ')}`);
+  if (groups.y3.length) parts.push(`<strong style="color:#f59e0b;">우축2(비율):</strong> ${groups.y3.join(', ')}`);
+  
+  hint.innerHTML = '🎨 <strong>자동 축 배정:</strong> ' + parts.join(' · ') 
+    + '<br>💡 데이터 스케일이 작으면 자동으로 <span style="color:#f59e0b;">선(📈)</span>으로 표시, 필터 변경 시 자동 재렌더';
+}
+
+// ============================================
 // 지표 버튼 이벤트
+// ============================================
 function initDailyMetricBtns() {
   const btns = document.querySelectorAll('#dailyMetricBtns .metric-btn');
   if (!btns.length) return;
   
-  // 초기 active 상태 sync
+  // 초기 상태 sync
   DAILY_METRICS_STATE.active.clear();
   btns.forEach(btn => {
     if (btn.classList.contains('active')) {
@@ -164,15 +284,18 @@ function initDailyMetricBtns() {
   });
   
   btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const metric = btn.dataset.metric;
-      const isActive = btn.classList.toggle('active');
+    // 기존 리스너 제거를 위해 clone
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    
+    newBtn.addEventListener('click', () => {
+      const metric = newBtn.dataset.metric;
+      const isActive = newBtn.classList.toggle('active');
       if (isActive) {
         DAILY_METRICS_STATE.active.add(metric);
       } else {
-        // 최소 1개는 유지
         if (DAILY_METRICS_STATE.active.size <= 1) {
-          btn.classList.add('active');  // 되돌리기
+          newBtn.classList.add('active');
           return;
         }
         DAILY_METRICS_STATE.active.delete(metric);
@@ -183,9 +306,7 @@ function initDailyMetricBtns() {
 }
 
 // ============================================
-// 🚀📉 상승/하락 키워드 TOP 10 재구성
-// mart31의 여러 날짜 데이터를 활용 (최신 날짜만이 아닌 최근 이력 활용)
-// 그리고 mart31이 부실할 경우 mart28(30일 통계) + mart26(일자별)에서 계산
+// 🚀📉 상승/하락 키워드 TOP 10 (변경 없음, 이전 버전 유지)
 // ============================================
 function renderKeywordTrendsFixed() {
   const trendData = DATA.trend || [];
@@ -200,11 +321,9 @@ function renderKeywordTrendsFixed() {
     { key: 'roas', label: 'ROAS', num: true }
   ];
   
-  // 방법 1: mart31 (trend)에서 rev_wow_pct가 있는 최신 데이터 활용
   let allRows = [];
   const seen = new Set();
   
-  // trend에서 유효한 항목 수집
   trendData.forEach(r => {
     if (!r.keyword || r.keyword === 'null') return;
     const key = r.keyword + '|' + (r.campaign_name || '');
@@ -215,7 +334,6 @@ function renderKeywordTrendsFixed() {
     const curr = num(r.revenue);
     if (curr <= 0 && !wow) return;
     
-    // 이전 매출 역산
     const prev = wow !== 0 && !isNaN(wow) 
       ? curr / (1 + wow / 100) 
       : num(r.rev_7d_avg) || 0;
@@ -230,12 +348,9 @@ function renderKeywordTrendsFixed() {
     });
   });
   
-  // 방법 2: mart31에 wow 데이터가 부실하면 mart26 (perf)에서 계산
+  // mart31 부실 시 mart26 (perf)에서 재계산
   if (allRows.filter(r => r.change !== 0 && !isNaN(r.change)).length < 5) {
-    console.log('[Trend] mart31 데이터 부족, mart26에서 재계산');
-    
-    // perf에서 키워드별 일자별 데이터 집계
-    const kwByDate = {};  // { keyword_key: { date: {rev, cost, conv, imps, clicks} } }
+    const kwByDate = {};
     perfData.forEach(r => {
       const kwName = r.keyword;
       const campName = r.campaign_name || '';
@@ -249,7 +364,6 @@ function renderKeywordTrendsFixed() {
       kwByDate[key].dates[d].conv += num(r.conversions);
     });
     
-    // 최근 7일 vs 이전 7일 비교
     const allDates = [...new Set(perfData.map(r => r.event_date).filter(Boolean))].sort();
     if (allDates.length >= 14) {
       const recent7 = allDates.slice(-7);
@@ -268,7 +382,6 @@ function renderKeywordTrendsFixed() {
           conv: s.conv + (kd.dates[d]?.conv || 0)
         }), { rev: 0, cost: 0, conv: 0 });
         
-        // 유의미한 데이터만
         if (recSum.rev < 1000 && prvSum.rev < 1000) return;
         
         const change = prvSum.rev > 0 ? (recSum.rev - prvSum.rev) / prvSum.rev * 100 
@@ -284,18 +397,14 @@ function renderKeywordTrendsFixed() {
           roas
         });
       });
-      console.log('[Trend] mart26 재계산 완료:', allRows.length, '개');
     }
   }
   
-  // 유효한 변화율만 필터링
   const withChange = allRows.filter(r => 
     !isNaN(r.change) && (r.currRev > 0 || r.prevRev > 0)
   );
   
-  // 상승 TOP 10
   let rising = withChange.filter(r => r.change > 5).sort((a, b) => b.change - a.change).slice(0, 10);
-  // 하락 TOP 10
   let falling = withChange.filter(r => r.change < -5).sort((a, b) => a.change - b.change).slice(0, 10);
   
   const state = typeof SORT_STATE !== 'undefined' ? SORT_STATE : {};
@@ -306,29 +415,23 @@ function renderKeywordTrendsFixed() {
     falling = sortRows(falling, stF.key, stF.dir);
   }
   
+  const buildRow = (r, cls) => `<tr>
+    <td><strong>${r.keyword}</strong><br><small style="color:var(--muted);">${r.campaign}</small></td>
+    <td class="num">${nfmt.k(r.currRev)}</td>
+    <td class="num">${nfmt.k(r.prevRev)}</td>
+    <td class="num ${cls}">${r.change >= 0 ? '+' : ''}${r.change.toFixed(1)}%</td>
+    <td class="num ${roasClass(r.roas)}">${nfmt.r(r.roas)}</td>
+  </tr>`;
+  
   const risingHtml = (typeof makeSortHeader === 'function' ? makeSortHeader(cols, 'rising') : '') 
     + '<tbody>' 
-    + (rising.length 
-      ? rising.map(r => `<tr>
-          <td><strong>${r.keyword}</strong><br><small style="color:var(--muted);">${r.campaign}</small></td>
-          <td class="num">${nfmt.k(r.currRev)}</td>
-          <td class="num">${nfmt.k(r.prevRev)}</td>
-          <td class="num trend-up">+${r.change.toFixed(1)}%</td>
-          <td class="num ${roasClass(r.roas)}">${nfmt.r(r.roas)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">상승 키워드 없음<br><small>충분한 이력 데이터 필요 (14일+)</small></td></tr>')
+    + (rising.length ? rising.map(r => buildRow(r, 'trend-up')).join('')
+      : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">상승 키워드 없음</td></tr>')
     + '</tbody>';
   
   const fallingHtml = (typeof makeSortHeader === 'function' ? makeSortHeader(cols, 'falling') : '')
     + '<tbody>'
-    + (falling.length 
-      ? falling.map(r => `<tr>
-          <td><strong>${r.keyword}</strong><br><small style="color:var(--muted);">${r.campaign}</small></td>
-          <td class="num">${nfmt.k(r.currRev)}</td>
-          <td class="num">${nfmt.k(r.prevRev)}</td>
-          <td class="num trend-down">${r.change.toFixed(1)}%</td>
-          <td class="num ${roasClass(r.roas)}">${nfmt.r(r.roas)}</td>
-        </tr>`).join('')
+    + (falling.length ? falling.map(r => buildRow(r, 'trend-down')).join('')
       : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">하락 키워드 없음</td></tr>')
     + '</tbody>';
   
@@ -341,25 +444,33 @@ function renderKeywordTrendsFixed() {
     attachSort('risingKwTable', cols, 'rising', renderKeywordTrendsFixed);
     attachSort('fallingKwTable', cols, 'falling', renderKeywordTrendsFixed);
   }
-  
-  console.log('[Trend] 상승 키워드:', rising.length, '개, 하락 키워드:', falling.length, '개');
 }
 
 // ============================================
-// 초기화 - 기존 render()가 완료된 후 추가 렌더
+// 초기화 + 필터 후크 (renderAll 감싸기)
 // ============================================
 function bootDailyChart() {
   const wait = setInterval(() => {
     if (typeof DATA !== 'undefined' && DATA.daily && document.getElementById('dailyMultiChart')) {
       clearInterval(wait);
+      
+      // 축 안내 요소 없으면 추가
+      const chartWrap = document.querySelector('.chart-wrap.tall canvas#dailyMultiChart');
+      if (chartWrap && !document.getElementById('dailyChartHint')) {
+        const hint = document.createElement('div');
+        hint.id = 'dailyChartHint';
+        hint.style.cssText = 'margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6;padding:8px 10px;background:#f8fafc;border-radius:6px;border:1px solid #e5e7eb;';
+        chartWrap.parentNode.parentNode.insertBefore(hint, chartWrap.parentNode.nextSibling);
+      }
+      
       initDailyMetricBtns();
       renderDailyMultiChart();
       renderKeywordTrendsFixed();
       
-      // 필터 변경 시에도 재렌더
-      const origRenderAll = window.renderAll;
-      if (typeof origRenderAll === 'function' && !window._dailyChartHooked) {
+      // 필터 변경 시 자동 재렌더 (renderAll 감싸기)
+      if (typeof window.renderAll === 'function' && !window._dailyChartHooked) {
         window._dailyChartHooked = true;
+        const origRenderAll = window.renderAll;
         window.renderAll = function() {
           origRenderAll.apply(this, arguments);
           setTimeout(() => {
@@ -367,6 +478,7 @@ function bootDailyChart() {
             renderKeywordTrendsFixed();
           }, 50);
         };
+        console.log('[DailyChart] 필터 후크 등록 완료 - 필터 변경 시 자동 재렌더');
       }
     }
   }, 300);
