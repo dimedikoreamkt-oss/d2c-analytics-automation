@@ -118,7 +118,7 @@ body{font-family:'Inter','Noto Sans KR',sans-serif;background:var(--bg);color:va
 .metric-btn:hover:not(.active){background:white;border-color:#93c5fd;}
 .metric-btn.active{background:#0066FF;color:white;border-color:#0066FF;}
 </style>
-<script src="naver_daily_chart.js?v=20260727114755"></script>
+<script src="naver_daily_chart.js?v=20260727115423"></script>
 <link rel="stylesheet" href="mart_common.css">
 <style id="mart26-layout-fix">
 /* ===== Sidebar 추가 후 레이아웃 정상화 ===== */
@@ -168,6 +168,19 @@ html, body {
   .main { padding: 16px !important; }
 }
 </style>
+
+
+<script>
+/* SHOPPING 캠페인은 keyword 필드가 비어있음 → adgroup_name/campaign_name 을 대체 키로 사용 */
+window.getKeywordKey = function(r){
+  if(r && r.keyword && String(r.keyword).trim()) return String(r.keyword).trim();
+  if(r && r.campaign_type==='SHOPPING'){
+    const alt = r.adgroup_name || r.campaign_name || '';
+    if(alt) return '🛒 ' + alt;
+  }
+  return '';
+};
+</script>
 
 </head>
 <body>
