@@ -10,7 +10,7 @@ on:
         default: '1'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   fetch-meta-ads:
@@ -41,45 +41,3 @@ jobs:
         run: |
           python scripts/fetch_meta_ads.py
 
-      - name: Fetch Meta Asset Performance → BigQuery
-        env:
-          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
-          META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
-          PROJECT_ID: d2c-analytics-502304
-          CUSTOM_SINCE: ""
-          CUSTOM_UNTIL: ""
-        run: python scripts/fetch_meta_asset_performance.py
-        continue-on-error: true
-
-      - name: Refresh Mart 34 (Asset Performance)
-        env:
-          PROJECT_ID: d2c-analytics-502304
-          LOCATION: asia-northeast3
-        run: |
-          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=none \
-            < sql/34_mart_meta_asset_performance.sql
-        continue-on-error: true
-
-      - name: Export Mart 34 JSON
-        env:
-          PROJECT_ID: d2c-analytics-502304
-          LOCATION: asia-northeast3
-        run: |
-          mkdir -p docs/data
-          bq query --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=json --max_rows=50000 \
-            "SELECT * FROM \`${PROJECT_ID}.marts.mart_meta_asset_performance\` ORDER BY event_date DESC, spend_krw DESC" \
-            > docs/data/mart34_meta_asset_performance.json
-          ls -lh docs/data/mart34_meta_asset_performance.json
-        continue-on-error: true
-
-      - name: Commit asset performance data
-        run: |
-          git pull --rebase origin main || true
-          git config user.email "dimedikoreamkt@gmail.com"
-          git config user.name "GitHub Actions"
-          git add docs/data/mart34_meta_asset_performance.json || true
-          git commit -m "chore: sync meta asset performance [skip ci]" || echo "No changes"
-          git push || true
-        continue-on-error: true

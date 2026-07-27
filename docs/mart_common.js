@@ -121,7 +121,6 @@ function buildSidebar() {
   const items = [
     ['index.html',                 'H',  'Overview'],
     ['creative_intelligence.html', 'CI', '소재 인텔리전스'],
-  ['asset_performance.html','AP','이미지 카드 성과'],
     ['data_explorer.html',         'DE', '데이터 익스플로러'],
     ['landing_analytics.html',     'LA', '랜딩 분석'],
     ['budget_optimizer.html',      'BO', '예산 최적화'],
