@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>네이버 검색광고 · Naver Search Ads</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mart_common.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; border-left: 4px solid var(--primary); }
+  .kpi-lbl { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-val { font-size: 22px; font-weight: 700; margin-top: 6px; }
+  .brand-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .brand-tab { padding: 8px 16px; border-radius: 8px; background: #f1f5f9; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; border: 1px solid #e2e8f0; }
+  .brand-tab.active { background: #03c75a; color: white; border-color: #03c75a; }
+  .grade-STAR { background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .grade-HEALTHY { background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .grade-BREAKEVEN { background: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .grade-LOSING, .grade-LOSS { background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .grade-DEAD { background: #1e293b; color: #f87171; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .grade-MONITORING { background: #f3f4f6; color: #6b7280; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .grade-INACTIVE, .grade-NO_SPEND { background: #f9fafb; color: #9ca3af; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  table.perf-table { width: 100%; border-collapse: collapse; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; font-size: 13px; }
+  table.perf-table th { background: #f8fafc; padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.perf-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+  table.perf-table tr:hover { background: #f8fafc; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .naver-green { color: #03c75a; font-weight: 700; }
+  .empty { padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px; background: var(--white); border: 1px dashed var(--border); border-radius: var(--radius); }
+  .chart-wrap { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 20px; }
+  .chart-wrap h3 { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+  .section-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 32px 0 12px; display: flex; align-items: center; gap: 8px; }
+  .section-title svg { color: var(--text-muted); width: 18px; height: 18px; }
+</style>
+<script src="mart_common.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta" id="lastUpdated">Loading…</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <div class="crumb">Dashboard / Naver Search Ads</div>
+      <h1>네이버 검색광고 <span style="color:#03c75a;">N</span></h1>
+      <div class="desc">회사 전체 네이버 검색광고 통합 성과 · 브랜드/캠페인/키워드별 딥다이브 및 승자 키워드 자동 감지</div>
+    </div>
+
+    <div id="kpiSection"></div>
+    <div id="brandTabsSection"></div>
+    <div id="mainContent"></div>
+  </main>
+</div>
+
+<script>
+let PERFORMANCE = [], BRAND = [], KEYWORDS = [];
+let currentBrand = 'ALL';
+
+async function loadData() {
+  try {
+    const [p, b, k] = await Promise.all([
+      fetch('data/mart26_naver_performance.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
+      fetch('data/mart27_naver_brand.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
+      fetch('data/mart28_naver_keywords.json?t=' + Date.now()).then(r => r.ok ? r.json() : [])
+    ]);
+    PERFORMANCE = p; BRAND = b; KEYWORDS = k;
+
+    if (!PERFORMANCE.length && !BRAND.length) {
+      document.getElementById('mainContent').innerHTML = '<div class="empty">📊 네이버 광고 데이터를 아직 수집하지 않았습니다.<br><br>API 라이선스 발급 후 워크플로우를 실행하세요:<br><code>gh workflow run daily_naver_ads.yml</code></div>';
+      return;
+    }
+
+    render();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('mainContent').innerHTML = '<div class="empty">⚠️ 데이터 로드 실패: ' + e.message + '</div>';
+  }
+}
+
+function render() {
+  const filtered = currentBrand === 'ALL' ? PERFORMANCE : PERFORMANCE.filter(r => r.brand === currentBrand);
+  const brandData = currentBrand === 'ALL' ? BRAND : BRAND.filter(r => r.brand === currentBrand);
+  const keywordData = currentBrand === 'ALL' ? KEYWORDS : KEYWORDS.filter(r => r.brand === currentBrand);
+
+  renderKPI(filtered);
+  renderBrandTabs();
+  renderMainContent(filtered, brandData, keywordData);
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function renderKPI(data) {
+  const total = data.reduce((a, r) => ({
+    imp: a.imp + (+r.impressions || 0),
+    clk: a.clk + (+r.clicks || 0),
+    cost: a.cost + (+r.cost_krw || 0),
+    conv: a.conv + (+r.conversions || 0),
+    rev: a.rev + (+r.revenue || 0)
+  }), { imp: 0, clk: 0, cost: 0, conv: 0, rev: 0 });
+
+  const ctr = total.imp ? total.clk / total.imp * 100 : 0;
+  const cpc = total.clk ? total.cost / total.clk : 0;
+  const cpa = total.conv ? total.cost / total.conv : 0;
+  const roas = total.cost ? total.rev / total.cost : 0;
+
+  document.getElementById('kpiSection').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-left-color:#03c75a;">
+        <div class="kpi-lbl">💸 총 지출</div>
+        <div class="kpi-val naver-green">₩${total.cost.toLocaleString()}</div>
+      </div>
+      <div class="kpi-card" style="border-left-color:#10b981;">
+        <div class="kpi-lbl">💰 총 매출</div>
+        <div class="kpi-val" style="color:#10b981;">₩${total.rev.toLocaleString()}</div>
+      </div>
+      <div class="kpi-card" style="border-left-color:${roas >= 3 ? '#10b981' : roas >= 1 ? '#f59e0b' : '#ef4444'};">
+        <div class="kpi-lbl">📈 ROAS</div>
+        <div class="kpi-val" style="color:${roas >= 3 ? '#10b981' : roas >= 1 ? '#f59e0b' : '#ef4444'};">${roas.toFixed(2)}x</div>
+      </div>
+      <div class="kpi-card" style="border-left-color:#8b5cf6;">
+        <div class="kpi-lbl">🎯 CPA</div>
+        <div class="kpi-val" style="color:#8b5cf6;">${cpa > 0 ? '₩' + Math.round(cpa).toLocaleString() : '-'}</div>
+      </div>
+      <div class="kpi-card" style="border-left-color:#3b82f6;">
+        <div class="kpi-lbl">🖱 CTR / CPC</div>
+        <div class="kpi-val" style="color:#3b82f6;">${ctr.toFixed(2)}% / ₩${Math.round(cpc).toLocaleString()}</div>
+      </div>
+      <div class="kpi-card" style="border-left-color:#ec4899;">
+        <div class="kpi-lbl">🛒 전환 / 클릭</div>
+        <div class="kpi-val" style="color:#ec4899;">${total.conv.toLocaleString()} / ${total.clk.toLocaleString()}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBrandTabs() {
+  const brands = ['ALL', ...new Set(PERFORMANCE.map(r => r.brand))];
+  document.getElementById('brandTabsSection').innerHTML = `
+    <div class="brand-tabs">
+      ${brands.map(b => `<span class="brand-tab ${b === currentBrand ? 'active' : ''}" data-brand="${b}">${b === 'ALL' ? '🌐 전체 브랜드' : '🏷 ' + b}</span>`).join('')}
+    </div>
+  `;
+  document.querySelectorAll('.brand-tab').forEach(el => {
+    el.addEventListener('click', () => {
+      currentBrand = el.dataset.brand;
+      render();
+    });
+  });
+}
+
+function renderMainContent(perf, brand, keywords) {
+  const stars = keywords.filter(k => k.keyword_grade === 'STAR').sort((a, b) => (+b.roas || 0) - (+a.roas || 0)).slice(0, 20);
+  const deads = keywords.filter(k => k.keyword_grade === 'DEAD').sort((a, b) => (+b.cost_30d || 0) - (+a.cost_30d || 0)).slice(0, 20);
+
+  // 캠페인별 집계
+  const campaignMap = {};
+  perf.forEach(r => {
+    const key = r.brand + '|' + r.campaign_id;
+    if (!campaignMap[key]) {
+      campaignMap[key] = {
+        brand: r.brand,
+        campaign_name: r.campaign_name,
+        campaign_type: r.campaign_type,
+        imp: 0, clk: 0, cost: 0, conv: 0, rev: 0
+      };
+    }
+    campaignMap[key].imp += +r.impressions || 0;
+    campaignMap[key].clk += +r.clicks || 0;
+    campaignMap[key].cost += +r.cost_krw || 0;
+    campaignMap[key].conv += +r.conversions || 0;
+    campaignMap[key].rev += +r.revenue || 0;
+  });
+  const campaigns = Object.values(campaignMap).sort((a, b) => b.cost - a.cost).slice(0, 30);
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="section-title"><i data-lucide="trophy"></i> 캠페인별 성과 (상위 30개)</div>
+    <table class="perf-table">
+      <thead>
+        <tr>
+          <th>브랜드</th>
+          <th>캠페인명</th>
+          <th>유형</th>
+          <th class="num">노출</th>
+          <th class="num">클릭</th>
+          <th class="num">CTR</th>
+          <th class="num">지출</th>
+          <th class="num">CPC</th>
+          <th class="num">전환</th>
+          <th class="num">매출</th>
+          <th class="num">ROAS</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${campaigns.map(c => {
+          const ctr = c.imp ? c.clk / c.imp * 100 : 0;
+          const cpc = c.clk ? c.cost / c.clk : 0;
+          const roas = c.cost ? c.rev / c.cost : 0;
+          const roasColor = roas >= 3 ? '#10b981' : roas >= 1 ? '#f59e0b' : '#ef4444';
+          return `
+            <tr>
+              <td style="font-weight:600;">${c.brand}</td>
+              <td>${c.campaign_name || '-'}</td>
+              <td><span style="font-size:11px;color:#6b7280;">${c.campaign_type || '-'}</span></td>
+              <td class="num">${c.imp.toLocaleString()}</td>
+              <td class="num">${c.clk.toLocaleString()}</td>
+              <td class="num">${ctr.toFixed(2)}%</td>
+              <td class="num">₩${c.cost.toLocaleString()}</td>
+              <td class="num">₩${Math.round(cpc).toLocaleString()}</td>
+              <td class="num">${c.conv.toLocaleString()}</td>
+              <td class="num">₩${c.rev.toLocaleString()}</td>
+              <td class="num" style="color:${roasColor};font-weight:700;">${roas.toFixed(2)}x</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <div class="section-title"><i data-lucide="star"></i> 🌟 STAR 키워드 (ROAS ≥ 5.0x · 예산 확대 권장)</div>
+    ${stars.length ? `
+      <table class="perf-table">
+        <thead>
+          <tr>
+            <th>브랜드</th>
+            <th>키워드</th>
+            <th>캠페인</th>
+            <th class="num">노출</th>
+            <th class="num">클릭</th>
+            <th class="num">지출</th>
+            <th class="num">전환</th>
+            <th class="num">매출</th>
+            <th class="num">ROAS</th>
+            <th>추천 액션</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${stars.map(k => `
+            <tr>
+              <td style="font-weight:600;">${k.brand}</td>
+              <td style="font-weight:700;color:#03c75a;">${k.keyword || '-'}</td>
+              <td><span style="font-size:11px;color:#6b7280;">${k.campaign_name || '-'}</span></td>
+              <td class="num">${(+k.impressions_30d || 0).toLocaleString()}</td>
+              <td class="num">${(+k.clicks_30d || 0).toLocaleString()}</td>
+              <td class="num">₩${(+k.cost_30d || 0).toLocaleString()}</td>
+              <td class="num">${(+k.conversions_30d || 0).toLocaleString()}</td>
+              <td class="num">₩${(+k.revenue_30d || 0).toLocaleString()}</td>
+              <td class="num" style="color:#10b981;font-weight:700;">${(+k.roas || 0).toFixed(2)}x</td>
+              <td><span class="grade-STAR">${k.recommended_action || '유지'}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    ` : '<div class="empty">아직 STAR 키워드가 없습니다. 데이터 축적 후 자동 감지됩니다.</div>'}
+
+    <div class="section-title"><i data-lucide="alert-triangle"></i> ⚠️ DEAD 키워드 (지출 있고 전환 0 · 즉시 제외 검토)</div>
+    ${deads.length ? `
+      <table class="perf-table">
+        <thead>
+          <tr>
+            <th>브랜드</th>
+            <th>키워드</th>
+            <th>캠페인</th>
+            <th class="num">지출</th>
+            <th class="num">클릭</th>
+            <th class="num">CTR</th>
+            <th class="num">평균 순위</th>
+            <th>추천 액션</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${deads.map(k => `
+            <tr>
+              <td style="font-weight:600;">${k.brand}</td>
+              <td style="font-weight:700;color:#dc2626;">${k.keyword || '-'}</td>
+              <td><span style="font-size:11px;color:#6b7280;">${k.campaign_name || '-'}</span></td>
+              <td class="num" style="color:#dc2626;font-weight:700;">₩${(+k.cost_30d || 0).toLocaleString()}</td>
+              <td class="num">${(+k.clicks_30d || 0).toLocaleString()}</td>
+              <td class="num">${(+k.ctr_pct || 0).toFixed(2)}%</td>
+              <td class="num">${(+k.avg_rank_30d || 0).toFixed(1)}</td>
+              <td><span class="grade-DEAD">${k.recommended_action || '즉시 제외'}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    ` : '<div class="empty">🎉 DEAD 키워드 없음 - 모든 키워드가 정상 작동 중</div>'}
+  `;
+
+  // 마지막 업데이트 시간
+  const dates = PERFORMANCE.map(r => r.event_date).filter(Boolean).sort();
+  if (dates.length) {
+    document.getElementById('lastUpdated').textContent = 'Last updated: ' + dates[dates.length - 1];
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
