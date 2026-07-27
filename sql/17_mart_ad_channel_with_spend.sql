@@ -34,7 +34,6 @@ ga_perf AS (
     SUM(checkouts) AS checkouts,
     SUM(purchases) AS purchases,
     SUM(revenue) AS revenue,
-    SUM(acquired_users) AS acquired_users
   FROM `d2c-analytics-502304.marts.mart_channel_deep`
   WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
   GROUP BY event_date, source_norm, campaign_norm, source_original, medium_original, campaign_original
@@ -108,15 +107,15 @@ SELECT
   ROUND(SAFE_DIVIDE(s.spend_krw, s.clicks), 0) AS cpc,
   ROUND(SAFE_DIVIDE(s.spend_krw, s.impressions) * 1000, 0) AS cpm,
   ROUND(SAFE_DIVIDE(s.clicks, s.impressions) * 100, 3) AS ctr_pct,
-  ROUND(SAFE_DIVIDE(s.spend_krw, g.users AS acquired_users), 0) AS cac_krw,
+  ROUND(SAFE_DIVIDE(s.spend_krw, g.users), 0) AS cac_krw,
   ROUND(SAFE_DIVIDE(s.spend_krw, g.purchases), 0) AS cpa_krw,
   ROUND(SAFE_DIVIDE(g.revenue, s.spend_krw), 2) AS roas,
   ROUND(SAFE_DIVIDE(s.platform_revenue, s.spend_krw), 2) AS platform_roas,
   ROUND(SAFE_DIVIDE(g.purchases, s.clicks) * 100, 3) AS click_to_purchase_pct,
-  ROUND(SAFE_DIVIDE(g.revenue, g.users AS acquired_users), 0) AS ltv_estimate_krw,
+  ROUND(SAFE_DIVIDE(g.revenue, g.users), 0) AS ltv_estimate_krw,
   ROUND(SAFE_DIVIDE(
-    SAFE_DIVIDE(g.revenue, g.users AS acquired_users),
-    SAFE_DIVIDE(s.spend_krw, g.users AS acquired_users)
+    SAFE_DIVIDE(g.revenue, g.users),
+    SAFE_DIVIDE(s.spend_krw, g.users)
   ), 2) AS ltv_cac_ratio
 
 FROM ga_perf_agg g
