@@ -1,9 +1,9 @@
 -- ============================================
 -- Mart 26: 네이버 검색광고 통합 성과
 -- 회사 전체 네이버 광고 데이터 (모든 브랜드)
+-- 캠페인 레벨 일별 + 키워드 레벨 요약
 -- ============================================
-DROP TABLE IF EXISTS `d2c-analytics-502304.marts.mart_naver_ad_performance`;
-CREATE TABLE `d2c-analytics-502304.marts.mart_naver_ad_performance`
+CREATE OR REPLACE TABLE `d2c-analytics-502304.marts.mart_naver_ad_performance`
 PARTITION BY event_date
 CLUSTER BY brand, campaign_id AS
 WITH naver_base AS (
@@ -14,10 +14,11 @@ WITH naver_base AS (
     campaign_id,
     campaign_name,
     campaign_type,
-    adgroup_id,
-    adgroup_name,
-    keyword_id,
-    keyword,
+    COALESCE(adgroup_id, '') AS adgroup_id,
+    COALESCE(adgroup_name, '') AS adgroup_name,
+    COALESCE(keyword_id, '') AS keyword_id,
+    COALESCE(keyword, '') AS keyword,
+    COALESCE(keyword_status, '') AS keyword_status,
     bid_amt,
     SUM(impressions)      AS impressions,
     SUM(clicks)           AS clicks,
@@ -28,10 +29,11 @@ WITH naver_base AS (
   FROM `d2c-analytics-502304.marts.naver_ad_insights`
   WHERE event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
   GROUP BY event_date, brand, customer_id, campaign_id, campaign_name, campaign_type,
-           adgroup_id, adgroup_name, keyword_id, keyword, bid_amt
+           COALESCE(adgroup_id, ''), COALESCE(adgroup_name, ''),
+           COALESCE(keyword_id, ''), COALESCE(keyword, ''), COALESCE(keyword_status, ''),
+           bid_amt
 ),
 ga_join AS (
-  -- GA4 데이터와 조인 (네이버 유입 세션/구매)
   SELECT
     event_date,
     LOWER(utm_campaign) AS utm_campaign,
@@ -47,14 +49,12 @@ SELECT
   g.ga_sessions,
   g.ga_purchases,
   g.ga_revenue,
-  -- 계산 지표
   SAFE_DIVIDE(n.clicks, NULLIF(n.impressions, 0)) * 100    AS ctr_pct,
   SAFE_DIVIDE(n.cost_krw, NULLIF(n.clicks, 0))             AS cpc_krw,
   SAFE_DIVIDE(n.cost_krw, NULLIF(n.conversions, 0))        AS cpa_krw,
   SAFE_DIVIDE(n.revenue, NULLIF(n.cost_krw, 0))            AS roas,
   SAFE_DIVIDE(g.ga_revenue, NULLIF(n.cost_krw, 0))         AS ga_roas,
   SAFE_DIVIDE(g.ga_purchases, NULLIF(g.ga_sessions, 0)) * 100 AS ga_session_cvr_pct,
-  -- 등급
   CASE
     WHEN SAFE_DIVIDE(n.revenue, NULLIF(n.cost_krw, 0)) >= 5.0 THEN 'WINNER'
     WHEN SAFE_DIVIDE(n.revenue, NULLIF(n.cost_krw, 0)) >= 2.0 THEN 'HEALTHY'

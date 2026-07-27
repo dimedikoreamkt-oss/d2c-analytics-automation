@@ -1,169 +1,229 @@
 """
 네이버 검색광고 API - 회사 전체 광고 데이터 수집
-- 다중 CUSTOMER_ID 지원
-- 브랜드 태그 자동 매핑
-- BigQuery에 통합 저장
+- 캠페인 레벨 일별 통계 수집 (/stats?id= 단일 호출)
+- 다중 CUSTOMER_ID 지원 (여러 브랜드/광고주 계정)
+- BigQuery marts.naver_ad_insights 에 통합 저장
 """
-import os, time, hmac, hashlib, base64, json, requests
+import os, sys, time, hmac, hashlib, base64, json, requests
 from datetime import datetime, timedelta
 from google.cloud import bigquery
 
-# ===== 네이버 검색광고 API 인증 =====
 NAVER_API_URL = "https://api.searchad.naver.com"
+NAVER_ACCOUNTS_JSON = os.environ.get("NAVER_ACCOUNTS")
+if not NAVER_ACCOUNTS_JSON:
+    print("❌ ERROR: NAVER_ACCOUNTS 환경변수가 없습니다.")
+    sys.exit(1)
+NAVER_ACCOUNTS = json.loads(NAVER_ACCOUNTS_JSON)
+PROJECT_ID = os.environ.get("PROJECT_ID", "d2c-analytics-502304")
+BQ_TABLE_ID = f"{PROJECT_ID}.marts.naver_ad_insights"
 
-# 다중 계정 지원: 여러 CUSTOMER_ID를 JSON 배열로 관리
-# 형식: [{"customer_id": "1234567", "api_license": "...", "secret_key": "...", "brand": "8LineFit"}, ...]
-NAVER_ACCOUNTS = json.loads(os.environ["NAVER_ACCOUNTS"])
+STAT_FIELDS = ["impCnt", "clkCnt", "salesAmt", "ccnt", "ctr", "cpc", "avgRnk", "convAmt"]
+
 
 def generate_signature(timestamp, method, uri, secret_key):
-    """네이버 API HMAC-SHA256 서명"""
     msg = f"{timestamp}.{method}.{uri}"
-    signature = hmac.new(
-        secret_key.encode('utf-8'),
-        msg.encode('utf-8'),
-        hashlib.sha256
-    ).digest()
-    return base64.b64encode(signature).decode('utf-8')
+    return base64.b64encode(
+        hmac.new(secret_key.encode(), msg.encode(), hashlib.sha256).digest()
+    ).decode()
+
 
 def get_headers(method, uri, account):
-    """API 요청 헤더 생성 (계정별)"""
     timestamp = str(int(time.time() * 1000))
     return {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Timestamp': timestamp,
-        'X-API-KEY': account['api_license'],
-        'X-Customer': account['customer_id'],
-        'X-Signature': generate_signature(timestamp, method, uri, account['secret_key'])
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Timestamp": timestamp,
+        "X-API-KEY": account["api_license"],
+        "X-Customer": str(account["customer_id"]),
+        "X-Signature": generate_signature(timestamp, method, uri, account["secret_key"]),
     }
 
-# ===== 1) 캠페인 목록 조회 =====
+
+def api_get(uri_path, params, account, retries=3):
+    url = NAVER_API_URL + uri_path
+    for attempt in range(retries):
+        try:
+            r = requests.get(
+                url, params=params,
+                headers=get_headers("GET", uri_path, account),
+                timeout=30,
+            )
+            if r.status_code == 200:
+                return r.json()
+            if r.status_code == 429:
+                print(f"  ⚠️ Rate limit, 재시도 {attempt+1}/{retries}")
+                time.sleep(2 ** attempt)
+                continue
+            print(f"  [ERR] {uri_path} status {r.status_code}: {r.text[:200]}")
+            return None
+        except Exception as e:
+            print(f"  [ERR] {uri_path} exception: {e}")
+            time.sleep(2 ** attempt)
+    return None
+
+
 def fetch_campaigns(account):
     """캠페인 목록 조회"""
-    uri = "/ncc/campaigns"
-    r = requests.get(NAVER_API_URL + uri, headers=get_headers("GET", uri, account))
-    if r.status_code != 200:
-        print(f"[ERR] {account['brand']} campaigns fetch: {r.status_code}")
-        return []
-    return r.json()
+    return api_get("/ncc/campaigns", {}, account) or []
 
-# ===== 2) 광고그룹 목록 조회 =====
+
 def fetch_adgroups(campaign_id, account):
-    """캠페인별 광고그룹 조회"""
-    uri = "/ncc/adgroups"
-    params = {"nccCampaignId": campaign_id}
-    r = requests.get(NAVER_API_URL + uri, params=params, headers=get_headers("GET", uri, account))
-    if r.status_code != 200:
-        return []
-    return r.json()
+    """광고그룹 목록 조회 (메타데이터용)"""
+    return api_get("/ncc/adgroups", {"nccCampaignId": campaign_id}, account) or []
 
-# ===== 3) 키워드 조회 =====
+
 def fetch_keywords(adgroup_id, account):
-    """광고그룹별 키워드 조회"""
-    uri = "/ncc/keywords"
-    params = {"nccAdgroupId": adgroup_id}
-    r = requests.get(NAVER_API_URL + uri, params=params, headers=get_headers("GET", uri, account))
-    if r.status_code != 200:
-        return []
-    return r.json()
+    """키워드 목록 조회 (메타데이터용)"""
+    return api_get("/ncc/keywords", {"nccAdgroupId": adgroup_id}, account) or []
 
-# ===== 4) 통계 리포트 (핵심) =====
-def fetch_stats_report(account, ids, start_date, end_date, breakdown="day", fields=None):
-    """
-    통계 조회
-    - ids: 캠페인/광고그룹/키워드 ID 배열
-    - breakdown: day, hh1(시간), PC, MO
-    - fields: 조회 지표 배열
-    """
-    uri = "/stats"
-    default_fields = ["impCnt", "clkCnt", "salesAmt", "ccnt", "ctr", "cpc", "avgRnk", "convAmt"]
 
+def fetch_daily_stats(entity_id, start_date, end_date, account):
+    """
+    단일 엔티티의 일별 통계 조회
+    /stats?id=<NCC_ID> → 일별 데이터 자동 반환
+    응답: {"summary":{...}, "data":[{dateStart, dateEnd, impCnt, clkCnt, ...}, ...]}
+    """
     params = {
-        "ids": json.dumps(ids),
-        "fields": json.dumps(fields or default_fields),
+        "id": entity_id,
+        "fields": json.dumps(STAT_FIELDS),
         "timeRange": json.dumps({"since": start_date, "until": end_date}),
-        "breakdown": breakdown
     }
-    r = requests.get(NAVER_API_URL + uri, params=params, headers=get_headers("GET", uri, account))
-    if r.status_code != 200:
-        print(f"[ERR] stats fetch: {r.status_code} - {r.text[:200]}")
+    res = api_get("/stats", params, account)
+    if res is None:
         return []
-    return r.json().get('data', [])
+    # 일별 데이터는 res["data"] 배열에 있음
+    return res.get("data", [])
 
-# ===== 5) 계정별 전체 데이터 수집 =====
+
+def fetch_summary_stats(entity_ids, start_date, end_date, account):
+    """
+    여러 엔티티의 요약 통계 조회 (일별 아님, 엔티티별 합계)
+    /stats?ids=id1,id2,id3 (콤마 구분 문자열, NOT JSON array)
+    응답: {"data":[{id, impCnt, clkCnt, ...}, ...]}
+    """
+    if not entity_ids:
+        return []
+    params = {
+        "ids": ",".join(entity_ids),  # 핵심: 콤마 구분 문자열!
+        "fields": json.dumps(STAT_FIELDS),
+        "timeRange": json.dumps({"since": start_date, "until": end_date}),
+    }
+    res = api_get("/stats", params, account)
+    if res is None:
+        return []
+    return res.get("data", [])
+
+
 def collect_account_data(account, start_date, end_date):
-    """단일 계정의 전체 데이터 수집"""
-    print(f"\n📊 {account['brand']} (Customer: {account['customer_id']}) 수집 시작")
+    """계정별 데이터 수집: 캠페인 레벨 일별 통계 + 키워드 메타데이터"""
+    print(f"\n📊 [{account['brand']}] Customer {account['customer_id']} 수집 시작")
+    print(f"   📅 기간: {start_date} ~ {end_date}")
 
     campaigns = fetch_campaigns(account)
-    print(f"  캠페인 {len(campaigns)}개 발견")
+    if not campaigns:
+        print("  ⚠️ 캠페인 없음")
+        return []
 
+    print(f"  📋 캠페인 {len(campaigns)}개 발견")
     all_rows = []
 
-    for campaign in campaigns:
-        campaign_id = campaign.get('nccCampaignId')
-        campaign_name = campaign.get('name')
+    for c_idx, campaign in enumerate(campaigns, 1):
+        camp_id = campaign.get("nccCampaignId", "")
+        camp_name = campaign.get("name", "(unnamed)")
+        camp_type = campaign.get("campaignTp", "UNKNOWN")
+        camp_status = campaign.get("status", "UNKNOWN")
 
-        # 광고그룹
-        adgroups = fetch_adgroups(campaign_id, account)
+        print(f"  [{c_idx}/{len(campaigns)}] {camp_name[:40]} ({camp_type})")
+
+        # 1. 캠페인 일별 통계
+        daily_data = fetch_daily_stats(camp_id, start_date, end_date, account)
         time.sleep(0.3)
 
-        for adgroup in adgroups:
-            adgroup_id = adgroup.get('nccAdgroupId')
-            adgroup_name = adgroup.get('name')
-
-            # 키워드
-            keywords = fetch_keywords(adgroup_id, account)
-            time.sleep(0.3)
-
-            # 키워드별 통계 (최대 100개씩 배치)
-            keyword_ids = [k.get('nccKeywordId') for k in keywords]
-            if not keyword_ids:
+        for row in daily_data:
+            event_date = row.get("dateStart", "")
+            if not event_date:
                 continue
 
-            # 100개씩 배치 처리
-            for i in range(0, len(keyword_ids), 100):
-                batch_ids = keyword_ids[i:i+100]
-                stats = fetch_stats_report(account, batch_ids, start_date, end_date, breakdown="day")
+            # 광고그룹/키워드 메타데이터 수집 (캠페인 레벨이므로 빈 값)
+            all_rows.append({
+                "event_date": event_date,
+                "brand": account["brand"],
+                "customer_id": str(account["customer_id"]),
+                "campaign_id": camp_id,
+                "campaign_name": camp_name,
+                "campaign_type": camp_type,
+                "adgroup_id": "",
+                "adgroup_name": "",
+                "keyword_id": "",
+                "keyword": "",
+                "keyword_status": "",
+                "bid_amt": 0.0,
+                "impressions": int(float(row.get("impCnt", 0) or 0)),
+                "clicks": int(float(row.get("clkCnt", 0) or 0)),
+                "cost_krw": float(row.get("salesAmt", 0) or 0),
+                "conversions": int(float(row.get("ccnt", 0) or 0)),
+                "conversion_value": float(row.get("convAmt", 0) or 0),
+                "ctr": float(row.get("ctr", 0) or 0),
+                "cpc": float(row.get("cpc", 0) or 0),
+                "avg_rank": float(row.get("avgRnk", 0) or 0),
+            })
 
-                for stat in stats:
-                    keyword_info = next((k for k in keywords if k.get('nccKeywordId') == stat.get('id')), {})
-                    all_rows.append({
-                        "event_date": stat.get('startDate'),
-                        "brand": account['brand'],
-                        "customer_id": account['customer_id'],
-                        "campaign_id": campaign_id,
-                        "campaign_name": campaign_name,
-                        "campaign_type": campaign.get('campaignTp'),  # WEB_SITE, SHOPPING, POWER_CONTENTS 등
-                        "adgroup_id": adgroup_id,
-                        "adgroup_name": adgroup_name,
-                        "keyword_id": stat.get('id'),
-                        "keyword": keyword_info.get('keyword'),
-                        "keyword_status": keyword_info.get('status'),
-                        "bid_amt": keyword_info.get('bidAmt'),
-                        "impressions": int(stat.get('impCnt', 0)),
-                        "clicks": int(stat.get('clkCnt', 0)),
-                        "cost_krw": float(stat.get('salesAmt', 0)),
-                        "conversions": int(stat.get('ccnt', 0)),
-                        "conversion_value": float(stat.get('convAmt', 0)),
-                        "ctr": float(stat.get('ctr', 0)),
-                        "cpc": float(stat.get('cpc', 0)),
-                        "avg_rank": float(stat.get('avgRnk', 0)),
-                    })
-                time.sleep(0.5)
+        # 2. 광고그룹 + 키워드 메타데이터 수집 (통계 없이 이름만)
+        adgroups = fetch_adgroups(camp_id, account)
+        time.sleep(0.2)
+
+        for adgroup in adgroups:
+            ag_id = adgroup.get("nccAdgroupId", "")
+            ag_name = adgroup.get("name", "(unnamed)")
+
+            keywords = fetch_keywords(ag_id, account)
+            time.sleep(0.2)
+
+            for kw in keywords:
+                kw_id = kw.get("nccKeywordId", "")
+                kw_text = kw.get("keyword", "")
+                kw_status = kw.get("status", "")
+                bid = float(kw.get("bidAmt", 0) or 0)
+
+                # 키워드 요약 통계 (콤마 구분 형식)
+                if kw_id:
+                    kw_stats = fetch_summary_stats([kw_id], start_date, end_date, account)
+                    time.sleep(0.2)
+
+                    for stat in kw_stats:
+                        all_rows.append({
+                            "event_date": start_date,  # 요약이므로 시작일 사용
+                            "brand": account["brand"],
+                            "customer_id": str(account["customer_id"]),
+                            "campaign_id": camp_id,
+                            "campaign_name": camp_name,
+                            "campaign_type": camp_type,
+                            "adgroup_id": ag_id,
+                            "adgroup_name": ag_name,
+                            "keyword_id": kw_id,
+                            "keyword": kw_text,
+                            "keyword_status": kw_status,
+                            "bid_amt": bid,
+                            "impressions": int(float(stat.get("impCnt", 0) or 0)),
+                            "clicks": int(float(stat.get("clkCnt", 0) or 0)),
+                            "cost_krw": float(stat.get("salesAmt", 0) or 0),
+                            "conversions": int(float(stat.get("ccnt", 0) or 0)),
+                            "conversion_value": float(stat.get("convAmt", 0) or 0),
+                            "ctr": float(stat.get("ctr", 0) or 0),
+                            "cpc": float(stat.get("cpc", 0) or 0),
+                            "avg_rank": float(stat.get("avgRnk", 0) or 0),
+                        })
 
     print(f"  ✅ {len(all_rows)}행 수집 완료")
     return all_rows
 
-# ===== 6) BigQuery 적재 =====
+
 def load_to_bq(rows):
-    """BigQuery에 저장 (파티션 + 클러스터링)"""
+    """BigQuery에 데이터 적재 (MERGE 방식)"""
     if not rows:
-        print("⚠️ 수집 데이터 없음")
+        print("⚠️ 수집 데이터 없음 - BigQuery 저장 스킵")
         return
 
-    client = bigquery.Client(project="d2c-analytics-502304")
-    table_id = "d2c-analytics-502304.marts.naver_ad_insights"
-
+    client = bigquery.Client(project=PROJECT_ID)
     schema = [
         bigquery.SchemaField("event_date", "DATE"),
         bigquery.SchemaField("brand", "STRING"),
@@ -187,66 +247,40 @@ def load_to_bq(rows):
         bigquery.SchemaField("avg_rank", "FLOAT"),
     ]
 
-    # MERGE 방식으로 UPSERT (중복 방지)
-    # Staging → MERGE → 원본 테이블
-    staging_id = table_id + "_staging"
-
-    # 1) Staging에 적재
-    job_config = bigquery.LoadJobConfig(
-        schema=schema,
-        write_disposition="WRITE_TRUNCATE"
-    )
-    client.load_table_from_json(rows, staging_id, job_config=job_config).result()
-
-    # 2) MERGE
-    merge_sql = f"""
-    MERGE `{table_id}` T
-    USING `{staging_id}` S
-    ON T.event_date = S.event_date
-      AND T.brand = S.brand
-      AND T.keyword_id = S.keyword_id
-    WHEN MATCHED THEN
-      UPDATE SET
-        impressions = S.impressions,
-        clicks = S.clicks,
-        cost_krw = S.cost_krw,
-        conversions = S.conversions,
-        conversion_value = S.conversion_value,
-        ctr = S.ctr,
-        cpc = S.cpc,
-        avg_rank = S.avg_rank
-    WHEN NOT MATCHED THEN
-      INSERT ROW
-    """
-
-    # 원본 테이블 없으면 먼저 생성
     try:
-        client.get_table(table_id)
-    except:
-        table = bigquery.Table(table_id, schema=schema)
+        client.get_table(BQ_TABLE_ID)
+        print(f"  📝 기존 테이블 확인: {BQ_TABLE_ID}")
+    except Exception:
+        table = bigquery.Table(BQ_TABLE_ID, schema=schema)
         table.time_partitioning = bigquery.TimePartitioning(
-            field="event_date",
-            expiration_ms=180 * 24 * 60 * 60 * 1000  # 180일
+            field="event_date", expiration_ms=180 * 24 * 60 * 60 * 1000
         )
         table.clustering_fields = ["brand", "campaign_id"]
         client.create_table(table)
-        print(f"✅ 테이블 생성: {table_id}")
+        print(f"  ✅ 테이블 생성: {BQ_TABLE_ID}")
 
-    query_job = client.query(merge_sql)
-    query_job.result()
+    # 기존 데이터 삭제 후 새로 적재 (해당 기간)
+    dates = sorted(set(r["event_date"] for r in rows))
+    brands = sorted(set(r["brand"] for r in rows))
+    min_date, max_date = dates[0], dates[-1]
 
-    # 3) Staging 정리
-    client.delete_table(staging_id, not_found_ok=True)
+    delete_sql = f"""
+    DELETE FROM `{BQ_TABLE_ID}`
+    WHERE event_date BETWEEN '{min_date}' AND '{max_date}'
+      AND brand IN ({','.join(f"'{b}'" for b in brands)})
+    """
+    client.query(delete_sql).result()
+    print(f"  🗑 기존 데이터 삭제: {min_date} ~ {max_date}, brands={brands}")
 
-    print(f"✅ {len(rows)}행 BigQuery 저장 완료")
+    # 새 데이터 적재
+    job_config = bigquery.LoadJobConfig(schema=schema, write_disposition="WRITE_APPEND")
+    client.load_table_from_json(rows, BQ_TABLE_ID, job_config=job_config).result()
+    print(f"  ✅ BigQuery 적재 완료: {len(rows)}행")
 
-# ===== Main =====
+
 def main():
-    # 지난 7일 데이터
     end_date = datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-
-    # 백필 옵션
     if os.environ.get("CUSTOM_SINCE"):
         start_date = os.environ["CUSTOM_SINCE"]
     if os.environ.get("CUSTOM_UNTIL"):
@@ -254,22 +288,42 @@ def main():
 
     print(f"📅 수집 기간: {start_date} ~ {end_date}")
     print(f"🏢 광고주 계정 수: {len(NAVER_ACCOUNTS)}개")
+    print(f"🎯 대상 브랜드: {', '.join(a['brand'] for a in NAVER_ACCOUNTS)}")
 
     all_rows = []
     for account in NAVER_ACCOUNTS:
-        rows = collect_account_data(account, start_date, end_date)
-        all_rows.extend(rows)
+        try:
+            rows = collect_account_data(account, start_date, end_date)
+            all_rows.extend(rows)
+        except Exception as e:
+            print(f"❌ [{account['brand']}] 수집 실패: {e}")
+            import traceback
+            traceback.print_exc()
 
     load_to_bq(all_rows)
 
-    # 통계 요약
-    print("\n=== 수집 요약 ===")
-    brands = set(r['brand'] for r in all_rows)
-    for brand in brands:
-        brand_rows = [r for r in all_rows if r['brand'] == brand]
-        total_cost = sum(r['cost_krw'] for r in brand_rows)
-        total_clicks = sum(r['clicks'] for r in brand_rows)
-        print(f"  {brand}: {len(brand_rows)}행, 클릭 {total_clicks:,}, 지출 ₩{total_cost:,.0f}")
+    print("\n" + "=" * 60)
+    print("📊 수집 완료 요약")
+    print("=" * 60)
+    brands = set(r["brand"] for r in all_rows)
+    for brand in sorted(brands):
+        brand_rows = [r for r in all_rows if r["brand"] == brand]
+        total_cost = sum(r["cost_krw"] for r in brand_rows)
+        total_clicks = sum(r["clicks"] for r in brand_rows)
+        total_conv = sum(r["conversions"] for r in brand_rows)
+        total_rev = sum(r["conversion_value"] for r in brand_rows)
+        total_imp = sum(r["impressions"] for r in brand_rows)
+        roas = total_rev / total_cost if total_cost else 0
+        print(f"  🏷 {brand}")
+        print(f"     행수: {len(brand_rows):,}")
+        print(f"     노출: {total_imp:,}")
+        print(f"     클릭: {total_clicks:,}")
+        print(f"     지출: ₩{total_cost:,.0f}")
+        print(f"     전환: {total_conv:,}")
+        print(f"     매출: ₩{total_rev:,.0f}")
+        print(f"     ROAS: {roas:.2f}x")
+    print(f"\n✅ 전체 총 {len(all_rows):,}행 처리 완료")
+
 
 if __name__ == "__main__":
     main()
