@@ -3,297 +3,1032 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>네이버 검색광고 · Naver Search Ads</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="mart_common.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<title>네이버 검색광고 · 고급 분석 대시보드 | D2C Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="mart_common.js?v=20260727"></script>
 <style>
-  .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; }
-  .kpi-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; border-left: 4px solid var(--primary); }
-  .kpi-lbl { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-  .kpi-val { font-size: 22px; font-weight: 700; margin-top: 6px; }
-  .brand-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-  .brand-tab { padding: 8px 16px; border-radius: 8px; background: #f1f5f9; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; border: 1px solid #e2e8f0; }
-  .brand-tab.active { background: #03c75a; color: white; border-color: #03c75a; }
-  .grade-STAR { background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-  .grade-HEALTHY { background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-  .grade-BREAKEVEN { background: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-  .grade-LOSING, .grade-LOSS { background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-  .grade-DEAD { background: #1e293b; color: #f87171; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-  .grade-MONITORING { background: #f3f4f6; color: #6b7280; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-  .grade-INACTIVE, .grade-NO_SPEND { background: #f9fafb; color: #9ca3af; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-  table.perf-table { width: 100%; border-collapse: collapse; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; font-size: 13px; }
-  table.perf-table th { background: #f8fafc; padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  table.perf-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
-  table.perf-table tr:hover { background: #f8fafc; }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .naver-green { color: #03c75a; font-weight: 700; }
-  .empty { padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px; background: var(--white); border: 1px dashed var(--border); border-radius: var(--radius); }
-  .chart-wrap { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 20px; }
-  .chart-wrap h3 { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
-  .section-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 32px 0 12px; display: flex; align-items: center; gap: 8px; }
-  .section-title svg { color: var(--text-muted); width: 18px; height: 18px; }
+:root {
+  --primary: #0066FF; --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+  --star: #8b5cf6; --healthy: #10b981; --losing: #f59e0b; --dead: #ef4444;
+  --bg: #f8fafc; --card: #ffffff; --border: #e5e7eb; --text: #1e293b; --muted: #64748b;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter','Noto Sans KR',sans-serif; background:var(--bg); color:var(--text); font-size:13px; }
+.main { margin-left:220px; padding:24px 28px 60px; }
+.page-header { margin-bottom:20px; }
+.page-title { font-size:20px; font-weight:800; letter-spacing:-0.4px; margin-bottom:4px; }
+.page-desc { font-size:12.5px; color:var(--muted); }
+.updated-badge { display:inline-block; background:#eff6ff; color:#1d4ed8; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:600; margin-left:8px; }
+
+/* KPI Cards */
+.kpi-row { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:16px; }
+.kpi-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; position:relative; overflow:hidden; }
+.kpi-card::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:var(--primary); }
+.kpi-card.success::before { background:var(--success); }
+.kpi-card.warning::before { background:var(--warning); }
+.kpi-card.danger::before { background:var(--danger); }
+.kpi-card.purple::before { background:var(--star); }
+.kpi-card.pink::before { background:#ec4899; }
+.kpi-label { font-size:10.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+.kpi-value { font-size:19px; font-weight:800; letter-spacing:-0.4px; margin-bottom:4px; }
+.kpi-delta { font-size:11px; font-weight:600; display:flex; align-items:center; gap:3px; }
+.kpi-delta.up { color:var(--success); }
+.kpi-delta.down { color:var(--danger); }
+.kpi-delta.flat { color:var(--muted); }
+
+/* Alert Banner */
+.alert-banner { background:linear-gradient(135deg,#fef2f2,#fef2f2); border:1px solid #fecaca; border-left:4px solid #ef4444; border-radius:10px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; gap:14px; }
+.alert-banner.warning { background:linear-gradient(135deg,#fffbeb,#fffbeb); border-color:#fde68a; border-left-color:#f59e0b; }
+.alert-banner.success { background:linear-gradient(135deg,#f0fdf4,#f0fdf4); border-color:#bbf7d0; border-left-color:#10b981; }
+.alert-icon { font-size:22px; }
+.alert-content { flex:1; }
+.alert-title { font-size:13px; font-weight:700; margin-bottom:2px; }
+.alert-desc { font-size:12px; color:var(--muted); line-height:1.5; }
+.alert-action { padding:6px 12px; background:white; border:1px solid var(--border); border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer; }
+
+/* Section */
+.section { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:14px; }
+.section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.section-title { font-size:14px; font-weight:700; display:flex; align-items:center; gap:6px; }
+.section-badge { background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:5px; font-size:10.5px; font-weight:600; }
+.section-desc { font-size:11.5px; color:var(--muted); font-weight:400; margin-left:6px; }
+.section-tools { display:flex; gap:6px; align-items:center; }
+.section-tools select, .section-tools input { padding:5px 10px; border:1px solid var(--border); border-radius:6px; font-size:11.5px; background:white; font-family:inherit; }
+
+/* Grid Layouts */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
+
+/* Tables */
+.data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; }
+.data-table thead th { background:#f8fafc; padding:9px 10px; text-align:left; font-weight:700; color:#334155; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:0.4px; position:sticky; top:0; }
+.data-table thead th.num { text-align:right; }
+.data-table tbody td { padding:9px 10px; border-bottom:1px solid #f1f5f9; }
+.data-table tbody td.num { text-align:right; font-variant-numeric:tabular-nums; font-weight:500; }
+.data-table tbody tr:hover { background:#f8fafc; }
+.data-table tbody tr.highlight-good { background:#f0fdf4; }
+.data-table tbody tr.highlight-bad { background:#fef2f2; }
+.table-scroll { max-height:480px; overflow-y:auto; }
+.data-table .roas-high { color:var(--success); font-weight:700; }
+.data-table .roas-med { color:var(--warning); font-weight:700; }
+.data-table .roas-low { color:var(--danger); font-weight:700; }
+
+/* Grade Chips */
+.grade { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:5px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
+.grade.star { background:#f5f3ff; color:#7c3aed; }
+.grade.healthy { background:#f0fdf4; color:#059669; }
+.grade.losing { background:#fffbeb; color:#d97706; }
+.grade.dead { background:#fef2f2; color:#dc2626; }
+.grade.new { background:#eff6ff; color:#1d4ed8; }
+.trend-up { color:var(--success); font-weight:600; }
+.trend-down { color:var(--danger); font-weight:600; }
+.trend-flat { color:var(--muted); }
+
+/* Chart wrapper */
+.chart-wrap { position:relative; height:280px; }
+.chart-wrap.tall { height:340px; }
+
+/* Filter chips */
+.filter-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.chip { padding:5px 11px; background:#f1f5f9; border:1px solid transparent; border-radius:16px; font-size:11.5px; font-weight:600; cursor:pointer; color:var(--muted); }
+.chip.active { background:#0066FF; color:white; }
+.chip:hover:not(.active) { border-color:var(--border); background:white; }
+
+/* Loading */
+.loading { text-align:center; padding:60px 20px; color:var(--muted); font-size:13px; }
+.spinner { display:inline-block; width:20px; height:20px; border:2px solid #e5e7eb; border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; margin-right:8px; vertical-align:middle; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Heatmap */
+.heatmap { display:grid; grid-template-columns:auto repeat(7,1fr); gap:3px; font-size:11px; }
+.hm-cell { padding:8px 6px; text-align:center; border-radius:4px; font-weight:600; }
+.hm-header { color:var(--muted); font-weight:700; }
+.hm-label { color:var(--text); font-weight:700; }
+
+/* Action items */
+.action-list { display:flex; flex-direction:column; gap:8px; }
+.action-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; background:#f8fafc; border-radius:8px; border-left:3px solid var(--primary); }
+.action-item.critical { border-left-color:var(--danger); background:#fef2f2; }
+.action-item.warning { border-left-color:var(--warning); background:#fffbeb; }
+.action-item.success { border-left-color:var(--success); background:#f0fdf4; }
+.action-priority { font-size:15px; }
+.action-body { flex:1; }
+.action-title { font-size:12.5px; font-weight:700; margin-bottom:3px; }
+.action-desc { font-size:11.5px; color:var(--muted); line-height:1.5; }
+.action-meta { display:flex; gap:8px; margin-top:6px; }
+.action-tag { padding:1px 7px; background:white; border-radius:4px; font-size:10.5px; font-weight:600; color:#475569; border:1px solid var(--border); }
+
+/* Insight Cards */
+.insight-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.insight-card { padding:14px 16px; background:#f8fafc; border-radius:8px; border-left:3px solid var(--primary); }
+.insight-title { font-size:12px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.insight-metric { font-size:22px; font-weight:800; letter-spacing:-0.4px; }
+.insight-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+
+/* Sparkline */
+.sparkline { height:24px; }
 </style>
-<script src="mart_common.js"></script>
 </head>
 <body>
-<header class="topbar">
-  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
-  <div class="meta" id="lastUpdated">Loading…</div>
-</header>
-<div class="layout">
-  <aside class="sidebar"></aside>
-  <main class="main">
-    <div class="page-head">
-      <div class="crumb">Dashboard / Naver Search Ads</div>
-      <h1>네이버 검색광고 <span style="color:#03c75a;">N</span></h1>
-      <div class="desc">회사 전체 네이버 검색광고 통합 성과 · 브랜드/캠페인/키워드별 딥다이브 및 승자 키워드 자동 감지</div>
+<div class="main">
+  <div class="page-header">
+    <h1 class="page-title">🔍 네이버 검색광고 · 고급 분석 대시보드
+      <span class="updated-badge" id="updatedBadge">Loading…</span>
+    </h1>
+    <div class="page-desc">일일 성과 · 캠페인/키워드/유형별 딥다이브 · 자동 이슈 감지 · 실행 액션 아이템</div>
+  </div>
+
+  <!-- 자동 이슈 감지 알림 -->
+  <div id="alertContainer"></div>
+
+  <!-- KPI 상단 -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="loading" style="grid-column:span 6;"><span class="spinner"></span>데이터 로딩 중…</div>
+  </div>
+
+  <!-- 일일 KPI 트렌드 & 차트 -->
+  <div class="grid-2">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">📈 일일 성과 트렌드 <span class="section-desc">최근 14일 · 매출·광고비·ROAS</span></div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="trendChart"></canvas></div>
     </div>
-
-    <div id="kpiSection"></div>
-    <div id="brandTabsSection"></div>
-    <div id="mainContent"></div>
-  </main>
-</div>
-
-<script>
-let PERFORMANCE = [], BRAND = [], KEYWORDS = [];
-let currentBrand = 'ALL';
-
-async function loadData() {
-  try {
-    const [p, b, k] = await Promise.all([
-      fetch('data/mart26_naver_ad_performance.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
-      fetch('data/mart27_naver_brand_summary.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
-      fetch('data/mart28_naver_keyword_insights.json?t=' + Date.now()).then(r => r.ok ? r.json() : [])
-    ]);
-    PERFORMANCE = p; BRAND = b; KEYWORDS = k;
-
-    if (!PERFORMANCE.length && !BRAND.length) {
-      document.getElementById('mainContent').innerHTML = '<div class="empty">📊 네이버 광고 데이터를 아직 수집하지 않았습니다.<br><br>API 라이선스 발급 후 워크플로우를 실행하세요:<br><code>gh workflow run daily_naver_ads.yml</code></div>';
-      return;
-    }
-
-    render();
-  } catch(e) {
-    console.error(e);
-    document.getElementById('mainContent').innerHTML = '<div class="empty">⚠️ 데이터 로드 실패: ' + e.message + '</div>';
-  }
-}
-
-function render() {
-  const filtered = currentBrand === 'ALL' ? PERFORMANCE : PERFORMANCE.filter(r => r.brand === currentBrand);
-  const brandData = currentBrand === 'ALL' ? BRAND : BRAND.filter(r => r.brand === currentBrand);
-  const keywordData = currentBrand === 'ALL' ? KEYWORDS : KEYWORDS.filter(r => r.brand === currentBrand);
-
-  renderKPI(filtered);
-  renderBrandTabs();
-  renderMainContent(filtered, brandData, keywordData);
-
-  if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-function renderKPI(data) {
-  const total = data.reduce((a, r) => ({
-    imp: a.imp + (+r.impressions || 0),
-    clk: a.clk + (+r.clicks || 0),
-    cost: a.cost + (+r.cost_krw || 0),
-    conv: a.conv + (+r.conversions || 0),
-    rev: a.rev + (+r.revenue || 0)
-  }), { imp: 0, clk: 0, cost: 0, conv: 0, rev: 0 });
-
-  const ctr = total.imp ? total.clk / total.imp * 100 : 0;
-  const cpc = total.clk ? total.cost / total.clk : 0;
-  const cpa = total.conv ? total.cost / total.conv : 0;
-  const roas = total.cost ? total.rev / total.cost : 0;
-
-  document.getElementById('kpiSection').innerHTML = `
-    <div class="kpi-grid">
-      <div class="kpi-card" style="border-left-color:#03c75a;">
-        <div class="kpi-lbl">💸 총 지출</div>
-        <div class="kpi-val naver-green">₩${total.cost.toLocaleString()}</div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🎯 캠페인 유형별 성과 <span class="section-desc">SHOPPING · WEB_SITE · BRAND_SEARCH</span></div>
       </div>
-      <div class="kpi-card" style="border-left-color:#10b981;">
-        <div class="kpi-lbl">💰 총 매출</div>
-        <div class="kpi-val" style="color:#10b981;">₩${total.rev.toLocaleString()}</div>
-      </div>
-      <div class="kpi-card" style="border-left-color:${roas >= 3 ? '#10b981' : roas >= 1 ? '#f59e0b' : '#ef4444'};">
-        <div class="kpi-lbl">📈 ROAS</div>
-        <div class="kpi-val" style="color:${roas >= 3 ? '#10b981' : roas >= 1 ? '#f59e0b' : '#ef4444'};">${roas.toFixed(2)}x</div>
-      </div>
-      <div class="kpi-card" style="border-left-color:#8b5cf6;">
-        <div class="kpi-lbl">🎯 CPA</div>
-        <div class="kpi-val" style="color:#8b5cf6;">${cpa > 0 ? '₩' + Math.round(cpa).toLocaleString() : '-'}</div>
-      </div>
-      <div class="kpi-card" style="border-left-color:#3b82f6;">
-        <div class="kpi-lbl">🖱 CTR / CPC</div>
-        <div class="kpi-val" style="color:#3b82f6;">${ctr.toFixed(2)}% / ₩${Math.round(cpc).toLocaleString()}</div>
-      </div>
-      <div class="kpi-card" style="border-left-color:#ec4899;">
-        <div class="kpi-lbl">🛒 전환 / 클릭</div>
-        <div class="kpi-val" style="color:#ec4899;">${total.conv.toLocaleString()} / ${total.clk.toLocaleString()}</div>
+      <div class="chart-wrap tall"><canvas id="typeChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 일일 상세 비교 테이블 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📅 일일 성과 비교 <span class="section-desc">전일·전주·전월 대비 자동 계산</span></div>
+      <div class="section-tools">
+        <select id="dailyPeriod">
+          <option value="7">최근 7일</option>
+          <option value="14">최근 14일</option>
+          <option value="30" selected>최근 30일</option>
+        </select>
       </div>
     </div>
-  `;
-}
-
-function renderBrandTabs() {
-  const brands = ['ALL', ...new Set(PERFORMANCE.map(r => r.brand))];
-  document.getElementById('brandTabsSection').innerHTML = `
-    <div class="brand-tabs">
-      ${brands.map(b => `<span class="brand-tab ${b === currentBrand ? 'active' : ''}" data-brand="${b}">${b === 'ALL' ? '🌐 전체 브랜드' : '🏷 ' + b}</span>`).join('')}
-    </div>
-  `;
-  document.querySelectorAll('.brand-tab').forEach(el => {
-    el.addEventListener('click', () => {
-      currentBrand = el.dataset.brand;
-      render();
-    });
-  });
-}
-
-function renderMainContent(perf, brand, keywords) {
-  const stars = keywords.filter(k => k.keyword_grade === 'STAR').sort((a, b) => (+b.roas || 0) - (+a.roas || 0)).slice(0, 20);
-  const deads = keywords.filter(k => k.keyword_grade === 'DEAD').sort((a, b) => (+b.cost_30d || 0) - (+a.cost_30d || 0)).slice(0, 20);
-
-  // 캠페인별 집계
-  const campaignMap = {};
-  perf.forEach(r => {
-    const key = r.brand + '|' + r.campaign_id;
-    if (!campaignMap[key]) {
-      campaignMap[key] = {
-        brand: r.brand,
-        campaign_name: r.campaign_name,
-        campaign_type: r.campaign_type,
-        imp: 0, clk: 0, cost: 0, conv: 0, rev: 0
-      };
-    }
-    campaignMap[key].imp += +r.impressions || 0;
-    campaignMap[key].clk += +r.clicks || 0;
-    campaignMap[key].cost += +r.cost_krw || 0;
-    campaignMap[key].conv += +r.conversions || 0;
-    campaignMap[key].rev += +r.revenue || 0;
-  });
-  const campaigns = Object.values(campaignMap).sort((a, b) => b.cost - a.cost).slice(0, 30);
-
-  document.getElementById('mainContent').innerHTML = `
-    <div class="section-title"><i data-lucide="trophy"></i> 캠페인별 성과 (상위 30개)</div>
-    <table class="perf-table">
-      <thead>
-        <tr>
-          <th>브랜드</th>
-          <th>캠페인명</th>
-          <th>유형</th>
-          <th class="num">노출</th>
-          <th class="num">클릭</th>
-          <th class="num">CTR</th>
-          <th class="num">지출</th>
-          <th class="num">CPC</th>
-          <th class="num">전환</th>
-          <th class="num">매출</th>
-          <th class="num">ROAS</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${campaigns.map(c => {
-          const ctr = c.imp ? c.clk / c.imp * 100 : 0;
-          const cpc = c.clk ? c.cost / c.clk : 0;
-          const roas = c.cost ? c.rev / c.cost : 0;
-          const roasColor = roas >= 3 ? '#10b981' : roas >= 1 ? '#f59e0b' : '#ef4444';
-          return `
-            <tr>
-              <td style="font-weight:600;">${c.brand}</td>
-              <td>${c.campaign_name || '-'}</td>
-              <td><span style="font-size:11px;color:#6b7280;">${c.campaign_type || '-'}</span></td>
-              <td class="num">${c.imp.toLocaleString()}</td>
-              <td class="num">${c.clk.toLocaleString()}</td>
-              <td class="num">${ctr.toFixed(2)}%</td>
-              <td class="num">₩${c.cost.toLocaleString()}</td>
-              <td class="num">₩${Math.round(cpc).toLocaleString()}</td>
-              <td class="num">${c.conv.toLocaleString()}</td>
-              <td class="num">₩${c.rev.toLocaleString()}</td>
-              <td class="num" style="color:${roasColor};font-weight:700;">${roas.toFixed(2)}x</td>
-            </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-
-    <div class="section-title"><i data-lucide="star"></i> 🌟 STAR 키워드 (ROAS ≥ 5.0x · 예산 확대 권장)</div>
-    ${stars.length ? `
-      <table class="perf-table">
+    <div class="table-scroll">
+      <table class="data-table" id="dailyTable">
         <thead>
           <tr>
-            <th>브랜드</th>
+            <th>날짜</th>
+            <th class="num">노출</th>
+            <th class="num">클릭</th>
+            <th class="num">CTR</th>
+            <th class="num">지출</th>
+            <th class="num">CPC</th>
+            <th class="num">전환</th>
+            <th class="num">전환율</th>
+            <th class="num">매출</th>
+            <th class="num">ROAS</th>
+            <th class="num">CPA</th>
+            <th class="num">전일比 매출</th>
+            <th>알림</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 캠페인 매트릭스 & TOP 성과 -->
+  <div class="grid-2">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">💎 캠페인 성과 매트릭스 <span class="section-desc">지출 vs ROAS · 버블=전환수</span></div>
+      </div>
+      <div class="chart-wrap"><canvas id="matrixChart"></canvas></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🏆 캠페인 유형별 딥다이브 <span class="section-desc">유형별 효율성 비교</span></div>
+      </div>
+      <div class="table-scroll" style="max-height:280px;">
+        <table class="data-table" id="typeTable">
+          <thead>
+            <tr>
+              <th>유형</th>
+              <th class="num">캠페인</th>
+              <th class="num">노출</th>
+              <th class="num">클릭</th>
+              <th class="num">CTR</th>
+              <th class="num">지출</th>
+              <th class="num">전환</th>
+              <th class="num">매출</th>
+              <th class="num">ROAS</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 캠페인 상세 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📋 캠페인 상세 성과 <span class="section-desc">전체 캠페인 · 필터/정렬 가능</span>
+        <span class="section-badge" id="campaignCount">-</span>
+      </div>
+      <div class="section-tools">
+        <select id="campType">
+          <option value="all">전체 유형</option>
+          <option value="SHOPPING">쇼핑</option>
+          <option value="WEB_SITE">웹사이트</option>
+          <option value="BRAND_SEARCH">브랜드검색</option>
+        </select>
+        <select id="campSort">
+          <option value="cost">지출 순</option>
+          <option value="revenue">매출 순</option>
+          <option value="roas">ROAS 순</option>
+          <option value="conversions">전환 순</option>
+          <option value="ctr">CTR 순</option>
+        </select>
+        <input id="campSearch" placeholder="캠페인 검색..." style="width:160px;">
+      </div>
+    </div>
+    <div class="filter-chips" id="gradeChips">
+      <span class="chip active" data-grade="all">전체</span>
+      <span class="chip" data-grade="STAR">⭐ STAR</span>
+      <span class="chip" data-grade="HEALTHY">✅ HEALTHY</span>
+      <span class="chip" data-grade="LOSING">⚠️ LOSING</span>
+      <span class="chip" data-grade="DEAD">🔴 DEAD</span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table" id="campaignTable">
+        <thead>
+          <tr>
+            <th>등급</th>
+            <th>캠페인명</th>
+            <th>유형</th>
+            <th class="num">노출</th>
+            <th class="num">클릭</th>
+            <th class="num">CTR</th>
+            <th class="num">지출</th>
+            <th class="num">CPC</th>
+            <th class="num">전환</th>
+            <th class="num">전환율</th>
+            <th class="num">CPA</th>
+            <th class="num">매출</th>
+            <th class="num">ROAS</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 키워드 딥다이브 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">🔑 키워드 딥다이브 <span class="section-desc">STAR/HEALTHY/LOSING/DEAD 자동 분류 + 액션 추천</span>
+        <span class="section-badge" id="keywordCount">-</span>
+      </div>
+      <div class="section-tools">
+        <select id="kwSort">
+          <option value="cost">지출 순</option>
+          <option value="revenue">매출 순</option>
+          <option value="roas">ROAS 순</option>
+          <option value="conversions">전환 순</option>
+        </select>
+        <input id="kwSearch" placeholder="키워드 검색..." style="width:160px;">
+      </div>
+    </div>
+    <div class="filter-chips" id="kwGradeChips">
+      <span class="chip active" data-grade="all">전체</span>
+      <span class="chip" data-grade="STAR">⭐ STAR (확대)</span>
+      <span class="chip" data-grade="HEALTHY">✅ HEALTHY</span>
+      <span class="chip" data-grade="LOSING">⚠️ LOSING (축소)</span>
+      <span class="chip" data-grade="DEAD">🔴 DEAD (제외)</span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table" id="keywordTable">
+        <thead>
+          <tr>
+            <th>등급</th>
             <th>키워드</th>
             <th>캠페인</th>
             <th class="num">노출</th>
             <th class="num">클릭</th>
+            <th class="num">CTR</th>
             <th class="num">지출</th>
+            <th class="num">CPC</th>
             <th class="num">전환</th>
             <th class="num">매출</th>
             <th class="num">ROAS</th>
             <th>추천 액션</th>
           </tr>
         </thead>
-        <tbody>
-          ${stars.map(k => `
-            <tr>
-              <td style="font-weight:600;">${k.brand}</td>
-              <td style="font-weight:700;color:#03c75a;">${k.keyword || '-'}</td>
-              <td><span style="font-size:11px;color:#6b7280;">${k.campaign_name || '-'}</span></td>
-              <td class="num">${(+k.impressions_30d || 0).toLocaleString()}</td>
-              <td class="num">${(+k.clicks_30d || 0).toLocaleString()}</td>
-              <td class="num">₩${(+k.cost_30d || 0).toLocaleString()}</td>
-              <td class="num">${(+k.conversions_30d || 0).toLocaleString()}</td>
-              <td class="num">₩${(+k.revenue_30d || 0).toLocaleString()}</td>
-              <td class="num" style="color:#10b981;font-weight:700;">${(+k.roas || 0).toFixed(2)}x</td>
-              <td><span class="grade-STAR">${k.recommended_action || '유지'}</span></td>
-            </tr>`).join('')}
-        </tbody>
+        <tbody></tbody>
       </table>
-    ` : '<div class="empty">아직 STAR 키워드가 없습니다. 데이터 축적 후 자동 감지됩니다.</div>'}
+    </div>
+  </div>
 
-    <div class="section-title"><i data-lucide="alert-triangle"></i> ⚠️ DEAD 키워드 (지출 있고 전환 0 · 즉시 제외 검토)</div>
-    ${deads.length ? `
-      <table class="perf-table">
-        <thead>
-          <tr>
-            <th>브랜드</th>
-            <th>키워드</th>
-            <th>캠페인</th>
-            <th class="num">지출</th>
-            <th class="num">클릭</th>
-            <th class="num">CTR</th>
-            <th class="num">평균 순위</th>
-            <th>추천 액션</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${deads.map(k => `
-            <tr>
-              <td style="font-weight:600;">${k.brand}</td>
-              <td style="font-weight:700;color:#dc2626;">${k.keyword || '-'}</td>
-              <td><span style="font-size:11px;color:#6b7280;">${k.campaign_name || '-'}</span></td>
-              <td class="num" style="color:#dc2626;font-weight:700;">₩${(+k.cost_30d || 0).toLocaleString()}</td>
-              <td class="num">${(+k.clicks_30d || 0).toLocaleString()}</td>
-              <td class="num">${(+k.ctr_pct || 0).toFixed(2)}%</td>
-              <td class="num">${(+k.avg_rank_30d || 0).toFixed(1)}</td>
-              <td><span class="grade-DEAD">${k.recommended_action || '즉시 제외'}</span></td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    ` : '<div class="empty">🎉 DEAD 키워드 없음 - 모든 키워드가 정상 작동 중</div>'}
-  `;
+  <!-- TOP/BOTTOM 키워드 -->
+  <div class="grid-2">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🚀 상승 키워드 TOP 10 <span class="section-desc">지난 7일 vs 이전 7일 매출 상승률</span></div>
+      </div>
+      <div class="table-scroll" style="max-height:340px;">
+        <table class="data-table" id="risingKwTable">
+          <thead><tr><th>키워드</th><th class="num">현재 매출</th><th class="num">전주 매출</th><th class="num">변화율</th><th class="num">ROAS</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">📉 하락 키워드 TOP 10 <span class="section-desc">즉시 점검 필요</span></div>
+      </div>
+      <div class="table-scroll" style="max-height:340px;">
+        <table class="data-table" id="fallingKwTable">
+          <thead><tr><th>키워드</th><th class="num">현재 매출</th><th class="num">전주 매출</th><th class="num">변화율</th><th class="num">ROAS</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-  // 마지막 업데이트 시간
-  const dates = PERFORMANCE.map(r => r.event_date).filter(Boolean).sort();
-  if (dates.length) {
-    document.getElementById('lastUpdated').textContent = 'Last updated: ' + dates[dates.length - 1];
+  <!-- 요일별 히트맵 & 인사이트 -->
+  <div class="grid-2">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🔥 요일별 성과 히트맵 <span class="section-desc">최근 4주 요일별 평균 ROAS</span></div>
+      </div>
+      <div id="heatmapContainer"></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">💡 AI 인사이트 <span class="section-desc">자동 진단 및 원인 분석</span></div>
+      </div>
+      <div class="insight-grid" id="insightGrid"></div>
+      <div style="margin-top:12px;">
+        <h4 style="font-size:12px; font-weight:700; margin-bottom:6px;">🔍 매출 변동 원인 분석</h4>
+        <div id="causeAnalysis" style="font-size:11.5px; color:var(--muted); line-height:1.7;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 실행 액션 아이템 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">✅ 오늘의 실행 액션 <span class="section-desc">우선순위별 즉시 실행 권장</span></div>
+    </div>
+    <div class="action-list" id="actionList"></div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// 유틸리티
+// ============================================
+const fmt = {
+  num: v => v == null || v === '' ? '-' : Number(v).toLocaleString('ko-KR'),
+  krw: v => v == null || v === '' ? '-' : '₩' + Math.round(Number(v)).toLocaleString('ko-KR'),
+  pct: v => v == null || v === '' ? '-' : Number(v).toFixed(2) + '%',
+  roas: v => v == null || v === '' ? '-' : Number(v).toFixed(2) + 'x',
+  delta: (curr, prev) => {
+    if (!prev || prev === 0) return { text: '-', cls: 'flat', icon: '' };
+    const diff = ((curr - prev) / prev) * 100;
+    if (Math.abs(diff) < 0.5) return { text: '변동 없음', cls: 'flat', icon: '→' };
+    return { text: (diff > 0 ? '+' : '') + diff.toFixed(1) + '%', cls: diff > 0 ? 'up' : 'down', icon: diff > 0 ? '▲' : '▼' };
   }
+};
+
+function roasClass(v) { return v >= 5 ? 'roas-high' : v >= 2 ? 'roas-med' : 'roas-low'; }
+function gradeKeyword(cost, roas) {
+  if (cost < 1000) return { g:'NEW', label:'🆕 NEW' };
+  if (roas >= 5) return { g:'STAR', label:'⭐ STAR' };
+  if (roas >= 2) return { g:'HEALTHY', label:'✅ HEALTHY' };
+  if (roas >= 1) return { g:'LOSING', label:'⚠️ LOSING' };
+  return { g:'DEAD', label:'🔴 DEAD' };
+}
+function kwAction(g, cost, roas) {
+  if (g === 'STAR') return { text:'💰 예산 3~5x 확대 + 입찰 +20%', cls:'trend-up' };
+  if (g === 'HEALTHY') return { text:'🔧 유지·미세 최적화', cls:'trend-flat' };
+  if (g === 'LOSING') return { text:'⚠️ 입찰 -20% · 예산 축소', cls:'trend-down' };
+  if (g === 'DEAD') return { text:'🚫 즉시 제외 · 제거', cls:'trend-down' };
+  return { text:'🔍 학습기간 모니터', cls:'trend-flat' };
 }
 
-loadData();
+// ============================================
+// 데이터 로드
+// ============================================
+let DATA = {};
+async function loadAll() {
+  const files = [
+    ['perf', 'mart26_naver_ad_performance.json'],
+    ['brand', 'mart27_naver_brand_summary.json'],
+    ['keyword', 'mart28_naver_keyword_insights.json'],
+    ['daily', 'mart29_naver_daily_comparison.json'],
+    ['type', 'mart30_naver_campaign_type.json'],
+    ['trend', 'mart31_naver_keyword_trend.json'],
+    ['insight', 'mart33_naver_insights.json']
+  ];
+  const promises = files.map(([key, f]) =>
+    fetch('data/' + f + '?t=' + Date.now()).then(r => r.ok ? r.json() : []).then(d => [key, d]).catch(() => [key, []])
+  );
+  const results = await Promise.all(promises);
+  results.forEach(([k, v]) => DATA[k] = v);
+  render();
+}
+
+// ============================================
+// 렌더 통합
+// ============================================
+function render() {
+  renderKPI();
+  renderAlerts();
+  renderTrendChart();
+  renderTypeChart();
+  renderDailyTable();
+  renderMatrixChart();
+  renderTypeTable();
+  renderCampaignTable();
+  renderKeywordTable();
+  renderTrendTables();
+  renderHeatmap();
+  renderInsights();
+  renderActions();
+
+  const latest = DATA.perf[0]?.event_date || '-';
+  document.getElementById('updatedBadge').textContent = '최근 데이터: ' + latest;
+}
+
+// ============================================
+// 1. KPI Row (전일/전주 대비 포함)
+// ============================================
+function renderKPI() {
+  const d = DATA.daily || [];
+  if (!d.length) return;
+  const today = d[0], yesterday = d[1] || {}, weekAgo = d[6] || {};
+
+  const rows = DATA.perf || [];
+  const total = rows.reduce((a, r) => ({
+    imps: a.imps + (+r.impressions || 0),
+    clicks: a.clicks + (+r.clicks || 0),
+    cost: a.cost + (+r.cost_krw || 0),
+    conv: a.conv + (+r.conversions || 0),
+    rev: a.rev + (+r.conversion_value || 0)
+  }), { imps:0, clicks:0, cost:0, conv:0, rev:0 });
+  const ctr = total.imps ? (total.clicks / total.imps * 100) : 0;
+  const cpc = total.clicks ? (total.cost / total.clicks) : 0;
+  const cpa = total.conv ? (total.cost / total.conv) : 0;
+  const roas = total.cost ? (total.rev / total.cost) : 0;
+  const cvr = total.clicks ? (total.conv / total.clicks * 100) : 0;
+
+  const delRev = fmt.delta(today.revenue || 0, yesterday.revenue || 0);
+  const delCost = fmt.delta(today.cost || 0, yesterday.cost || 0);
+  const delRoas = fmt.delta(today.roas || 0, yesterday.roas || 0);
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">💰 총 지출</div><div class="kpi-value">${fmt.krw(total.cost)}</div><div class="kpi-delta ${delCost.cls}">${delCost.icon} ${delCost.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
+    <div class="kpi-card success"><div class="kpi-label">🛒 총 매출</div><div class="kpi-value">${fmt.krw(total.rev)}</div><div class="kpi-delta ${delRev.cls}">${delRev.icon} ${delRev.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
+    <div class="kpi-card ${roas >= 3 ? 'success' : roas >= 2 ? 'warning' : 'danger'}"><div class="kpi-label">📊 ROAS</div><div class="kpi-value">${fmt.roas(roas)}</div><div class="kpi-delta ${delRoas.cls}">${delRoas.icon} ${delRoas.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
+    <div class="kpi-card purple"><div class="kpi-label">🎯 CPA</div><div class="kpi-value">${fmt.krw(cpa)}</div><div class="kpi-delta flat">평균 획득 단가</div></div>
+    <div class="kpi-card pink"><div class="kpi-label">📈 CTR / CPC</div><div class="kpi-value" style="font-size:15px;">${fmt.pct(ctr)} / ${fmt.krw(cpc)}</div><div class="kpi-delta flat">전환율 ${fmt.pct(cvr)}</div></div>
+    <div class="kpi-card warning"><div class="kpi-label">✅ 전환 / 클릭</div><div class="kpi-value" style="font-size:15px;">${fmt.num(total.conv)} / ${fmt.num(total.clicks)}</div><div class="kpi-delta flat">노출 ${fmt.num(total.imps)}</div></div>
+  `;
+}
+
+// ============================================
+// 2. 자동 이슈 감지 알림
+// ============================================
+function renderAlerts() {
+  const container = document.getElementById('alertContainer');
+  container.innerHTML = '';
+  const alerts = [];
+  const d = DATA.daily || [];
+  if (d.length >= 2) {
+    const t = d[0], y = d[1];
+    const rev_ch = ((t.revenue - y.revenue) / (y.revenue || 1)) * 100;
+    const cost_ch = ((t.cost - y.cost) / (y.cost || 1)) * 100;
+    if (rev_ch <= -20) alerts.push({ type:'danger', icon:'🚨', title:'매출 급락 감지', desc:`전일 대비 매출 ${rev_ch.toFixed(1)}% 감소 (${fmt.krw(y.revenue)} → ${fmt.krw(t.revenue)}). ROAS ${fmt.roas(t.roas)}. 하락 키워드 점검 필요.` });
+    else if (rev_ch <= -10) alerts.push({ type:'warning', icon:'⚠️', title:'매출 하락 주의', desc:`전일 대비 매출 ${rev_ch.toFixed(1)}% 감소. 하락 키워드 및 캠페인 확인 권장.` });
+    else if (rev_ch >= 30) alerts.push({ type:'success', icon:'🎉', title:'매출 급등', desc:`전일 대비 매출 +${rev_ch.toFixed(1)}% 상승. 상승 요인 분석 및 예산 확대 검토.` });
+    if (cost_ch >= 30) alerts.push({ type:'warning', icon:'💸', title:'광고비 급증', desc:`전일 대비 광고비 +${cost_ch.toFixed(1)}%. ROAS 유지 여부 확인.` });
+    if (t.roas < 1.5) alerts.push({ type:'danger', icon:'📉', title:'ROAS 위험 수준', desc:`오늘 ROAS ${fmt.roas(t.roas)}로 손익분기점 이하. DEAD 키워드/캠페인 즉시 점검.` });
+  }
+  const dead = (DATA.keyword || []).filter(k => (+k.cost_krw || 0) > 10000 && (+k.roas || 0) < 1);
+  if (dead.length >= 3) alerts.push({ type:'warning', icon:'🔴', title:`DEAD 키워드 ${dead.length}개 감지`, desc:`ROAS 1x 미만·지출 ₩10K 초과 키워드가 다수 존재. 총 낭비 ${fmt.krw(dead.reduce((a,k)=>a+(+k.cost_krw||0),0))}. 제외 처리 권장.` });
+  if (!alerts.length) alerts.push({ type:'success', icon:'✅', title:'특이사항 없음', desc:'주요 지표가 정상 범위 내에서 운영되고 있습니다.' });
+  container.innerHTML = alerts.map(a => `
+    <div class="alert-banner ${a.type}">
+      <div class="alert-icon">${a.icon}</div>
+      <div class="alert-content">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-desc">${a.desc}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================
+// 3. 트렌드 차트 (매출·광고비·ROAS)
+// ============================================
+let trendChart;
+function renderTrendChart() {
+  const d = (DATA.daily || []).slice(0, 14).reverse();
+  if (!d.length) return;
+  const labels = d.map(r => r.event_date?.slice(5) || '-');
+  if (trendChart) trendChart.destroy();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { type:'bar', label:'매출', data:d.map(r=>+r.revenue||0), backgroundColor:'rgba(16,185,129,0.7)', borderRadius:4, yAxisID:'y' },
+        { type:'bar', label:'광고비', data:d.map(r=>+r.cost||0), backgroundColor:'rgba(0,102,255,0.7)', borderRadius:4, yAxisID:'y' },
+        { type:'line', label:'ROAS', data:d.map(r=>+r.roas||0), borderColor:'#f59e0b', backgroundColor:'transparent', borderWidth:2.5, tension:0.35, pointRadius:3, yAxisID:'y1' }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', labels:{ boxWidth:12, font:{ size:11 } } } },
+      scales:{
+        y:{ position:'left', ticks:{ callback:v=>'₩'+(v/1000000).toFixed(1)+'M', font:{ size:10 } } },
+        y1:{ position:'right', grid:{ drawOnChartArea:false }, ticks:{ callback:v=>v+'x', font:{ size:10 } } },
+        x:{ ticks:{ font:{ size:10 } } }
+      }
+    }
+  });
+}
+
+// ============================================
+// 4. 캠페인 유형 차트
+// ============================================
+let typeChart;
+function renderTypeChart() {
+  const t = DATA.type || [];
+  const agg = {};
+  t.forEach(r => {
+    const k = r.campaign_type_name || r.campaign_type || '기타';
+    if (!agg[k]) agg[k] = { cost:0, revenue:0, conv:0 };
+    agg[k].cost += (+r.cost_krw || 0);
+    agg[k].revenue += (+r.conversion_value || 0);
+    agg[k].conv += (+r.conversions || 0);
+  });
+  const labels = Object.keys(agg);
+  const costs = labels.map(k => agg[k].cost);
+  const revs = labels.map(k => agg[k].revenue);
+  const roases = labels.map(k => agg[k].cost ? agg[k].revenue / agg[k].cost : 0);
+  if (typeChart) typeChart.destroy();
+  const ctx = document.getElementById('typeChart').getContext('2d');
+  typeChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'광고비', data:costs, backgroundColor:'rgba(0,102,255,0.7)', borderRadius:4, yAxisID:'y' },
+      { label:'매출', data:revs, backgroundColor:'rgba(16,185,129,0.7)', borderRadius:4, yAxisID:'y' },
+      { type:'line', label:'ROAS', data:roases, borderColor:'#f59e0b', borderWidth:2.5, tension:0.35, pointRadius:5, yAxisID:'y1' }
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', labels:{ boxWidth:12, font:{ size:11 } } } },
+      scales:{
+        y:{ position:'left', ticks:{ callback:v=>'₩'+(v/1000000).toFixed(1)+'M', font:{ size:10 } } },
+        y1:{ position:'right', grid:{ drawOnChartArea:false }, ticks:{ callback:v=>v.toFixed(1)+'x', font:{ size:10 } } },
+        x:{ ticks:{ font:{ size:10 } } }
+      }
+    }
+  });
+}
+
+// ============================================
+// 5. 일일 상세 테이블
+// ============================================
+function renderDailyTable() {
+  const days = parseInt(document.getElementById('dailyPeriod').value);
+  const d = (DATA.daily || []).slice(0, days);
+  const tbody = document.querySelector('#dailyTable tbody');
+  tbody.innerHTML = d.map((r, i) => {
+    const prev = d[i+1] || {};
+    const delta = fmt.delta(+r.revenue || 0, +prev.revenue || 0);
+    const cvr = r.clicks ? ((+r.purchases || +r.conversions || 0) / r.clicks * 100) : 0;
+    const cpa = r.purchases ? (r.cost / r.purchases) : (r.conversions ? r.cost / r.conversions : 0);
+    let alert = '', cls = '';
+    if (delta.cls === 'down' && parseFloat(delta.text) <= -20) { alert = '🔴 매출 20%+ 하락'; cls = 'highlight-bad'; }
+    else if (delta.cls === 'up' && parseFloat(delta.text) >= 30) { alert = '🟢 매출 30%+ 상승'; cls = 'highlight-good'; }
+    else if ((+r.roas || 0) < 1.5) { alert = '⚠️ ROAS 저조'; }
+    return `<tr class="${cls}">
+      <td><strong>${r.event_date || '-'}</strong></td>
+      <td class="num">${fmt.num(r.impressions)}</td>
+      <td class="num">${fmt.num(r.clicks)}</td>
+      <td class="num">${fmt.pct(r.ctr)}</td>
+      <td class="num">${fmt.krw(r.cost)}</td>
+      <td class="num">${fmt.krw(r.cpc)}</td>
+      <td class="num">${fmt.num(r.purchases || r.conversions)}</td>
+      <td class="num">${fmt.pct(cvr)}</td>
+      <td class="num">${fmt.krw(r.revenue)}</td>
+      <td class="num ${roasClass(+r.roas || 0)}">${fmt.roas(r.roas)}</td>
+      <td class="num">${fmt.krw(cpa)}</td>
+      <td class="num"><span class="trend-${delta.cls === 'up' ? 'up' : delta.cls === 'down' ? 'down' : 'flat'}">${delta.icon} ${delta.text}</span></td>
+      <td>${alert}</td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('dailyPeriod').addEventListener('change', renderDailyTable);
+
+// ============================================
+// 6. 캠페인 매트릭스 (버블차트)
+// ============================================
+let matrixChart;
+function renderMatrixChart() {
+  const rows = DATA.perf || [];
+  const agg = {};
+  rows.forEach(r => {
+    const k = r.campaign_name || '기타';
+    if (!agg[k]) agg[k] = { cost:0, revenue:0, conv:0 };
+    agg[k].cost += (+r.cost_krw || 0);
+    agg[k].revenue += (+r.conversion_value || 0);
+    agg[k].conv += (+r.conversions || 0);
+  });
+  const data = Object.entries(agg).filter(([_,v])=>v.cost>1000).map(([k,v]) => ({
+    x: v.cost, y: v.cost ? v.revenue/v.cost : 0, r: Math.min(30, Math.sqrt(v.conv)*2), label: k
+  })).sort((a,b)=>b.x-a.x).slice(0,40);
+  if (matrixChart) matrixChart.destroy();
+  const ctx = document.getElementById('matrixChart').getContext('2d');
+  matrixChart = new Chart(ctx, {
+    type:'bubble',
+    data:{ datasets:[{ label:'캠페인', data, backgroundColor: data.map(d => d.y >= 5 ? 'rgba(139,92,246,0.6)' : d.y >= 2 ? 'rgba(16,185,129,0.6)' : d.y >= 1 ? 'rgba(245,158,11,0.6)' : 'rgba(239,68,68,0.6)') }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: c => `${c.raw.label}: 지출 ${fmt.krw(c.raw.x)}, ROAS ${c.raw.y.toFixed(2)}x` } }
+      },
+      scales:{
+        x:{ title:{ display:true, text:'지출 (KRW)', font:{ size:11 } }, ticks:{ callback:v=>'₩'+(v/1000)+'K', font:{ size:10 } } },
+        y:{ title:{ display:true, text:'ROAS', font:{ size:11 } }, ticks:{ callback:v=>v+'x', font:{ size:10 } } }
+      }
+    }
+  });
+}
+
+// ============================================
+// 7. 캠페인 유형 상세 테이블
+// ============================================
+function renderTypeTable() {
+  const t = DATA.type || [];
+  const agg = {};
+  t.forEach(r => {
+    const k = r.campaign_type_name || r.campaign_type || '기타';
+    if (!agg[k]) agg[k] = { camps:new Set(), imps:0, clicks:0, cost:0, conv:0, rev:0 };
+    (r.campaign_id || r.campaign_name) && agg[k].camps.add(r.campaign_id || r.campaign_name);
+    agg[k].imps += (+r.impressions || 0);
+    agg[k].clicks += (+r.clicks || 0);
+    agg[k].cost += (+r.cost_krw || 0);
+    agg[k].conv += (+r.conversions || 0);
+    agg[k].rev += (+r.conversion_value || 0);
+  });
+  const rows = Object.entries(agg).map(([k,v]) => ({
+    name:k, camps:v.camps.size, imps:v.imps, clicks:v.clicks,
+    ctr: v.imps ? v.clicks/v.imps*100 : 0, cost:v.cost, conv:v.conv, rev:v.rev,
+    roas: v.cost ? v.rev/v.cost : 0
+  })).sort((a,b)=>b.cost-a.cost);
+  const tbody = document.querySelector('#typeTable tbody');
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td><strong>${r.name}</strong></td>
+    <td class="num">${r.camps}</td>
+    <td class="num">${fmt.num(r.imps)}</td>
+    <td class="num">${fmt.num(r.clicks)}</td>
+    <td class="num">${fmt.pct(r.ctr)}</td>
+    <td class="num">${fmt.krw(r.cost)}</td>
+    <td class="num">${fmt.num(r.conv)}</td>
+    <td class="num">${fmt.krw(r.rev)}</td>
+    <td class="num ${roasClass(r.roas)}">${fmt.roas(r.roas)}</td>
+  </tr>`).join('');
+}
+
+// ============================================
+// 8. 캠페인 상세 테이블 (필터/정렬)
+// ============================================
+let campGrade = 'all';
+document.querySelectorAll('#gradeChips .chip').forEach(c => c.addEventListener('click', e => {
+  document.querySelectorAll('#gradeChips .chip').forEach(x => x.classList.remove('active'));
+  e.target.classList.add('active');
+  campGrade = e.target.dataset.grade;
+  renderCampaignTable();
+}));
+['campType','campSort','campSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderCampaignTable));
+
+function renderCampaignTable() {
+  const rows = DATA.perf || [];
+  const type = document.getElementById('campType').value;
+  const sort = document.getElementById('campSort').value;
+  const q = document.getElementById('campSearch').value.toLowerCase();
+  const agg = {};
+  rows.forEach(r => {
+    const k = r.campaign_name || '기타';
+    if (!agg[k]) agg[k] = { type:r.campaign_type || 'UNKNOWN', imps:0, clicks:0, cost:0, conv:0, rev:0 };
+    agg[k].imps += (+r.impressions || 0);
+    agg[k].clicks += (+r.clicks || 0);
+    agg[k].cost += (+r.cost_krw || 0);
+    agg[k].conv += (+r.conversions || 0);
+    agg[k].rev += (+r.conversion_value || 0);
+  });
+  let list = Object.entries(agg).map(([name,v]) => {
+    const ctr = v.imps ? v.clicks/v.imps*100 : 0;
+    const cpc = v.clicks ? v.cost/v.clicks : 0;
+    const cvr = v.clicks ? v.conv/v.clicks*100 : 0;
+    const cpa = v.conv ? v.cost/v.conv : 0;
+    const roas = v.cost ? v.rev/v.cost : 0;
+    const g = gradeKeyword(v.cost, roas);
+    return { name, ...v, ctr, cpc, cvr, cpa, roas, grade:g.g, gradeLabel:g.label };
+  });
+  if (type !== 'all') list = list.filter(r => r.type === type);
+  if (campGrade !== 'all') list = list.filter(r => r.grade === campGrade);
+  if (q) list = list.filter(r => r.name.toLowerCase().includes(q));
+  const sortKey = { cost:'cost', revenue:'rev', roas:'roas', conversions:'conv', ctr:'ctr' }[sort];
+  list.sort((a,b) => b[sortKey] - a[sortKey]);
+  document.getElementById('campaignCount').textContent = `${list.length}개`;
+  const tbody = document.querySelector('#campaignTable tbody');
+  tbody.innerHTML = list.slice(0, 100).map(r => `<tr>
+    <td><span class="grade ${r.grade.toLowerCase()}">${r.gradeLabel}</span></td>
+    <td><strong>${r.name}</strong></td>
+    <td><small style="color:var(--muted);">${r.type}</small></td>
+    <td class="num">${fmt.num(r.imps)}</td>
+    <td class="num">${fmt.num(r.clicks)}</td>
+    <td class="num">${fmt.pct(r.ctr)}</td>
+    <td class="num">${fmt.krw(r.cost)}</td>
+    <td class="num">${fmt.krw(r.cpc)}</td>
+    <td class="num">${fmt.num(r.conv)}</td>
+    <td class="num">${fmt.pct(r.cvr)}</td>
+    <td class="num">${fmt.krw(r.cpa)}</td>
+    <td class="num">${fmt.krw(r.rev)}</td>
+    <td class="num ${roasClass(r.roas)}">${fmt.roas(r.roas)}</td>
+  </tr>`).join('');
+}
+
+// ============================================
+// 9. 키워드 테이블
+// ============================================
+let kwGrade = 'all';
+document.querySelectorAll('#kwGradeChips .chip').forEach(c => c.addEventListener('click', e => {
+  document.querySelectorAll('#kwGradeChips .chip').forEach(x => x.classList.remove('active'));
+  e.target.classList.add('active');
+  kwGrade = e.target.dataset.grade;
+  renderKeywordTable();
+}));
+['kwSort','kwSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderKeywordTable));
+
+function renderKeywordTable() {
+  let list = (DATA.keyword || []).map(r => {
+    const cost = +r.cost_krw || 0;
+    const rev = +r.conversion_value || 0;
+    const roas = cost ? rev/cost : 0;
+    const g = gradeKeyword(cost, roas);
+    return {
+      keyword: r.keyword || '-',
+      campaign: r.campaign_name || '-',
+      imps: +r.impressions || 0,
+      clicks: +r.clicks || 0,
+      ctr: (+r.impressions) ? (+r.clicks)/(+r.impressions)*100 : 0,
+      cost, cpc: r.clicks ? cost/r.clicks : 0,
+      conv: +r.conversions || 0, rev, roas,
+      grade: g.g, gradeLabel: g.label
+    };
+  });
+  const sort = document.getElementById('kwSort').value;
+  const q = document.getElementById('kwSearch').value.toLowerCase();
+  if (kwGrade !== 'all') list = list.filter(r => r.grade === kwGrade);
+  if (q) list = list.filter(r => r.keyword.toLowerCase().includes(q) || r.campaign.toLowerCase().includes(q));
+  const sortKey = { cost:'cost', revenue:'rev', roas:'roas', conversions:'conv' }[sort];
+  list.sort((a,b) => b[sortKey] - a[sortKey]);
+  document.getElementById('keywordCount').textContent = `${list.length}개`;
+  const tbody = document.querySelector('#keywordTable tbody');
+  tbody.innerHTML = list.slice(0, 150).map(r => {
+    const act = kwAction(r.grade, r.cost, r.roas);
+    return `<tr>
+      <td><span class="grade ${r.grade.toLowerCase()}">${r.gradeLabel}</span></td>
+      <td><strong>${r.keyword}</strong></td>
+      <td><small style="color:var(--muted);">${r.campaign}</small></td>
+      <td class="num">${fmt.num(r.imps)}</td>
+      <td class="num">${fmt.num(r.clicks)}</td>
+      <td class="num">${fmt.pct(r.ctr)}</td>
+      <td class="num">${fmt.krw(r.cost)}</td>
+      <td class="num">${fmt.krw(r.cpc)}</td>
+      <td class="num">${fmt.num(r.conv)}</td>
+      <td class="num">${fmt.krw(r.rev)}</td>
+      <td class="num ${roasClass(r.roas)}">${fmt.roas(r.roas)}</td>
+      <td><span class="${act.cls}">${act.text}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================
+// 10. 상승/하락 키워드
+// ============================================
+function renderTrendTables() {
+  const t = DATA.trend || [];
+  const withChange = t.map(r => {
+    const curr = +r.recent_revenue || +r.revenue_7d || +r.current_revenue || 0;
+    const prev = +r.prev_revenue || +r.revenue_prev_7d || 0;
+    const change = prev ? (curr - prev) / prev * 100 : (curr > 0 ? 100 : 0);
+    return { ...r, _curr:curr, _prev:prev, _change:change };
+  }).filter(r => r._curr + r._prev > 0);
+  const rising = withChange.filter(r => r._change > 0).sort((a,b) => b._change - a._change).slice(0, 10);
+  const falling = withChange.filter(r => r._change < 0).sort((a,b) => a._change - b._change).slice(0, 10);
+  document.querySelector('#risingKwTable tbody').innerHTML = rising.map(r => `<tr>
+    <td><strong>${r.keyword || '-'}</strong></td>
+    <td class="num">${fmt.krw(r._curr)}</td>
+    <td class="num">${fmt.krw(r._prev)}</td>
+    <td class="num trend-up">+${r._change.toFixed(1)}%</td>
+    <td class="num ${roasClass(+r.roas || +r.recent_roas || 0)}">${fmt.roas(r.roas || r.recent_roas)}</td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">데이터 없음</td></tr>';
+  document.querySelector('#fallingKwTable tbody').innerHTML = falling.map(r => `<tr>
+    <td><strong>${r.keyword || '-'}</strong></td>
+    <td class="num">${fmt.krw(r._curr)}</td>
+    <td class="num">${fmt.krw(r._prev)}</td>
+    <td class="num trend-down">${r._change.toFixed(1)}%</td>
+    <td class="num ${roasClass(+r.roas || +r.recent_roas || 0)}">${fmt.roas(r.roas || r.recent_roas)}</td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">데이터 없음</td></tr>';
+}
+
+// ============================================
+// 11. 요일별 히트맵
+// ============================================
+function renderHeatmap() {
+  const d = DATA.daily || [];
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const dayAgg = [0,1,2,3,4,5,6].map(() => ({ roas:[], rev:0, cost:0 }));
+  d.forEach(r => {
+    if (!r.event_date) return;
+    const w = new Date(r.event_date).getDay();
+    dayAgg[w].rev += (+r.revenue || 0);
+    dayAgg[w].cost += (+r.cost || 0);
+    if (r.roas) dayAgg[w].roas.push(+r.roas);
+  });
+  const dayRoas = dayAgg.map(x => x.cost ? x.rev/x.cost : 0);
+  const maxRoas = Math.max(...dayRoas, 1);
+  const container = document.getElementById('heatmapContainer');
+  const cells = dayNames.map((n, i) => {
+    const v = dayRoas[i];
+    const intensity = v / maxRoas;
+    const bg = v === 0 ? '#f1f5f9' : `rgba(16,185,129,${0.15 + intensity * 0.65})`;
+    const color = intensity > 0.5 ? '#065f46' : '#1e293b';
+    return `<div class="hm-cell" style="background:${bg};color:${color};">
+      <div style="font-size:10.5px;color:var(--muted);margin-bottom:3px;">${n}</div>
+      <div style="font-size:14px;font-weight:800;">${v.toFixed(1)}x</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">${fmt.krw(dayAgg[i].rev/1000)}K</div>
+    </div>`;
+  }).join('');
+  container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">${cells}</div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">
+      🔥 최고 요일: <strong style="color:var(--success);">${dayNames[dayRoas.indexOf(Math.max(...dayRoas))]}요일</strong>
+      · ❄️ 최저 요일: <strong style="color:var(--danger);">${dayNames[dayRoas.indexOf(Math.min(...dayRoas.filter(v=>v>0)))]}요일</strong>
+    </div>`;
+}
+
+// ============================================
+// 12. AI 인사이트
+// ============================================
+function renderInsights() {
+  const ins = (DATA.insight || [])[0] || {};
+  const d = DATA.daily || [];
+  const t = d[0] || {}, y = d[1] || {}, weekAgo = d[6] || {};
+  const revCh = y.revenue ? ((t.revenue - y.revenue) / y.revenue * 100) : 0;
+  const costCh = y.cost ? ((t.cost - y.cost) / y.cost * 100) : 0;
+  const revChW = weekAgo.revenue ? ((t.revenue - weekAgo.revenue) / weekAgo.revenue * 100) : 0;
+  const grid = document.getElementById('insightGrid');
+  grid.innerHTML = `
+    <div class="insight-card">
+      <div class="insight-title">📊 상태</div>
+      <div class="insight-metric">${ins.status || (t.roas >= 3 ? '🟢 우수' : t.roas >= 2 ? '🟡 안정' : '🔴 주의')}</div>
+      <div class="insight-sub">현재 ROAS ${fmt.roas(t.roas)}</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">💰 매출 변화</div>
+      <div class="insight-metric" style="color:${revCh>=0?'#10b981':'#ef4444'};">${revCh>=0?'+':''}${revCh.toFixed(1)}%</div>
+      <div class="insight-sub">전일 ${fmt.krw(y.revenue)} → ${fmt.krw(t.revenue)}</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">💸 광고비 변화</div>
+      <div class="insight-metric" style="color:${costCh<=0?'#10b981':'#ef4444'};">${costCh>=0?'+':''}${costCh.toFixed(1)}%</div>
+      <div class="insight-sub">전일 ${fmt.krw(y.cost)} → ${fmt.krw(t.cost)}</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">📅 전주 대비</div>
+      <div class="insight-metric" style="color:${revChW>=0?'#10b981':'#ef4444'};">${revChW>=0?'+':''}${revChW.toFixed(1)}%</div>
+      <div class="insight-sub">7일 전 ${fmt.krw(weekAgo.revenue)}</div>
+    </div>
+  `;
+  // 원인 분석
+  const causes = [];
+  const kw = DATA.keyword || [];
+  const dead = kw.filter(k => (+k.cost_krw || 0) > 5000 && (+k.roas || 0) < 1);
+  const star = kw.filter(k => (+k.roas || 0) >= 5 && (+k.conversions || 0) >= 2);
+  const wastedCost = dead.reduce((a,k)=>a+(+k.cost_krw||0), 0);
+  const wastedPct = t.cost ? (wastedCost / t.cost * 100) : 0;
+  if (revCh < -10) {
+    causes.push(`🔍 <strong>매출 하락 원인 분석:</strong>`);
+    if (costCh < -5) causes.push(`&nbsp;&nbsp;• 광고비 ${Math.abs(costCh).toFixed(1)}% 축소로 노출량 감소 가능성`);
+    if (dead.length > 0) causes.push(`&nbsp;&nbsp;• DEAD 키워드 ${dead.length}개에 ${fmt.krw(wastedCost)} (${wastedPct.toFixed(1)}%) 낭비 지출`);
+    const fallingKw = (DATA.trend || []).filter(r => (+r.recent_revenue || 0) < (+r.prev_revenue || 0) * 0.7).length;
+    if (fallingKw > 0) causes.push(`&nbsp;&nbsp;• ${fallingKw}개 키워드에서 매출 30%+ 하락`);
+  } else if (revCh > 20) {
+    causes.push(`🎉 <strong>매출 상승 원인 분석:</strong>`);
+    if (star.length > 0) causes.push(`&nbsp;&nbsp;• STAR 키워드 ${star.length}개 활성화 (평균 ROAS ${(star.reduce((a,k)=>a+(+k.roas||0),0)/star.length).toFixed(1)}x)`);
+    if (costCh > 5) causes.push(`&nbsp;&nbsp;• 광고비 +${costCh.toFixed(1)}% 확대 효과`);
+    const risingKw = (DATA.trend || []).filter(r => (+r.recent_revenue || 0) > (+r.prev_revenue || 0) * 1.3).length;
+    if (risingKw > 0) causes.push(`&nbsp;&nbsp;• ${risingKw}개 키워드 매출 30%+ 상승`);
+  } else {
+    causes.push(`✅ <strong>안정 운영 중:</strong> 특이 변동 없음`);
+    causes.push(`&nbsp;&nbsp;• STAR 키워드 ${star.length}개, DEAD 키워드 ${dead.length}개`);
+    if (wastedPct > 10) causes.push(`&nbsp;&nbsp;• ⚠️ 낭비 지출 ${wastedPct.toFixed(1)}% - 최적화 여지 있음`);
+  }
+  document.getElementById('causeAnalysis').innerHTML = causes.join('<br>');
+}
+
+// ============================================
+// 13. 액션 아이템
+// ============================================
+function renderActions() {
+  const actions = [];
+  const kw = DATA.keyword || [];
+  const d = DATA.daily || [];
+  const t = d[0] || {};
+  const dead = kw.filter(k => (+k.cost_krw || 0) > 5000 && (+k.roas || 0) < 1)
+    .sort((a,b) => (+b.cost_krw) - (+a.cost_krw));
+  const star = kw.filter(k => (+k.roas || 0) >= 5 && (+k.conversions || 0) >= 2)
+    .sort((a,b) => (+b.roas || 0) - (+a.roas || 0));
+  const losing = kw.filter(k => (+k.cost_krw || 0) > 3000 && (+k.roas || 0) >= 1 && (+k.roas || 0) < 2);
+
+  if (dead.length > 0) {
+    const totalWaste = dead.reduce((a,k)=>a+(+k.cost_krw||0), 0);
+    actions.push({
+      priority:'critical', icon:'🚨',
+      title:`DEAD 키워드 ${dead.length}개 즉시 제외 → ₩${Math.round(totalWaste).toLocaleString('ko-KR')} 절약`,
+      desc:`상위 3개: ${dead.slice(0,3).map(k => `${k.keyword} (ROAS ${(+k.roas||0).toFixed(2)}x, 지출 ${fmt.krw(k.cost_krw)})`).join(', ')}`,
+      tags: [`영향도 HIGH`, `즉시 실행`, `절감 ${fmt.krw(totalWaste)}`]
+    });
+  }
+  if (star.length > 0) {
+    const totalStarRev = star.reduce((a,k)=>a+(+k.conversion_value||0),0);
+    actions.push({
+      priority:'success', icon:'⭐',
+      title:`STAR 키워드 ${star.length}개 예산 3~5x 확대 → 매출 잠재력 극대화`,
+      desc:`상위 3개: ${star.slice(0,3).map(k => `${k.keyword} (ROAS ${(+k.roas||0).toFixed(1)}x, 매출 ${fmt.krw(k.conversion_value)})`).join(', ')}`,
+      tags:[`영향도 HIGH`, `예산 확대`, `현재 매출 ${fmt.krw(totalStarRev)}`]
+    });
+  }
+  if (losing.length > 0) {
+    actions.push({
+      priority:'warning', icon:'⚠️',
+      title:`LOSING 키워드 ${losing.length}개 입찰 -20% 조정`,
+      desc:`ROAS 1~2x 구간, 개선 여지 있음. 상위 3개: ${losing.slice(0,3).map(k => `${k.keyword} (ROAS ${(+k.roas||0).toFixed(2)}x)`).join(', ')}`,
+      tags:[`영향도 MID`, `입찰 조정`, `모니터링`]
+    });
+  }
+  const falling = (DATA.trend || []).filter(r => {
+    const curr = +r.recent_revenue || 0, prev = +r.prev_revenue || 0;
+    return prev > 0 && (curr - prev) / prev < -0.3;
+  }).slice(0, 5);
+  if (falling.length > 0) {
+    actions.push({
+      priority:'warning', icon:'📉',
+      title:`매출 하락 키워드 ${falling.length}개 점검`,
+      desc:`전주 대비 30%+ 하락. 예: ${falling.slice(0,3).map(r => r.keyword).join(', ')}. 경쟁 심화·입찰가 하락·품질 저하 여부 확인.`,
+      tags:[`영향도 MID`, `원인 분석`, `대응 필요`]
+    });
+  }
+  if (t.roas && t.roas < 2) {
+    actions.push({
+      priority:'critical', icon:'🔴',
+      title:`오늘 ROAS ${fmt.roas(t.roas)} - 손익분기점 근접`,
+      desc:`목표 ROAS 3x 대비 부진. LOSING/DEAD 키워드 즉시 정리 및 STAR 키워드 예산 확대로 방어.`,
+      tags:[`영향도 HIGH`, `당일 대응`]
+    });
+  }
+  actions.push({
+    priority:'primary', icon:'📊',
+    title:`캠페인 유형 최적화 검토`,
+    desc:`WEB_SITE 유형이 SHOPPING 대비 ROAS 우위 시 예산 재분배 검토. 유형별 딥다이브 표 참고.`,
+    tags:[`영향도 MID`, `주간 검토`]
+  });
+  const list = document.getElementById('actionList');
+  list.innerHTML = actions.map((a, i) => `
+    <div class="action-item ${a.priority}">
+      <div class="action-priority">${a.icon}</div>
+      <div class="action-body">
+        <div class="action-title">${i+1}. ${a.title}</div>
+        <div class="action-desc">${a.desc}</div>
+        <div class="action-meta">${a.tags.map(t => `<span class="action-tag">${t}</span>`).join('')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+loadAll();
 </script>
 </body>
 </html>
