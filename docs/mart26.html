@@ -119,8 +119,17 @@ body{font-family:'Inter','Noto Sans KR',sans-serif;background:var(--bg);color:va
 .metric-btn.active{background:#0066FF;color:white;border-color:#0066FF;}
 </style>
 <script src="naver_daily_chart.js?v=20260727114548"></script>
+<link rel="stylesheet" href="mart_common.css">
 </head>
 <body>
+<header class="topbar">
+  <a href="index.html" class="logo"><span class="logo-mark">D</span>D2C Analytics</a>
+  <div class="meta">네이버 검색광고 · 매일 KST 10:00 자동 갱신</div>
+</header>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+
 <div class="main">
   <h1 class="page-title">🔍 네이버 검색광고 · 고급 분석 대시보드 <span class="updated-badge" id="updatedBadge">Loading…</span></h1>
   <div class="page-desc">일일 성과 · 캠페인/키워드/유형별 딥다이브 · 자동 이슈 감지 · AI 채팅 · 실행 액션</div>
@@ -741,6 +750,29 @@ function renderActions(){
 }
 
 loadAll().then(() => initChatbot());
+</script>
+  </main>
+</div>
+
+<script>
+(function(){
+  const marts = [
+    ['index.html','H','Overview'],
+    ['creative_intelligence.html','CI','소재 인텔리전스'],
+    ['data_explorer.html','DE','데이터 익스플로러'],
+    ['landing_analytics.html','LA','랜딩 분석'],
+    ['budget_optimizer.html','BO','예산 최적화'],
+    ['mart6.html','6','신규 vs 재방문'],
+    ['mart16.html','16','채널 딥다이브'],
+    ['mart17.html','17','광고 CAC / ROAS'],
+    ['mart26.html','N','네이버 검색광고']
+  ];
+  const sb = document.querySelector('.sidebar');
+  if(!sb) return;
+  const cur = location.pathname.split('/').pop() || 'mart26.html';
+  sb.innerHTML = '<div class="sec-label">Analytics</div>' +
+    marts.map(([h,t,n])=>`<a href="${h}" class="${h===cur?'active':''}"><span class="num">${t}</span> ${n}</a>`).join('');
+})();
 </script>
 </body>
 </html>
