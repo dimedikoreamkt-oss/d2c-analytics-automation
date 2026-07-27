@@ -1,0 +1,4 @@
+BigQuery error in query operation: Error processing job
+'d2c-analytics-502304:bqjob_r4ac725b5f00fd967_0000019fa29999fd_1': Not found:
+Table d2c-analytics-502304:marts.mart_naver_daily_comparison was not found in
+location asia-northeast3

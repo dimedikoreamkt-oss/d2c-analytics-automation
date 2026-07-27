@@ -1,0 +1,4 @@
+BigQuery error in query operation: Error processing job
+'d2c-analytics-502304:bqjob_r67411d0db761f535_0000019fa299b205_1': Not found:
+Table d2c-analytics-502304:marts.mart_naver_keyword_trend was not found in
+location asia-northeast3
