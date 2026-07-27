@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="mart_common.js?v=20260728"></script>
+<script src="naver_chatbot.js?v=20260728"></script>
 <style>
 :root{--primary:#0066FF;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--star:#8b5cf6;--bg:#f8fafc;--card:#fff;--border:#e5e7eb;--text:#1e293b;--muted:#64748b;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -709,85 +710,6 @@ function renderActions(){
   if(num(t.roas)>0&&num(t.roas)<2)actions.push({p:'critical',i:'🔴',t:`오늘 ROAS ${nfmt.r(t.roas)} - 손익분기점 근접`,d:'DEAD/LOSING 정리 필요.',g:['영향도 HIGH']});
   if(ins.top_cost_increase_campaign&&num(ins.top_cost_increase_pct)>30)actions.push({p:'warning',i:'💸',t:`광고비 급증: ${ins.top_cost_increase_campaign} (+${num(ins.top_cost_increase_pct).toFixed(1)}%)`,d:'ROAS 유지 여부 확인.',g:['영향도 MID']});
   document.getElementById('actionList').innerHTML=actions.length?actions.map((a,i)=>`<div class="action-item ${a.p}"><div class="action-priority">${a.i}</div><div><div class="action-title">${i+1}. ${a.t}</div><div class="action-desc">${a.d}</div><div class="action-meta">${a.g.map(x=>`<span class="action-tag">${x}</span>`).join('')}</div></div></div>`).join(''):'<div style="text-align:center;padding:20px;color:var(--muted);">현재 실행 액션 없음</div>';
-}
-
-// ============================================
-// Chatbot
-// ============================================
-function chatAppend(msg,isUser){const box=document.getElementById('chatMessages');const div=document.createElement('div');div.className='chat-msg '+(isUser?'user':'bot');div.innerHTML=msg;box.appendChild(div);box.scrollTop=box.scrollHeight;}
-function initChatbot(){
-  chatAppend(`안녕하세요! 👋 자연어로 질문해보세요:<br><span class="metric-inline">코코픽 매출 하락 원인</span> <span class="metric-inline">쇼핑 성과</span> <span class="metric-inline">STAR 키워드</span>`,false);
-  document.querySelectorAll('.quick-q').forEach(el=>el.addEventListener('click',()=>{document.getElementById('chatInput').value=el.dataset.q;handleChat();}));
-  document.getElementById('chatSend').addEventListener('click',handleChat);
-  document.getElementById('chatInput').addEventListener('keypress',e=>{if(e.key==='Enter')handleChat();});
-}
-function handleChat(){const inp=document.getElementById('chatInput');const q=inp.value.trim();if(!q)return;chatAppend(q,true);inp.value='';setTimeout(()=>chatAppend(analyzeQuery(q),false),300);}
-function analyzeQuery(q){
-  const ql=q.toLowerCase();const perf=DATA.perf||[];const kw=DATA.keyword||[];const daily=DATA.daily||[];const ins=(DATA.insight||[])[0]||{};const t=daily[0]||{};
-  const campNames=[...new Set(perf.map(r=>r.campaign_name).filter(Boolean))];
-  const kwNames=[...new Set(kw.map(r=>r.keyword).filter(Boolean))];
-  let mentioned=null;
-  for(const n of[...campNames,...kwNames]){if(n&&q.includes(n)){mentioned=n;break;}}
-  if(!mentioned){for(const n of campNames){if(!n)continue;const parts=n.split(/[_\s\-]/).filter(p=>p.length>=2);for(const p of parts){if(q.includes(p)){mentioned=p;break;}}if(mentioned)break;}}
-  if(mentioned){
-    const mPerf=perf.filter(r=>(r.campaign_name||'').includes(mentioned));
-    const mKw=kw.filter(r=>(r.keyword||'').includes(mentioned)||(r.campaign_name||'').includes(mentioned));
-    if(mPerf.length){
-      const dates=[...new Set(mPerf.map(r=>r.event_date))].sort().reverse();
-      const r7=dates.slice(0,7),p7=dates.slice(7,14);
-      const agg=ds=>mPerf.filter(r=>ds.includes(r.event_date)).reduce((s,r)=>({c:s.c+num(r.cost_krw),rv:s.rv+num(r.revenue),cv:s.cv+num(r.conversions),cl:s.cl+num(r.clicks),i:s.i+num(r.impressions)}),{c:0,rv:0,cv:0,cl:0,i:0});
-      const rec=agg(r7),prv=agg(p7);
-      const rRoas=rec.c?rec.rv/rec.c:0,pRoas=prv.c?prv.rv/prv.c:0;
-      const rCpc=rec.cl?rec.c/rec.cl:0,pCpc=prv.cl?prv.c/prv.cl:0;
-      const rCvr=rec.cl?rec.cv/rec.cl*100:0,pCvr=prv.cl?prv.cv/prv.cl*100:0;
-      const rCh=prv.rv?(rec.rv-prv.rv)/prv.rv*100:0;const cCh=prv.c?(rec.c-prv.c)/prv.c*100:0;const cpcCh=pCpc?(rCpc-pCpc)/pCpc*100:0;const cvrCh=pCvr?(rCvr-pCvr)/pCvr*100:0;
-      const causes=[];
-      if(Math.abs(cpcCh)>15)causes.push(`<div class="cause-item">💰 <strong>CPC ${cpcCh>0?'상승':'하락'}:</strong> ${nfmt.k(pCpc)} → ${nfmt.k(rCpc)} (${cpcCh>0?'+':''}${cpcCh.toFixed(1)}%)</div>`);
-      if(Math.abs(cvrCh)>15)causes.push(`<div class="cause-item">🎯 <strong>전환율 ${cvrCh>0?'개선':'악화'}:</strong> ${pCvr.toFixed(2)}% → ${rCvr.toFixed(2)}%</div>`);
-      if(Math.abs(cCh)>15)causes.push(`<div class="cause-item">💸 <strong>광고비 ${cCh>0?'증가':'감소'}:</strong> ${nfmt.k(prv.c)} → ${nfmt.k(rec.c)} (${cCh>0?'+':''}${cCh.toFixed(1)}%)</div>`);
-      const rDead=mKw.filter(k=>num(k.roas)<1&&num(k.cost_30d)>3000);
-      if(rDead.length)causes.push(`<div class="cause-item">🔴 <strong>DEAD 키워드 ${rDead.length}개:</strong> ${rDead.slice(0,3).map(k=>`"${k.keyword}"(${num(k.roas).toFixed(2)}x)`).join(', ')}</div>`);
-      const trend=rCh>5?'📈 상승':rCh<-5?'📉 하락':'➡️ 안정';
-      return `<strong>🔍 "${mentioned}" 분석</strong><br><br><strong>${trend}</strong> · 매출 <span class="metric-inline">${nfmt.k(prv.rv)}</span> → <span class="metric-inline">${nfmt.k(rec.rv)}</span> (<strong style="color:${rCh>=0?'#10b981':'#ef4444'};">${rCh>=0?'+':''}${rCh.toFixed(1)}%</strong>)<br>ROAS: <span class="metric-inline">${pRoas.toFixed(2)}x</span> → <span class="metric-inline">${rRoas.toFixed(2)}x</span> · 전환: ${prv.cv} → ${rec.cv}<br><br>${causes.length?'<strong>💡 원인:</strong>'+causes.join(''):'<strong>💡 특이 원인 없음</strong>'}<br><strong>🎯 액션:</strong> ${rCh<-10?'DEAD 제외 → STAR 확대':rCh>10?'예산 확대 검토':'현 상태 유지'}`;
-    }
-  }
-  if(ql.includes('매출')&&(ql.includes('하락')||ql.includes('떨어')||ql.includes('감소'))){
-    const rc=num(t.rev_dod_pct),cc=num(t.cost_dod_pct),wc=num(t.rev_wow_pct);
-    const dead=kw.filter(k=>num(k.cost_30d)>5000&&num(k.roas)<1);const w=dead.reduce((s,k)=>s+num(k.cost_30d),0);
-    const causes=[];
-    if(rc<0)causes.push(`<div class="cause-item">📉 전일 대비 ${rc.toFixed(1)}% 감소</div>`);
-    if(wc<-10)causes.push(`<div class="cause-item">📆 전주 대비 ${wc.toFixed(1)}% 하락</div>`);
-    if(cc<-10)causes.push(`<div class="cause-item">💸 광고비 ${cc.toFixed(1)}% 감소 → 노출 감소</div>`);
-    if(dead.length)causes.push(`<div class="cause-item">🔴 DEAD 키워드 ${dead.length}개 · <span class="metric-inline">${nfmt.k(w)}</span> 낭비</div>`);
-    return `<strong>📉 매출 하락 원인</strong><br><br>${causes.join('')||'<div class="cause-item">특이 요인 없음</div>'}<br><strong>🎯 액션:</strong> DEAD 제외 → STAR 재분배`;
-  }
-  if(ql.includes('star')||ql.includes('스타')||(ql.includes('잘')&&ql.includes('키워드'))){
-    const star=kw.filter(k=>num(k.roas)>=5&&num(k.conversions_30d)>=2&&k.keyword).sort((a,b)=>num(b.revenue_30d)-num(a.revenue_30d)).slice(0,10);
-    if(!star.length)return`STAR 키워드 없음.`;
-    return `<strong>⭐ STAR TOP ${star.length}</strong><br><br>`+star.map((k,i)=>`<div class="cause-item">${i+1}. <strong>${k.keyword}</strong> · ROAS <span class="metric-inline">${nfmt.r(k.roas)}</span> · 매출 <span class="metric-inline">${nfmt.k(k.revenue_30d)}</span></div>`).join('');
-  }
-  if(ql.includes('dead')||ql.includes('낭비')){
-    const dead=kw.filter(k=>num(k.cost_30d)>3000&&num(k.roas)<1&&k.keyword).sort((a,b)=>num(b.cost_30d)-num(a.cost_30d)).slice(0,10);
-    if(!dead.length)return`DEAD 키워드 없음.`;
-    const w=dead.reduce((s,k)=>s+num(k.cost_30d),0);
-    return `<strong>🔴 DEAD TOP ${dead.length}</strong> (낭비 <span class="metric-inline">${nfmt.k(w)}</span>)<br><br>`+dead.map((k,i)=>`<div class="cause-item">${i+1}. <strong>${k.keyword}</strong> · ROAS <span class="metric-inline">${nfmt.r(k.roas)}</span> · 지출 <span class="metric-inline">${nfmt.k(k.cost_30d)}</span></div>`).join('');
-  }
-  if(ql.includes('roas')&&(ql.includes('좋')||ql.includes('top')||ql.includes('최고'))){
-    const agg={};perf.forEach(r=>{const k=r.campaign_name;if(!k)return;if(!agg[k])agg[k]={c:0,rv:0,ty:r.campaign_type};agg[k].c+=num(r.cost_krw);agg[k].rv+=num(r.revenue);});
-    const list=Object.entries(agg).map(([n,v])=>({n,...v,roas:v.c?v.rv/v.c:0})).filter(r=>r.c>5000).sort((a,b)=>b.roas-a.roas).slice(0,10);
-    return `<strong>🏆 ROAS TOP</strong><br><br>`+list.map((r,i)=>`<div class="cause-item">${i+1}. <strong>${r.n}</strong> · ROAS <span class="metric-inline">${nfmt.r(r.roas)}</span> · 매출 <span class="metric-inline">${nfmt.k(r.rv)}</span></div>`).join('');
-  }
-  const tyQ=ql.includes('쇼핑')?'SHOPPING':ql.includes('웹사이트')?'WEB_SITE':ql.includes('브랜드')?'BRAND_SEARCH':null;
-  if(tyQ){
-    const rows=perf.filter(r=>r.campaign_type===tyQ);
-    const tot=rows.reduce((s,r)=>({c:s.c+num(r.cost_krw),rv:s.rv+num(r.revenue),cv:s.cv+num(r.conversions)}),{c:0,rv:0,cv:0});
-    const camps=[...new Set(rows.map(r=>r.campaign_name))].length;
-    return `<strong>📊 ${tyQ} 성과</strong><br><br><div class="cause-item">📋 캠페인: <span class="metric-inline">${camps}개</span></div><div class="cause-item">💰 지출: <span class="metric-inline">${nfmt.k(tot.c)}</span></div><div class="cause-item">🛒 매출: <span class="metric-inline">${nfmt.k(tot.rv)}</span> · 전환 ${tot.cv}건</div><div class="cause-item">📊 ROAS: <span class="metric-inline">${nfmt.r(tot.c?tot.rv/tot.c:0)}</span></div>`;
-  }
-  if(ql.includes('오늘')||ql.includes('어때')||ql.includes('현재')){
-    return `<strong>📊 오늘(${t.event_date}) 성과</strong><br><br><div class="cause-item">💰 광고비: <span class="metric-inline">${nfmt.k(t.cost_krw)}</span> (${num(t.cost_dod_pct)>=0?'+':''}${num(t.cost_dod_pct).toFixed(1)}%)</div><div class="cause-item">🛒 매출: <span class="metric-inline">${nfmt.k(t.revenue)}</span> (${num(t.rev_dod_pct)>=0?'+':''}${num(t.rev_dod_pct).toFixed(1)}%)</div><div class="cause-item">📊 ROAS: <span class="metric-inline">${nfmt.r(t.roas)}</span></div><div class="cause-item">🎯 상태: <strong>${t.alert_status||'정상'}</strong></div>`;
-  }
-  return `질문을 이해하지 못했습니다. 예시:<br>• <span class="metric-inline">"코코픽 매출 하락 원인"</span><br>• <span class="metric-inline">"STAR 키워드"</span><br>• <span class="metric-inline">"쇼핑 성과"</span>`;
 }
 
 loadAll().then(() => initChatbot());
