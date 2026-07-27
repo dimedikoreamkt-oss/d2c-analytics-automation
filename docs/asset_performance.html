@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>이미지 카드별 성과 분석 | D2C Analytics</title>
+<link rel="stylesheet" href="mart_common.css">
+<style>
+.asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 20px; }
+.asset-card {
+  background: white; border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.asset-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+.asset-thumb {
+  width: 100%; height: 200px; object-fit: cover; background: #f5f5f5;
+  display: block;
+}
+.asset-thumb-placeholder {
+  width: 100%; height: 200px; background: linear-gradient(135deg, #f5f5f5 25%, #eee 25%, #eee 50%, #f5f5f5 50%, #f5f5f5 75%, #eee 75%, #eee);
+  background-size: 20px 20px; display: flex; align-items: center; justify-content: center;
+  color: #999; font-size: 14px;
+}
+.asset-body { padding: 16px; }
+.asset-grade { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.grade-STAR { background: #fef3c7; color: #92400e; }
+.grade-WINNER { background: #d1fae5; color: #065f46; }
+.grade-BREAKEVEN { background: #fef9c3; color: #713f12; }
+.grade-DEAD { background: #fee2e2; color: #991b1b; }
+.grade-LOSING { background: #fed7aa; color: #7c2d12; }
+.grade-MONITORING { background: #e5e7eb; color: #374151; }
+.asset-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; font-size: 13px; }
+.asset-metric { display: flex; justify-content: space-between; }
+.asset-metric span:first-child { color: #6b7280; }
+.asset-metric span:last-child { font-weight: 600; color: #111; }
+.roas-high { color: #059669 !important; }
+.roas-low { color: #dc2626 !important; }
+.action-hint {
+  margin-top: 12px; padding: 8px 12px; background: #f9fafb; border-radius: 8px;
+  font-size: 12px; color: #4b5563; border-left: 3px solid #3b82f6;
+}
+.spend-bar { margin-top: 8px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.spend-bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); }
+.ad-section { margin-bottom: 40px; }
+.ad-header {
+  padding: 16px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white; border-radius: 12px 12px 0 0; margin-bottom: 0;
+}
+.ad-header h2 { margin: 0 0 4px 0; font-size: 18px; }
+.ad-summary { font-size: 13px; opacity: 0.9; }
+.filter-bar { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; }
+.filter-bar select {
+  padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+  background: white; font-size: 14px;
+}
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.sum-card { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
+.sum-card-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+.sum-card-value { font-size: 22px; font-weight: 700; color: #111; }
+.sum-card-sub { font-size: 12px; margin-top: 4px; }
+.impact-box {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b; border-radius: 12px; padding: 16px; margin: 20px 0;
+}
+.impact-box h3 { margin: 0 0 8px 0; color: #92400e; }
+.impact-value { font-size: 24px; font-weight: 700; color: #b45309; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="brand">🎯 D2C Analytics</a>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="page-head">
+        <h1>🎨 이미지 카드별 성과 분석</h1>
+        <p class="page-desc">Dynamic Creative 광고 세트의 각 이미지 카드가 실제로 얼마나 매출을 냈는지 확인하고 예산 재분배 기회를 찾습니다.</p>
+      </div>
+
+      <div class="filter-bar">
+        <label>정렬:</label>
+        <select id="sortBy">
+          <option value="spend">지출 많은 순</option>
+          <option value="revenue">매출 많은 순</option>
+          <option value="roas">ROAS 높은 순</option>
+          <option value="impact">개선 임팩트 순</option>
+        </select>
+        <label>등급 필터:</label>
+        <select id="gradeFilter">
+          <option value="all">전체</option>
+          <option value="🏆 STAR">STAR (매출 견인)</option>
+          <option value="🟢 WINNER">WINNER (수익)</option>
+          <option value="🟠 LOSING">LOSING (교체 검토)</option>
+          <option value="🔴 DEAD">DEAD (즉시 제외)</option>
+        </select>
+      </div>
+
+      <div id="summary" class="summary-cards"></div>
+
+      <div id="impactAlert"></div>
+
+      <div id="assetContent"></div>
+    </div>
+  </main>
+</div>
+
+<script src="mart_common.js"></script>
+<script>
+async function loadAssetData() {
+  const res = await fetch('data/mart34_meta_asset_performance.json?v=' + Date.now());
+  const raw = await res.json();
+
+  // 광고별 이미지 자산만 집계
+  const byAdImage = {};
+  raw.forEach(r => {
+    if (r.asset_type !== 'image_asset') return;
+    const key = r.ad_name + '||' + r.asset_id;
+    if (!byAdImage[key]) {
+      byAdImage[key] = {
+        ad_name: r.ad_name, adset_name: r.adset_name, campaign_name: r.campaign_name,
+        asset_id: r.asset_id, asset_url: r.asset_url,
+        impressions: 0, clicks: 0, spend: 0, purchases: 0, revenue: 0,
+        link_clicks: 0, add_to_cart: 0
+      };
+    }
+    const a = byAdImage[key];
+    a.impressions += r.impressions || 0;
+    a.clicks += r.clicks || 0;
+    a.spend += r.spend_krw || 0;
+    a.purchases += r.purchases || 0;
+    a.revenue += r.purchase_value || 0;
+    a.link_clicks += r.link_clicks || 0;
+    a.add_to_cart += r.add_to_cart || 0;
+  });
+
+  const assets = Object.values(byAdImage).map(a => {
+    a.ctr = a.impressions ? (a.clicks / a.impressions * 100) : 0;
+    a.cpc = a.clicks ? (a.spend / a.clicks) : 0;
+    a.cpa = a.purchases ? (a.spend / a.purchases) : 0;
+    a.roas = a.spend ? (a.revenue / a.spend) : 0;
+    a.atc_rate = a.link_clicks ? (a.add_to_cart / a.link_clicks * 100) : 0;
+    a.click_to_purchase = a.link_clicks ? (a.purchases / a.link_clicks * 100) : 0;
+
+    // 등급 판정
+    if (a.roas >= 5.0 && a.purchases >= 3) a.grade = '🏆 STAR';
+    else if (a.roas >= 2.0 && a.purchases >= 1) a.grade = '🟢 WINNER';
+    else if (a.roas >= 1.0) a.grade = '🟡 BREAKEVEN';
+    else if (a.spend >= 30000 && a.purchases === 0) a.grade = '🔴 DEAD';
+    else if (a.spend >= 10000 && a.roas < 1.0) a.grade = '🟠 LOSING';
+    else a.grade = '⚪ MONITORING';
+
+    if (a.roas >= 5.0 && a.purchases >= 3) a.action = '💰 예산 3~5배 확대, 유사 소재 제작';
+    else if (a.roas >= 2.0) a.action = '✅ 유지';
+    else if (a.spend >= 30000 && a.purchases === 0) a.action = '🚫 즉시 제외';
+    else if (a.spend >= 10000 && a.roas < 1.0) a.action = '⚠️ 이미지/카피 교체';
+    else a.action = '📊 데이터 축적 대기';
+
+    return a;
+  });
+
+  return assets;
+}
+
+function fmtWon(n) { return '₩' + Math.round(n).toLocaleString(); }
+function fmtNum(n) { return Math.round(n).toLocaleString(); }
+
+function renderSummary(assets) {
+  const totalSpend = assets.reduce((s, a) => s + a.spend, 0);
+  const totalRev = assets.reduce((s, a) => s + a.revenue, 0);
+  const deadSpend = assets.filter(a => a.grade === '🔴 DEAD').reduce((s, a) => s + a.spend, 0);
+  const losingSpend = assets.filter(a => a.grade === '🟠 LOSING').reduce((s, a) => s + a.spend, 0);
+  const wasteSpend = deadSpend + losingSpend;
+  const roas = totalSpend ? (totalRev / totalSpend) : 0;
+
+  document.getElementById('summary').innerHTML = `
+    <div class="sum-card">
+      <div class="sum-card-label">이미지 카드 수</div>
+      <div class="sum-card-value">${assets.length}</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-card-label">총 지출</div>
+      <div class="sum-card-value">${fmtWon(totalSpend)}</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-card-label">총 매출</div>
+      <div class="sum-card-value">${fmtWon(totalRev)}</div>
+      <div class="sum-card-sub" style="color: ${roas >= 2 ? '#059669' : '#dc2626'}">ROAS ${roas.toFixed(2)}x</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-card-label">비효율 지출 (DEAD+LOSING)</div>
+      <div class="sum-card-value" style="color: #dc2626">${fmtWon(wasteSpend)}</div>
+      <div class="sum-card-sub">전체의 ${(wasteSpend/totalSpend*100).toFixed(0)}%</div>
+    </div>
+  `;
+
+  // Impact alert
+  const stars = assets.filter(a => a.roas >= 3.0 && a.spend > 0);
+  if (stars.length && wasteSpend > 0) {
+    const bestRoas = Math.max(...stars.map(a => a.roas));
+    const potentialGain = wasteSpend * bestRoas;
+    document.getElementById('impactAlert').innerHTML = `
+      <div class="impact-box">
+        <h3>💡 예산 재분배 기회 발견</h3>
+        <div>비효율 이미지에 <b>${fmtWon(wasteSpend)}</b>이 낭비되고 있습니다.</div>
+        <div>이를 최고 성과 이미지(ROAS ${bestRoas.toFixed(2)}x)로 재분배하면 예상 매출:</div>
+        <div class="impact-value">${fmtWon(potentialGain)}</div>
+        <div style="margin-top: 8px; font-size: 13px; color: #78350f;">현재 총 매출 대비 <b>+${((potentialGain/totalRev - 1) * 100).toFixed(0)}%</b> 성장 가능</div>
+      </div>
+    `;
+  }
+}
+
+function renderAssets(assets) {
+  const sortBy = document.getElementById('sortBy').value;
+  const gradeFilter = document.getElementById('gradeFilter').value;
+
+  let filtered = assets;
+  if (gradeFilter !== 'all') filtered = filtered.filter(a => a.grade === gradeFilter);
+
+  // 광고별 그룹핑
+  const byAd = {};
+  filtered.forEach(a => {
+    if (!byAd[a.ad_name]) byAd[a.ad_name] = [];
+    byAd[a.ad_name].push(a);
+  });
+
+  // 정렬 함수
+  const sortFn = {
+    spend: (a,b) => b.spend - a.spend,
+    revenue: (a,b) => b.revenue - a.revenue,
+    roas: (a,b) => b.roas - a.roas,
+    impact: (a,b) => (b.spend * Math.max(1, 5-b.roas)) - (a.spend * Math.max(1, 5-a.roas))
+  }[sortBy];
+
+  let html = '';
+  Object.entries(byAd).forEach(([adName, adAssets]) => {
+    adAssets.sort(sortFn);
+    const totalSpend = adAssets.reduce((s, a) => s + a.spend, 0);
+    const totalRev = adAssets.reduce((s, a) => s + a.revenue, 0);
+    const roas = totalSpend ? (totalRev / totalSpend) : 0;
+
+    html += `
+      <div class="ad-section">
+        <div class="ad-header">
+          <h2>📱 ${adName}</h2>
+          <div class="ad-summary">
+            이미지 ${adAssets.length}개 · 지출 ${fmtWon(totalSpend)} · 매출 ${fmtWon(totalRev)} · ROAS ${roas.toFixed(2)}x
+          </div>
+        </div>
+        <div class="asset-grid">
+    `;
+
+    adAssets.forEach((a, idx) => {
+      const spendShare = totalSpend ? (a.spend / totalSpend * 100) : 0;
+      const gradeClass = 'grade-' + a.grade.replace(/[^A-Z]/g, '');
+      const roasClass = a.roas >= 3 ? 'roas-high' : (a.roas < 1 ? 'roas-low' : '');
+
+      html += `
+        <div class="asset-card">
+          ${a.asset_url ?
+            `<img class="asset-thumb" src="${a.asset_url}" alt="" onerror="this.outerHTML='<div class=\\'asset-thumb-placeholder\\'>이미지 만료</div>'">` :
+            `<div class="asset-thumb-placeholder">이미지 URL 없음</div>`
+          }
+          <div class="asset-body">
+            <div class="asset-grade ${gradeClass}">${a.grade}</div>
+            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">순위 ${idx+1} · Hash: ${a.asset_id.slice(0,8)}...</div>
+            <div class="asset-metrics">
+              <div class="asset-metric"><span>노출</span><span>${fmtNum(a.impressions)}</span></div>
+              <div class="asset-metric"><span>클릭</span><span>${fmtNum(a.clicks)}</span></div>
+              <div class="asset-metric"><span>CTR</span><span>${a.ctr.toFixed(2)}%</span></div>
+              <div class="asset-metric"><span>CPC</span><span>${fmtWon(a.cpc)}</span></div>
+              <div class="asset-metric"><span>지출</span><span>${fmtWon(a.spend)}</span></div>
+              <div class="asset-metric"><span>구매</span><span>${a.purchases}건</span></div>
+              <div class="asset-metric"><span>매출</span><span>${fmtWon(a.revenue)}</span></div>
+              <div class="asset-metric"><span>ROAS</span><span class="${roasClass}">${a.roas.toFixed(2)}x</span></div>
+            </div>
+            <div style="margin-top: 12px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; color:#6b7280;">
+                <span>지출 비중</span><span>${spendShare.toFixed(1)}%</span>
+              </div>
+              <div class="spend-bar"><div class="spend-bar-fill" style="width:${spendShare}%"></div></div>
+            </div>
+            <div class="action-hint">💡 ${a.action}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+  });
+
+  document.getElementById('assetContent').innerHTML = html;
+}
+
+async function init() {
+  const assets = await loadAssetData();
+  window._assets = assets;
+  renderSummary(assets);
+  renderAssets(assets);
+
+  document.getElementById('sortBy').onchange = () => renderAssets(window._assets);
+  document.getElementById('gradeFilter').onchange = () => renderAssets(window._assets);
+}
+init();
+</script>
+</body>
+</html>
