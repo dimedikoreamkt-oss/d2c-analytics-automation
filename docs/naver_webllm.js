@@ -3,10 +3,10 @@
 // ============================================
 
 const WEBLLM_MODELS = [
-  { id: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC', label: '⚡ 가벼움 · 1.0GB', desc: 'Qwen2.5 1.5B · 저사양 OK', size: 1024 },
-  { id: 'Qwen2.5-3B-Instruct-q4f32_1-MLC', label: '⭐ 추천 · 1.9GB', desc: 'Qwen2.5 3B · 한국어 양호', size: 1946, default: true },
-  { id: 'Llama-3.2-3B-Instruct-q4f32_1-MLC', label: '🦙 Llama · 2.2GB', desc: 'Llama 3.2 3B · 영어 강점', size: 2252 },
-  { id: 'Qwen2.5-7B-Instruct-q4f32_1-MLC', label: '🎯 최고성능 · 4.3GB', desc: 'Qwen2.5 7B · 고사양 필요', size: 4403 }
+  { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', label: '⚡ 가벼움 · 950MB', desc: 'Qwen2.5 1.5B · 저사양 OK', size: 950 },
+  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC', label: '⭐ 추천 · 1.8GB', desc: 'Qwen2.5 3B · 한국어 양호', size: 1800, default: true },
+  { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', label: '🦙 Llama · 2.0GB', desc: 'Llama 3.2 3B · 영어 강점', size: 2000 },
+  { id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC', label: '🎯 최고성능 · 4.1GB', desc: 'Qwen2.5 7B · 고사양 필요', size: 4100 }
 ];
 
 const LLM_STATE = {
@@ -41,6 +41,10 @@ async function loadWebLLMLibrary() {
 // 모델 다운로드 & 초기화
 // ============================================
 async function initLLM(modelId, onProgress) {
+  // Cloudflare Worker 도메인 감지 → CORS 이슈로 GitHub Pages 안내
+  if (window.location.hostname.includes('workers.dev')) {
+    throw new Error('⚠️ Cloudflare Worker 도메인에서는 CORS 정책으로 인해 로컬 AI를 사용할 수 없습니다.\n\n📌 GitHub Pages 직접 접속 URL을 사용해주세요:\nhttps://dimedikoreamkt-oss.github.io/d2c-analytics-automation/mart26.html\n\n이 URL에서는 HuggingFace CDN에 직접 접속 가능하여 모델 다운로드가 정상 작동합니다.');
+  }
   if (!checkWebGPU()) {
     throw new Error('WebGPU 미지원 브라우저입니다. Chrome/Edge 최신 버전을 사용해주세요.');
   }
@@ -383,8 +387,20 @@ function initWebLLMUI() {
 // LLM 설정 UI
 function showLLMSetup() {
   const box = document.getElementById('chatMessages');
-  // 이미 설정 UI가 있으면 skip
   if (document.getElementById('llmSetupBox')) return;
+  
+  // Worker 도메인 사전 감지
+  const isWorker = window.location.hostname.includes('workers.dev');
+  if (isWorker) {
+    const warn = document.createElement('div');
+    warn.className = 'chat-msg bot';
+    warn.style.background = '#fef2f2';
+    warn.style.border = '1px solid #fecaca';
+    warn.innerHTML = '⚠️ <strong>현재 Cloudflare Worker 도메인으로 접속 중</strong><br><br>CORS 정책으로 인해 HuggingFace CDN에서 AI 모델을 다운로드할 수 없습니다.<br><br><strong>📌 아래 URL로 직접 접속해주세요:</strong><br><a href="https://dimedikoreamkt-oss.github.io/d2c-analytics-automation/mart26.html" target="_blank" style="color:#0066FF;font-weight:700;">GitHub Pages 직접 접속 ↗</a><br><br>이 URL에서는 로그인은 없지만 로컬 AI 기능이 완벽하게 작동합니다.<br>(로컬 AI는 데이터를 외부로 전송하지 않으므로 인증과 무관합니다)';
+    box.appendChild(warn);
+    box.scrollTop = box.scrollHeight;
+    return;
+  }
 
   const supported = checkWebGPU();
   const setup = document.createElement('div');
