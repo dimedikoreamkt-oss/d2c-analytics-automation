@@ -391,7 +391,7 @@ body { font-family:'Inter','Noto Sans KR',sans-serif; background:var(--bg); colo
 // ============================================
 // 유틸리티
 // ============================================
-const fmt = {
+const nfmt = {
   num: v => v == null || v === '' ? '-' : Number(v).toLocaleString('ko-KR'),
   krw: v => v == null || v === '' ? '-' : '₩' + Math.round(Number(v)).toLocaleString('ko-KR'),
   pct: v => v == null || v === '' ? '-' : Number(v).toFixed(2) + '%',
@@ -486,17 +486,17 @@ function renderKPI() {
   const roas = total.cost ? (total.rev / total.cost) : 0;
   const cvr = total.clicks ? (total.conv / total.clicks * 100) : 0;
 
-  const delRev = fmt.delta(today.revenue || 0, yesterday.revenue || 0);
-  const delCost = fmt.delta(today.cost || 0, yesterday.cost || 0);
-  const delRoas = fmt.delta(today.roas || 0, yesterday.roas || 0);
+  const delRev = nfmt.delta(today.revenue || 0, yesterday.revenue || 0);
+  const delCost = nfmt.delta(today.cost || 0, yesterday.cost || 0);
+  const delRoas = nfmt.delta(today.roas || 0, yesterday.roas || 0);
 
   document.getElementById('kpiRow').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">💰 총 지출</div><div class="kpi-value">${fmt.krw(total.cost)}</div><div class="kpi-delta ${delCost.cls}">${delCost.icon} ${delCost.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
-    <div class="kpi-card success"><div class="kpi-label">🛒 총 매출</div><div class="kpi-value">${fmt.krw(total.rev)}</div><div class="kpi-delta ${delRev.cls}">${delRev.icon} ${delRev.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
-    <div class="kpi-card ${roas >= 3 ? 'success' : roas >= 2 ? 'warning' : 'danger'}"><div class="kpi-label">📊 ROAS</div><div class="kpi-value">${fmt.roas(roas)}</div><div class="kpi-delta ${delRoas.cls}">${delRoas.icon} ${delRoas.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
-    <div class="kpi-card purple"><div class="kpi-label">🎯 CPA</div><div class="kpi-value">${fmt.krw(cpa)}</div><div class="kpi-delta flat">평균 획득 단가</div></div>
-    <div class="kpi-card pink"><div class="kpi-label">📈 CTR / CPC</div><div class="kpi-value" style="font-size:15px;">${fmt.pct(ctr)} / ${fmt.krw(cpc)}</div><div class="kpi-delta flat">전환율 ${fmt.pct(cvr)}</div></div>
-    <div class="kpi-card warning"><div class="kpi-label">✅ 전환 / 클릭</div><div class="kpi-value" style="font-size:15px;">${fmt.num(total.conv)} / ${fmt.num(total.clicks)}</div><div class="kpi-delta flat">노출 ${fmt.num(total.imps)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">💰 총 지출</div><div class="kpi-value">${nfmt.krw(total.cost)}</div><div class="kpi-delta ${delCost.cls}">${delCost.icon} ${delCost.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
+    <div class="kpi-card success"><div class="kpi-label">🛒 총 매출</div><div class="kpi-value">${nfmt.krw(total.rev)}</div><div class="kpi-delta ${delRev.cls}">${delRev.icon} ${delRev.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
+    <div class="kpi-card ${roas >= 3 ? 'success' : roas >= 2 ? 'warning' : 'danger'}"><div class="kpi-label">📊 ROAS</div><div class="kpi-value">${nfmt.roas(roas)}</div><div class="kpi-delta ${delRoas.cls}">${delRoas.icon} ${delRoas.text} <span style="color:var(--muted);font-weight:400;">전일比</span></div></div>
+    <div class="kpi-card purple"><div class="kpi-label">🎯 CPA</div><div class="kpi-value">${nfmt.krw(cpa)}</div><div class="kpi-delta flat">평균 획득 단가</div></div>
+    <div class="kpi-card pink"><div class="kpi-label">📈 CTR / CPC</div><div class="kpi-value" style="font-size:15px;">${nfmt.pct(ctr)} / ${nfmt.krw(cpc)}</div><div class="kpi-delta flat">전환율 ${nfmt.pct(cvr)}</div></div>
+    <div class="kpi-card warning"><div class="kpi-label">✅ 전환 / 클릭</div><div class="kpi-value" style="font-size:15px;">${nfmt.num(total.conv)} / ${nfmt.num(total.clicks)}</div><div class="kpi-delta flat">노출 ${nfmt.num(total.imps)}</div></div>
   `;
 }
 
@@ -512,14 +512,14 @@ function renderAlerts() {
     const t = d[0], y = d[1];
     const rev_ch = ((t.revenue - y.revenue) / (y.revenue || 1)) * 100;
     const cost_ch = ((t.cost - y.cost) / (y.cost || 1)) * 100;
-    if (rev_ch <= -20) alerts.push({ type:'danger', icon:'🚨', title:'매출 급락 감지', desc:`전일 대비 매출 ${rev_ch.toFixed(1)}% 감소 (${fmt.krw(y.revenue)} → ${fmt.krw(t.revenue)}). ROAS ${fmt.roas(t.roas)}. 하락 키워드 점검 필요.` });
+    if (rev_ch <= -20) alerts.push({ type:'danger', icon:'🚨', title:'매출 급락 감지', desc:`전일 대비 매출 ${rev_ch.toFixed(1)}% 감소 (${nfmt.krw(y.revenue)} → ${nfmt.krw(t.revenue)}). ROAS ${nfmt.roas(t.roas)}. 하락 키워드 점검 필요.` });
     else if (rev_ch <= -10) alerts.push({ type:'warning', icon:'⚠️', title:'매출 하락 주의', desc:`전일 대비 매출 ${rev_ch.toFixed(1)}% 감소. 하락 키워드 및 캠페인 확인 권장.` });
     else if (rev_ch >= 30) alerts.push({ type:'success', icon:'🎉', title:'매출 급등', desc:`전일 대비 매출 +${rev_ch.toFixed(1)}% 상승. 상승 요인 분석 및 예산 확대 검토.` });
     if (cost_ch >= 30) alerts.push({ type:'warning', icon:'💸', title:'광고비 급증', desc:`전일 대비 광고비 +${cost_ch.toFixed(1)}%. ROAS 유지 여부 확인.` });
-    if (t.roas < 1.5) alerts.push({ type:'danger', icon:'📉', title:'ROAS 위험 수준', desc:`오늘 ROAS ${fmt.roas(t.roas)}로 손익분기점 이하. DEAD 키워드/캠페인 즉시 점검.` });
+    if (t.roas < 1.5) alerts.push({ type:'danger', icon:'📉', title:'ROAS 위험 수준', desc:`오늘 ROAS ${nfmt.roas(t.roas)}로 손익분기점 이하. DEAD 키워드/캠페인 즉시 점검.` });
   }
   const dead = (DATA.keyword || []).filter(k => (+k.cost_krw || 0) > 10000 && (+k.roas || 0) < 1);
-  if (dead.length >= 3) alerts.push({ type:'warning', icon:'🔴', title:`DEAD 키워드 ${dead.length}개 감지`, desc:`ROAS 1x 미만·지출 ₩10K 초과 키워드가 다수 존재. 총 낭비 ${fmt.krw(dead.reduce((a,k)=>a+(+k.cost_krw||0),0))}. 제외 처리 권장.` });
+  if (dead.length >= 3) alerts.push({ type:'warning', icon:'🔴', title:`DEAD 키워드 ${dead.length}개 감지`, desc:`ROAS 1x 미만·지출 ₩10K 초과 키워드가 다수 존재. 총 낭비 ${nfmt.krw(dead.reduce((a,k)=>a+(+k.cost_krw||0),0))}. 제외 처리 권장.` });
   if (!alerts.length) alerts.push({ type:'success', icon:'✅', title:'특이사항 없음', desc:'주요 지표가 정상 범위 내에서 운영되고 있습니다.' });
   container.innerHTML = alerts.map(a => `
     <div class="alert-banner ${a.type}">
@@ -612,7 +612,7 @@ function renderDailyTable() {
   const tbody = document.querySelector('#dailyTable tbody');
   tbody.innerHTML = d.map((r, i) => {
     const prev = d[i+1] || {};
-    const delta = fmt.delta(+r.revenue || 0, +prev.revenue || 0);
+    const delta = nfmt.delta(+r.revenue || 0, +prev.revenue || 0);
     const cvr = r.clicks ? ((+r.purchases || +r.conversions || 0) / r.clicks * 100) : 0;
     const cpa = r.purchases ? (r.cost / r.purchases) : (r.conversions ? r.cost / r.conversions : 0);
     let alert = '', cls = '';
@@ -621,16 +621,16 @@ function renderDailyTable() {
     else if ((+r.roas || 0) < 1.5) { alert = '⚠️ ROAS 저조'; }
     return `<tr class="${cls}">
       <td><strong>${r.event_date || '-'}</strong></td>
-      <td class="num">${fmt.num(r.impressions)}</td>
-      <td class="num">${fmt.num(r.clicks)}</td>
-      <td class="num">${fmt.pct(r.ctr)}</td>
-      <td class="num">${fmt.krw(r.cost)}</td>
-      <td class="num">${fmt.krw(r.cpc)}</td>
-      <td class="num">${fmt.num(r.purchases || r.conversions)}</td>
-      <td class="num">${fmt.pct(cvr)}</td>
-      <td class="num">${fmt.krw(r.revenue)}</td>
-      <td class="num ${roasClass(+r.roas || 0)}">${fmt.roas(r.roas)}</td>
-      <td class="num">${fmt.krw(cpa)}</td>
+      <td class="num">${nfmt.num(r.impressions)}</td>
+      <td class="num">${nfmt.num(r.clicks)}</td>
+      <td class="num">${nfmt.pct(r.ctr)}</td>
+      <td class="num">${nfmt.krw(r.cost)}</td>
+      <td class="num">${nfmt.krw(r.cpc)}</td>
+      <td class="num">${nfmt.num(r.purchases || r.conversions)}</td>
+      <td class="num">${nfmt.pct(cvr)}</td>
+      <td class="num">${nfmt.krw(r.revenue)}</td>
+      <td class="num ${roasClass(+r.roas || 0)}">${nfmt.roas(r.roas)}</td>
+      <td class="num">${nfmt.krw(cpa)}</td>
       <td class="num"><span class="trend-${delta.cls === 'up' ? 'up' : delta.cls === 'down' ? 'down' : 'flat'}">${delta.icon} ${delta.text}</span></td>
       <td>${alert}</td>
     </tr>`;
@@ -664,7 +664,7 @@ function renderMatrixChart() {
       responsive:true, maintainAspectRatio:false,
       plugins:{
         legend:{ display:false },
-        tooltip:{ callbacks:{ label: c => `${c.raw.label}: 지출 ${fmt.krw(c.raw.x)}, ROAS ${c.raw.y.toFixed(2)}x` } }
+        tooltip:{ callbacks:{ label: c => `${c.raw.label}: 지출 ${nfmt.krw(c.raw.x)}, ROAS ${c.raw.y.toFixed(2)}x` } }
       },
       scales:{
         x:{ title:{ display:true, text:'지출 (KRW)', font:{ size:11 } }, ticks:{ callback:v=>'₩'+(v/1000)+'K', font:{ size:10 } } },
@@ -699,13 +699,13 @@ function renderTypeTable() {
   tbody.innerHTML = rows.map(r => `<tr>
     <td><strong>${r.name}</strong></td>
     <td class="num">${r.camps}</td>
-    <td class="num">${fmt.num(r.imps)}</td>
-    <td class="num">${fmt.num(r.clicks)}</td>
-    <td class="num">${fmt.pct(r.ctr)}</td>
-    <td class="num">${fmt.krw(r.cost)}</td>
-    <td class="num">${fmt.num(r.conv)}</td>
-    <td class="num">${fmt.krw(r.rev)}</td>
-    <td class="num ${roasClass(r.roas)}">${fmt.roas(r.roas)}</td>
+    <td class="num">${nfmt.num(r.imps)}</td>
+    <td class="num">${nfmt.num(r.clicks)}</td>
+    <td class="num">${nfmt.pct(r.ctr)}</td>
+    <td class="num">${nfmt.krw(r.cost)}</td>
+    <td class="num">${nfmt.num(r.conv)}</td>
+    <td class="num">${nfmt.krw(r.rev)}</td>
+    <td class="num ${roasClass(r.roas)}">${nfmt.roas(r.roas)}</td>
   </tr>`).join('');
 }
 
@@ -756,16 +756,16 @@ function renderCampaignTable() {
     <td><span class="grade ${r.grade.toLowerCase()}">${r.gradeLabel}</span></td>
     <td><strong>${r.name}</strong></td>
     <td><small style="color:var(--muted);">${r.type}</small></td>
-    <td class="num">${fmt.num(r.imps)}</td>
-    <td class="num">${fmt.num(r.clicks)}</td>
-    <td class="num">${fmt.pct(r.ctr)}</td>
-    <td class="num">${fmt.krw(r.cost)}</td>
-    <td class="num">${fmt.krw(r.cpc)}</td>
-    <td class="num">${fmt.num(r.conv)}</td>
-    <td class="num">${fmt.pct(r.cvr)}</td>
-    <td class="num">${fmt.krw(r.cpa)}</td>
-    <td class="num">${fmt.krw(r.rev)}</td>
-    <td class="num ${roasClass(r.roas)}">${fmt.roas(r.roas)}</td>
+    <td class="num">${nfmt.num(r.imps)}</td>
+    <td class="num">${nfmt.num(r.clicks)}</td>
+    <td class="num">${nfmt.pct(r.ctr)}</td>
+    <td class="num">${nfmt.krw(r.cost)}</td>
+    <td class="num">${nfmt.krw(r.cpc)}</td>
+    <td class="num">${nfmt.num(r.conv)}</td>
+    <td class="num">${nfmt.pct(r.cvr)}</td>
+    <td class="num">${nfmt.krw(r.cpa)}</td>
+    <td class="num">${nfmt.krw(r.rev)}</td>
+    <td class="num ${roasClass(r.roas)}">${nfmt.roas(r.roas)}</td>
   </tr>`).join('');
 }
 
@@ -812,14 +812,14 @@ function renderKeywordTable() {
       <td><span class="grade ${r.grade.toLowerCase()}">${r.gradeLabel}</span></td>
       <td><strong>${r.keyword}</strong></td>
       <td><small style="color:var(--muted);">${r.campaign}</small></td>
-      <td class="num">${fmt.num(r.imps)}</td>
-      <td class="num">${fmt.num(r.clicks)}</td>
-      <td class="num">${fmt.pct(r.ctr)}</td>
-      <td class="num">${fmt.krw(r.cost)}</td>
-      <td class="num">${fmt.krw(r.cpc)}</td>
-      <td class="num">${fmt.num(r.conv)}</td>
-      <td class="num">${fmt.krw(r.rev)}</td>
-      <td class="num ${roasClass(r.roas)}">${fmt.roas(r.roas)}</td>
+      <td class="num">${nfmt.num(r.imps)}</td>
+      <td class="num">${nfmt.num(r.clicks)}</td>
+      <td class="num">${nfmt.pct(r.ctr)}</td>
+      <td class="num">${nfmt.krw(r.cost)}</td>
+      <td class="num">${nfmt.krw(r.cpc)}</td>
+      <td class="num">${nfmt.num(r.conv)}</td>
+      <td class="num">${nfmt.krw(r.rev)}</td>
+      <td class="num ${roasClass(r.roas)}">${nfmt.roas(r.roas)}</td>
       <td><span class="${act.cls}">${act.text}</span></td>
     </tr>`;
   }).join('');
@@ -840,17 +840,17 @@ function renderTrendTables() {
   const falling = withChange.filter(r => r._change < 0).sort((a,b) => a._change - b._change).slice(0, 10);
   document.querySelector('#risingKwTable tbody').innerHTML = rising.map(r => `<tr>
     <td><strong>${r.keyword || '-'}</strong></td>
-    <td class="num">${fmt.krw(r._curr)}</td>
-    <td class="num">${fmt.krw(r._prev)}</td>
+    <td class="num">${nfmt.krw(r._curr)}</td>
+    <td class="num">${nfmt.krw(r._prev)}</td>
     <td class="num trend-up">+${r._change.toFixed(1)}%</td>
-    <td class="num ${roasClass(+r.roas || +r.recent_roas || 0)}">${fmt.roas(r.roas || r.recent_roas)}</td>
+    <td class="num ${roasClass(+r.roas || +r.recent_roas || 0)}">${nfmt.roas(r.roas || r.recent_roas)}</td>
   </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">데이터 없음</td></tr>';
   document.querySelector('#fallingKwTable tbody').innerHTML = falling.map(r => `<tr>
     <td><strong>${r.keyword || '-'}</strong></td>
-    <td class="num">${fmt.krw(r._curr)}</td>
-    <td class="num">${fmt.krw(r._prev)}</td>
+    <td class="num">${nfmt.krw(r._curr)}</td>
+    <td class="num">${nfmt.krw(r._prev)}</td>
     <td class="num trend-down">${r._change.toFixed(1)}%</td>
-    <td class="num ${roasClass(+r.roas || +r.recent_roas || 0)}">${fmt.roas(r.roas || r.recent_roas)}</td>
+    <td class="num ${roasClass(+r.roas || +r.recent_roas || 0)}">${nfmt.roas(r.roas || r.recent_roas)}</td>
   </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">데이터 없음</td></tr>';
 }
 
@@ -879,7 +879,7 @@ function renderHeatmap() {
     return `<div class="hm-cell" style="background:${bg};color:${color};">
       <div style="font-size:10.5px;color:var(--muted);margin-bottom:3px;">${n}</div>
       <div style="font-size:14px;font-weight:800;">${v.toFixed(1)}x</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px;">${fmt.krw(dayAgg[i].rev/1000)}K</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">${nfmt.krw(dayAgg[i].rev/1000)}K</div>
     </div>`;
   }).join('');
   container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">${cells}</div>
@@ -904,22 +904,22 @@ function renderInsights() {
     <div class="insight-card">
       <div class="insight-title">📊 상태</div>
       <div class="insight-metric">${ins.status || (t.roas >= 3 ? '🟢 우수' : t.roas >= 2 ? '🟡 안정' : '🔴 주의')}</div>
-      <div class="insight-sub">현재 ROAS ${fmt.roas(t.roas)}</div>
+      <div class="insight-sub">현재 ROAS ${nfmt.roas(t.roas)}</div>
     </div>
     <div class="insight-card">
       <div class="insight-title">💰 매출 변화</div>
       <div class="insight-metric" style="color:${revCh>=0?'#10b981':'#ef4444'};">${revCh>=0?'+':''}${revCh.toFixed(1)}%</div>
-      <div class="insight-sub">전일 ${fmt.krw(y.revenue)} → ${fmt.krw(t.revenue)}</div>
+      <div class="insight-sub">전일 ${nfmt.krw(y.revenue)} → ${nfmt.krw(t.revenue)}</div>
     </div>
     <div class="insight-card">
       <div class="insight-title">💸 광고비 변화</div>
       <div class="insight-metric" style="color:${costCh<=0?'#10b981':'#ef4444'};">${costCh>=0?'+':''}${costCh.toFixed(1)}%</div>
-      <div class="insight-sub">전일 ${fmt.krw(y.cost)} → ${fmt.krw(t.cost)}</div>
+      <div class="insight-sub">전일 ${nfmt.krw(y.cost)} → ${nfmt.krw(t.cost)}</div>
     </div>
     <div class="insight-card">
       <div class="insight-title">📅 전주 대비</div>
       <div class="insight-metric" style="color:${revChW>=0?'#10b981':'#ef4444'};">${revChW>=0?'+':''}${revChW.toFixed(1)}%</div>
-      <div class="insight-sub">7일 전 ${fmt.krw(weekAgo.revenue)}</div>
+      <div class="insight-sub">7일 전 ${nfmt.krw(weekAgo.revenue)}</div>
     </div>
   `;
   // 원인 분석
@@ -932,7 +932,7 @@ function renderInsights() {
   if (revCh < -10) {
     causes.push(`🔍 <strong>매출 하락 원인 분석:</strong>`);
     if (costCh < -5) causes.push(`&nbsp;&nbsp;• 광고비 ${Math.abs(costCh).toFixed(1)}% 축소로 노출량 감소 가능성`);
-    if (dead.length > 0) causes.push(`&nbsp;&nbsp;• DEAD 키워드 ${dead.length}개에 ${fmt.krw(wastedCost)} (${wastedPct.toFixed(1)}%) 낭비 지출`);
+    if (dead.length > 0) causes.push(`&nbsp;&nbsp;• DEAD 키워드 ${dead.length}개에 ${nfmt.krw(wastedCost)} (${wastedPct.toFixed(1)}%) 낭비 지출`);
     const fallingKw = (DATA.trend || []).filter(r => (+r.recent_revenue || 0) < (+r.prev_revenue || 0) * 0.7).length;
     if (fallingKw > 0) causes.push(`&nbsp;&nbsp;• ${fallingKw}개 키워드에서 매출 30%+ 하락`);
   } else if (revCh > 20) {
@@ -968,8 +968,8 @@ function renderActions() {
     actions.push({
       priority:'critical', icon:'🚨',
       title:`DEAD 키워드 ${dead.length}개 즉시 제외 → ₩${Math.round(totalWaste).toLocaleString('ko-KR')} 절약`,
-      desc:`상위 3개: ${dead.slice(0,3).map(k => `${k.keyword} (ROAS ${(+k.roas||0).toFixed(2)}x, 지출 ${fmt.krw(k.cost_krw)})`).join(', ')}`,
-      tags: [`영향도 HIGH`, `즉시 실행`, `절감 ${fmt.krw(totalWaste)}`]
+      desc:`상위 3개: ${dead.slice(0,3).map(k => `${k.keyword} (ROAS ${(+k.roas||0).toFixed(2)}x, 지출 ${nfmt.krw(k.cost_krw)})`).join(', ')}`,
+      tags: [`영향도 HIGH`, `즉시 실행`, `절감 ${nfmt.krw(totalWaste)}`]
     });
   }
   if (star.length > 0) {
@@ -977,8 +977,8 @@ function renderActions() {
     actions.push({
       priority:'success', icon:'⭐',
       title:`STAR 키워드 ${star.length}개 예산 3~5x 확대 → 매출 잠재력 극대화`,
-      desc:`상위 3개: ${star.slice(0,3).map(k => `${k.keyword} (ROAS ${(+k.roas||0).toFixed(1)}x, 매출 ${fmt.krw(k.conversion_value)})`).join(', ')}`,
-      tags:[`영향도 HIGH`, `예산 확대`, `현재 매출 ${fmt.krw(totalStarRev)}`]
+      desc:`상위 3개: ${star.slice(0,3).map(k => `${k.keyword} (ROAS ${(+k.roas||0).toFixed(1)}x, 매출 ${nfmt.krw(k.conversion_value)})`).join(', ')}`,
+      tags:[`영향도 HIGH`, `예산 확대`, `현재 매출 ${nfmt.krw(totalStarRev)}`]
     });
   }
   if (losing.length > 0) {
@@ -1004,7 +1004,7 @@ function renderActions() {
   if (t.roas && t.roas < 2) {
     actions.push({
       priority:'critical', icon:'🔴',
-      title:`오늘 ROAS ${fmt.roas(t.roas)} - 손익분기점 근접`,
+      title:`오늘 ROAS ${nfmt.roas(t.roas)} - 손익분기점 근접`,
       desc:`목표 ROAS 3x 대비 부진. LOSING/DEAD 키워드 즉시 정리 및 STAR 키워드 예산 확대로 방어.`,
       tags:[`영향도 HIGH`, `당일 대응`]
     });
