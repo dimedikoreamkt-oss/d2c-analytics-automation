@@ -2,23 +2,29 @@
 -- Mart 29: 네이버 일별 KPI 비교 (DoD/WoW/MoM) + 이상 탐지
 -- ============================================
 CREATE OR REPLACE TABLE `d2c-analytics-502304.marts.mart_naver_daily_comparison` AS
-WITH daily AS (
+WITH daily_raw AS (
   SELECT
     event_date,
-    SUM(impressions)    AS impressions,
-    SUM(clicks)         AS clicks,
-    SUM(cost_krw)       AS cost_krw,
-    SUM(conversions)    AS purchases,
+    SUM(impressions)      AS impressions,
+    SUM(clicks)           AS clicks,
+    SUM(cost_krw)         AS cost_krw,
+    SUM(conversions)      AS purchases,
     SUM(conversion_value) AS revenue,
-    SAFE_DIVIDE(SUM(clicks), NULLIF(SUM(impressions), 0)) * 100  AS ctr_pct,
-    SAFE_DIVIDE(SUM(cost_krw), NULLIF(SUM(clicks), 0))           AS cpc_krw,
-    SAFE_DIVIDE(SUM(cost_krw), NULLIF(SUM(purchases), 0))        AS cpa_krw,
-    SAFE_DIVIDE(SUM(conversion_value), NULLIF(SUM(cost_krw), 0)) AS roas,
-    SAFE_DIVIDE(SUM(purchases), NULLIF(SUM(clicks), 0)) * 100    AS click_cvr_pct,
     COUNT(DISTINCT campaign_id) AS active_campaigns
   FROM `d2c-analytics-502304.marts.naver_ad_insights`
   WHERE device IS NULL OR device = ''
   GROUP BY event_date
+),
+daily AS (
+  SELECT
+    event_date,
+    impressions, clicks, cost_krw, purchases, revenue, active_campaigns,
+    SAFE_DIVIDE(clicks, NULLIF(impressions, 0)) * 100  AS ctr_pct,
+    SAFE_DIVIDE(cost_krw, NULLIF(clicks, 0))           AS cpc_krw,
+    SAFE_DIVIDE(cost_krw, NULLIF(purchases, 0))        AS cpa_krw,
+    SAFE_DIVIDE(revenue, NULLIF(cost_krw, 0))          AS roas,
+    SAFE_DIVIDE(purchases, NULLIF(clicks, 0)) * 100    AS click_cvr_pct
+  FROM daily_raw
 ),
 with_lag AS (
   SELECT
@@ -37,7 +43,7 @@ with_lag AS (
     LAG(purchases, 7) OVER (ORDER BY event_date)    AS prev_week_purchases,
     LAG(revenue, 7) OVER (ORDER BY event_date)      AS prev_week_revenue,
     LAG(roas, 7) OVER (ORDER BY event_date)         AS prev_week_roas,
-    -- 전월 같은 일 (MoM)
+    -- 전월 (MoM)
     LAG(impressions, 30) OVER (ORDER BY event_date) AS prev_month_impressions,
     LAG(clicks, 30) OVER (ORDER BY event_date)      AS prev_month_clicks,
     LAG(cost_krw, 30) OVER (ORDER BY event_date)    AS prev_month_cost,
@@ -56,7 +62,6 @@ SELECT
   ROUND(click_cvr_pct, 2) AS click_cvr_pct,
   active_campaigns,
 
-  -- DoD 변화율 (%)
   ROUND(SAFE_DIVIDE(impressions - prev_day_impressions, NULLIF(prev_day_impressions, 0)) * 100, 1) AS imp_dod_pct,
   ROUND(SAFE_DIVIDE(clicks - prev_day_clicks, NULLIF(prev_day_clicks, 0)) * 100, 1) AS clk_dod_pct,
   ROUND(SAFE_DIVIDE(cost_krw - prev_day_cost, NULLIF(prev_day_cost, 0)) * 100, 1) AS cost_dod_pct,
@@ -64,7 +69,6 @@ SELECT
   ROUND(SAFE_DIVIDE(revenue - prev_day_revenue, NULLIF(prev_day_revenue, 0)) * 100, 1) AS rev_dod_pct,
   ROUND(SAFE_DIVIDE(roas - prev_day_roas, NULLIF(prev_day_roas, 0)) * 100, 1) AS roas_dod_pct,
 
-  -- WoW 변화율 (%)
   ROUND(SAFE_DIVIDE(impressions - prev_week_impressions, NULLIF(prev_week_impressions, 0)) * 100, 1) AS imp_wow_pct,
   ROUND(SAFE_DIVIDE(clicks - prev_week_clicks, NULLIF(prev_week_clicks, 0)) * 100, 1) AS clk_wow_pct,
   ROUND(SAFE_DIVIDE(cost_krw - prev_week_cost, NULLIF(prev_week_cost, 0)) * 100, 1) AS cost_wow_pct,
@@ -72,7 +76,6 @@ SELECT
   ROUND(SAFE_DIVIDE(revenue - prev_week_revenue, NULLIF(prev_week_revenue, 0)) * 100, 1) AS rev_wow_pct,
   ROUND(SAFE_DIVIDE(roas - prev_week_roas, NULLIF(prev_week_roas, 0)) * 100, 1) AS roas_wow_pct,
 
-  -- MoM 변화율 (%)
   ROUND(SAFE_DIVIDE(impressions - prev_month_impressions, NULLIF(prev_month_impressions, 0)) * 100, 1) AS imp_mom_pct,
   ROUND(SAFE_DIVIDE(clicks - prev_month_clicks, NULLIF(prev_month_clicks, 0)) * 100, 1) AS clk_mom_pct,
   ROUND(SAFE_DIVIDE(cost_krw - prev_month_cost, NULLIF(prev_month_cost, 0)) * 100, 1) AS cost_mom_pct,
@@ -80,7 +83,6 @@ SELECT
   ROUND(SAFE_DIVIDE(revenue - prev_month_revenue, NULLIF(prev_month_revenue, 0)) * 100, 1) AS rev_mom_pct,
   ROUND(SAFE_DIVIDE(roas - prev_month_roas, NULLIF(prev_month_roas, 0)) * 100, 1) AS roas_mom_pct,
 
-  -- 이상 탐지 알림
   CASE
     WHEN SAFE_DIVIDE(revenue - prev_week_revenue, NULLIF(prev_week_revenue, 0)) <= -0.20 THEN '🔴 매출 20%+ 하락'
     WHEN SAFE_DIVIDE(revenue - prev_week_revenue, NULLIF(prev_week_revenue, 0)) >= 0.20 THEN '🟢 매출 20%+ 상승'
@@ -90,7 +92,6 @@ SELECT
     ELSE '✅ 정상'
   END AS alert_status,
 
-  -- 추천 액션
   CASE
     WHEN SAFE_DIVIDE(revenue - prev_week_revenue, NULLIF(prev_week_revenue, 0)) <= -0.20
          AND SAFE_DIVIDE(cost_krw - prev_week_cost, NULLIF(prev_week_cost, 0)) >= 0 THEN
