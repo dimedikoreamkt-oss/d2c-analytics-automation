@@ -4,13 +4,14 @@ PARTITION BY event_date AS
 WITH base AS (
   SELECT
     event_date, ad_id, ad_name, campaign_name, adset_name,
-    IFNULL(age, 'unknown')    AS age_bracket,
-    IFNULL(gender, 'unknown') AS gender,
+    IFNULL(age_bracket, 'unknown') AS age_bracket,
+    IFNULL(gender, 'unknown')      AS gender,
     impressions, reach, clicks, spend_krw,
     meta_purchases      AS purchases,
     meta_purchase_value AS revenue,
     ctr, cpc, cpm, frequency
-  FROM `d2c-analytics-502304.marts.meta_ad_insights_age_gender`
+  FROM `d2c-analytics-502304.marts.meta_ad_insights_demo`
+  WHERE age_bracket IS NOT NULL OR gender IS NOT NULL
 )
 SELECT
   event_date, ad_id, ad_name, campaign_name, adset_name,
