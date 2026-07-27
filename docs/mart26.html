@@ -64,9 +64,9 @@ let currentBrand = 'ALL';
 async function loadData() {
   try {
     const [p, b, k] = await Promise.all([
-      fetch('data/mart26_naver_performance.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
-      fetch('data/mart27_naver_brand.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
-      fetch('data/mart28_naver_keywords.json?t=' + Date.now()).then(r => r.ok ? r.json() : [])
+      fetch('data/mart26_naver_ad_performance.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
+      fetch('data/mart27_naver_brand_summary.json?t=' + Date.now()).then(r => r.ok ? r.json() : []),
+      fetch('data/mart28_naver_keyword_insights.json?t=' + Date.now()).then(r => r.ok ? r.json() : [])
     ]);
     PERFORMANCE = p; BRAND = b; KEYWORDS = k;
 
