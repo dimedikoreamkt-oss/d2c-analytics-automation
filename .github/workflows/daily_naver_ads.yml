@@ -83,6 +83,7 @@ jobs:
 
       - name: Commit and push
         run: |
+          git pull --rebase origin main || true
           git config user.email "dimedikoreamkt@gmail.com"
           git config user.name "GitHub Actions"
           git add docs/data/*.json
