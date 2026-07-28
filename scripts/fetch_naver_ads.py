@@ -115,6 +115,106 @@ def fetch_summary_stats(entity_ids, start_date, end_date, account):
     return res.get("data", [])
 
 
+
+
+def fetch_shopping_search_keywords(adgroup_id, start_date, end_date, account):
+    """
+    NPLA_SCH_KEYWORD: 쇼핑검색광고 검색 키워드별 통계
+    - SHOPPING 캠페인 하위 adgroup 에서 실제 검색 키워드별 노출/클릭/비용/전환 확보
+    - 참조: http://naver.github.io/searchad-apidoc/notice/2017/09/26/notice/
+    """
+    params = {
+        "id": adgroup_id,
+        "fields": json.dumps(STAT_FIELDS),
+        "timeRange": json.dumps({"since": start_date, "until": end_date}),
+        "statType": "NPLA_SCH_KEYWORD",
+        "breakdown": "searchKeyword",
+    }
+    res = api_get("/stats", params, account)
+    if not res:
+        return []
+    # 응답: {data: [{searchKeyword, impCnt, clkCnt, salesAmt, ...}]} 또는 그 자체 리스트
+    if isinstance(res, dict):
+        return res.get("data") or []
+    return res if isinstance(res, list) else []
+
+
+def collect_shopping_keyword_rows(account, start_date, end_date, shopping_adgroups):
+    """SHOPPING adgroup 순회 → 검색 키워드별 로우 생성 (BigQuery 스키마와 동일 필드)"""
+    rows = []
+    brand = account.get("brand", "")
+    customer_id = str(account["customer_id"])
+    total = len(shopping_adgroups)
+    for i, ag in enumerate(shopping_adgroups, 1):
+        adgroup_id = ag["adgroup_id"]
+        print(f"  [{i}/{total}] SHOPPING 검색키워드 수집: {ag['adgroup_name']} ({adgroup_id})")
+        stats = fetch_shopping_search_keywords(adgroup_id, start_date, end_date, account)
+        for s in stats:
+            kw = s.get("searchKeyword") or s.get("keyword") or ""
+            if not kw:
+                continue
+            impressions = int(s.get("impCnt", 0) or 0)
+            clicks      = int(s.get("clkCnt", 0) or 0)
+            cost_krw    = float(s.get("salesAmt", 0) or 0)         # salesAmt = 광고비
+            conversions = int(s.get("purchaseCcnt", s.get("ccnt", 0)) or 0)
+            conv_value  = float(s.get("purchaseConvAmt", s.get("convAmt", 0)) or 0)
+            rows.append({
+                "event_date":     s.get("date") or end_date,
+                "brand":          brand,
+                "customer_id":    customer_id,
+                "campaign_id":    ag["campaign_id"],
+                "campaign_name":  ag["campaign_name"],
+                "campaign_type":  "SHOPPING",
+                "adgroup_id":     adgroup_id,
+                "adgroup_name":   ag["adgroup_name"],
+                "keyword_id":     s.get("nccKeywordId", "") or "",
+                "keyword":        kw,
+                "keyword_status": "SEARCH_KW",   # 검색 키워드임을 표시
+                "bid_amt":        0.0,
+                "impressions":    impressions,
+                "clicks":         clicks,
+                "cost_krw":       cost_krw,
+                "conversions":    conversions,
+                "conversion_value": conv_value,
+                "ctr":            float(s.get("ctr", 0) or 0),
+                "cpc":            float(s.get("cpc", 0) or 0),
+                "avg_rank":       float(s.get("avgRnk", 0) or 0),
+            })
+        time.sleep(0.25)  # rate limit
+    # ============================================
+    # SHOPPING 캠페인 검색 키워드 별도 수집 (NPLA_SCH_KEYWORD)
+    # ============================================
+    try:
+        shopping_adgroups = []
+        for c in campaigns:
+            if c.get("campaignTp") == "SHOPPING" or c.get("campaignType") == "SHOPPING":
+                cid = c.get("nccCampaignId") or c.get("campaign_id")
+                cname = c.get("name") or c.get("campaign_name") or ""
+                for ag in fetch_adgroups(cid, account):
+                    shopping_adgroups.append({
+                        "campaign_id":   cid,
+                        "campaign_name": cname,
+                        "adgroup_id":    ag.get("nccAdgroupId"),
+                        "adgroup_name":  ag.get("name") or "",
+                    })
+        if shopping_adgroups:
+            print(f"🛒 SHOPPING adgroup {len(shopping_adgroups)}개 검색키워드 수집 시작...")
+            shopping_search_kw_rows = collect_shopping_keyword_rows(
+                account, start_date, end_date, shopping_adgroups
+            )
+            print(f"🛒 SHOPPING 검색키워드 로우 {len(shopping_search_kw_rows)}개 수집 완료")
+            rows.extend(shopping_search_kw_rows)
+        else:
+            print("🛒 SHOPPING 캠페인 없음 → 검색키워드 수집 스킵")
+    except Exception as e:
+        print(f"⚠️  SHOPPING 검색키워드 수집 실패: {e}")
+        # 실패해도 전체 파이프라인은 계속 진행
+
+
+    return rows
+
+
+
 def collect_account_data(account, start_date, end_date):
     """계정별 데이터 수집: 캠페인 레벨 일별 통계 + 키워드 메타데이터"""
     print(f"\n📊 [{account['brand']}] Customer {account['customer_id']} 수집 시작")
