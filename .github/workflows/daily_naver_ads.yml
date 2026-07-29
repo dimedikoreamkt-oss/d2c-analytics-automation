@@ -70,34 +70,6 @@ jobs:
             < sql/28_mart_naver_keyword_insights.sql
 
 
-
-      - name: Refresh Mart 29 (Daily Comparison)
-        run: |
-          bq query \
-            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=none \
-            < sql/29_mart_naver_daily_comparison.sql
-
-      - name: Refresh Mart 30 (Campaign Type)
-        run: |
-          bq query \
-            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=none \
-            < sql/30_mart_naver_campaign_type.sql
-
-      - name: Refresh Mart 31 (Keyword Trend)
-        run: |
-          bq query \
-            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=none \
-            < sql/31_mart_naver_keyword_trend.sql
-
-      - name: Refresh Mart 33 (Insights)
-        run: |
-          bq query \
-            --project_id="${PROJECT_ID}" --location="${LOCATION}" \
-            --use_legacy_sql=false --format=none \
-            < sql/33_mart_naver_insights.sql
       - name: Refresh Mart 29 (Daily Comparison)
         run: |
           bq query \
